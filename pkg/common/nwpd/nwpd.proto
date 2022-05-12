@@ -1,0 +1,88 @@
+syntax = "proto3";
+
+option go_package = "github.com/gardener/network-problem-detector/pkg/common/nwpd";
+
+package nwpd;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+
+// Interface exported by the server.
+service AgentService {
+  rpc GetObservations(GetObservationsRequest) returns (GetObservationsResponse) {}
+  rpc GetAggregatedObservations(GetObservationsRequest) returns (GetAggregatedObservationsResponse) {}
+}
+
+message Node {
+  string hostname = 1;
+  string internalIP = 2;
+}
+
+message PodEndpoint {
+  string nodename = 1;
+  string podname = 2;
+  string clusterIP = 3;
+  int32 port = 4;
+}
+
+message Job {
+  string jobID = 1;
+  repeated string args = 2;
+}
+
+message GetObservationsRequest {
+    google.protobuf.Timestamp start = 1;
+    google.protobuf.Timestamp end = 2;
+    int32 limit = 3;
+    repeated string restrictToJobIDs = 4;
+    repeated string restrictToSrcHosts = 5;
+    repeated string restrictToDestHosts = 6;
+    google.protobuf.Duration aggregationWindow = 7;
+    bool failuresOnly = 8;
+}
+
+message GetObservationsResponse {
+  repeated Observation observations = 1;
+}
+
+message GetAggregatedObservationsResponse {
+  repeated AggregatedObservation aggregatedObservations = 1;
+}
+
+message AggregatedObservation {
+  string srcHost = 1;
+  string destHost = 2;
+  google.protobuf.Timestamp periodStart = 3;
+  google.protobuf.Timestamp periodEnd = 4;
+  map<string, int32> jobsOkCount = 5;
+  map<string, int32> jobsNotOkCount = 6;
+  map<string, google.protobuf.Duration> meanOkDuration = 7;
+}
+
+message Observation {
+  string jobID = 1;
+  string srcHost = 2;
+  string destHost = 3;
+  google.protobuf.Timestamp timestamp = 4;
+  google.protobuf.Duration duration = 5;
+  string result = 6; // not persisted
+  bool ok = 7;
+}
+
+message IntObservation {
+  int64 JobID = 1;
+  int64 srcHost = 2;
+  int64 destHost = 3;
+  int64 timeMillis = 4;
+  int32 durationMillis = 5;
+  bool ok = 6;
+}
+
+message Int64Arrays {
+    repeated int64 array = 1;
+}
+
+message IntString {
+    int64 key = 1;
+    string value = 2;
+}
