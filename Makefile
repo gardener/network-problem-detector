@@ -1,6 +1,6 @@
 REGISTRY              := eu.gcr.io/gardener-project
 EXECUTABLE            := nwpdcli
-PROJECT               := github/gardener/network-problem-detector
+PROJECT               := github.com/gardener/network-problem-detector
 IMAGE_REPOSITORY      := $(REGISTRY)/test/network-problem-detector
 VERSION               := $(shell cat VERSION)
 IMAGE_TAG             := $(VERSION)

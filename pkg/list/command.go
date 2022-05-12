@@ -15,8 +15,8 @@ import (
 	"syscall"
 	"time"
 
-	"github/gardener/network-problem-detector/pkg/common"
-	"github/gardener/network-problem-detector/pkg/common/nwpd"
+	"github.com/gardener/network-problem-detector/pkg/common"
+	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"

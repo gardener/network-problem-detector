@@ -5,12 +5,12 @@
 package main
 
 import (
-	"github/gardener/network-problem-detector/pkg/agent"
-	"github/gardener/network-problem-detector/pkg/aggregate"
-	"github/gardener/network-problem-detector/pkg/collect"
-	"github/gardener/network-problem-detector/pkg/deploy"
-	"github/gardener/network-problem-detector/pkg/list"
-	"github/gardener/network-problem-detector/pkg/query"
+	"github.com/gardener/network-problem-detector/pkg/agent"
+	"github.com/gardener/network-problem-detector/pkg/aggregate"
+	"github.com/gardener/network-problem-detector/pkg/collect"
+	"github.com/gardener/network-problem-detector/pkg/deploy"
+	"github.com/gardener/network-problem-detector/pkg/list"
+	"github.com/gardener/network-problem-detector/pkg/query"
 
 	"github.com/spf13/cobra"
 )

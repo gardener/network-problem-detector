@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github/gardener/network-problem-detector/pkg/agent/db"
-	"github/gardener/network-problem-detector/pkg/common/nwpd"
+	"github.com/gardener/network-problem-detector/pkg/agent/db"
+	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
 
 	"github.com/spf13/cobra"
 )

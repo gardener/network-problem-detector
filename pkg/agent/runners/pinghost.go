@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github/gardener/network-problem-detector/pkg/common/nwpd"
+	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
 
 	"github.com/go-ping/ping"
 	"github.com/spf13/cobra"

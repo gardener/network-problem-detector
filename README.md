@@ -49,7 +49,7 @@ Your may apply filters on time window, source, destination or job ID to restrict
 
 
    ```bash
-   ./nwpdcli deploy all
+   ./nwpdcli deploy all --delete
    ```
 
 ## Default Configuration of Check "Jobs"

@@ -16,7 +16,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github/gardener/network-problem-detector/pkg/common/nwpd"
+	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"

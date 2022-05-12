@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github/gardener/network-problem-detector/pkg/agent/db"
-	"github/gardener/network-problem-detector/pkg/common/nwpd"
+	"github.com/gardener/network-problem-detector/pkg/agent/db"
+	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
 
 	svg "github.com/ajstarks/svgo"
 	"github.com/jamiealquiza/tachymeter"

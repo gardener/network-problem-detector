@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"time"
 
-	"github/gardener/network-problem-detector/pkg/agent"
-	"github/gardener/network-problem-detector/pkg/common"
+	"github.com/gardener/network-problem-detector/pkg/agent"
+	"github.com/gardener/network-problem-detector/pkg/common"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"

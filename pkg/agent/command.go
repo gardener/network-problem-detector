@@ -9,9 +9,9 @@ import (
 	"net"
 	"os"
 
-	"github/gardener/network-problem-detector/pkg/agent/runners"
-	"github/gardener/network-problem-detector/pkg/common"
-	"github/gardener/network-problem-detector/pkg/common/nwpd"
+	"github.com/gardener/network-problem-detector/pkg/agent/runners"
+	"github.com/gardener/network-problem-detector/pkg/common"
+	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
 
 	"github.com/hashicorp/mdns"
 	"github.com/sirupsen/logrus"

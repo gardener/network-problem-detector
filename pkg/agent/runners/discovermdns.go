@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github/gardener/network-problem-detector/pkg/common"
-	"github/gardener/network-problem-detector/pkg/common/nwpd"
+	"github.com/gardener/network-problem-detector/pkg/common"
+	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
 
 	"github.com/hashicorp/mdns"
 	"github.com/spf13/cobra"

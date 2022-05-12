@@ -11,7 +11,7 @@ import (
 	"io/ioutil"
 	"time"
 
-	"github/gardener/network-problem-detector/pkg/common/nwpd"
+	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
 
 	"sigs.k8s.io/yaml"
 )

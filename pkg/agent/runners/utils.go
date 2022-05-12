@@ -7,7 +7,7 @@ package runners
 import (
 	"os"
 
-	"github/gardener/network-problem-detector/pkg/common"
+	"github.com/gardener/network-problem-detector/pkg/common"
 )
 
 func GetNodeName() string {

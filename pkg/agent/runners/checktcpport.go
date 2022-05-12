@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github/gardener/network-problem-detector/pkg/common/nwpd"
+	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
 
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/durationpb"

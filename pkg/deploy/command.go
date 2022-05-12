@@ -15,21 +15,17 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
-	"k8s.io/utils/pointer"
 	"sigs.k8s.io/yaml"
 
-	"github/gardener/network-problem-detector/pkg/agent"
-	"github/gardener/network-problem-detector/pkg/common"
-	"github/gardener/network-problem-detector/pkg/common/nwpd"
+	"github.com/gardener/network-problem-detector/pkg/agent"
+	"github.com/gardener/network-problem-detector/pkg/common"
+	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
 )
 
 const (
@@ -186,7 +182,11 @@ func (dc *deployCommand) deployAgentAllDaemonsets(cmd *cobra.Command, args []str
 }
 
 func (dc *deployCommand) deployAgent(log logrus.FieldLogger, hostnetwork bool, buildConfigMap buildObject[*corev1.ConfigMap]) error {
-	name, _, _ := dc.getNetworkConfig(hostnetwork)
+	ac := &AgentDeployConfig{
+		Image:         dc.image,
+		DefaultPeriod: dc.defaultPeriod,
+	}
+	name, _, _ := ac.getNetworkConfig(hostnetwork)
 
 	err := dc.setup()
 	if err != nil {
@@ -203,7 +203,7 @@ func (dc *deployCommand) deployAgent(log logrus.FieldLogger, hostnetwork bool, b
 	}
 
 	ctx := context.Background()
-	svc, err := dc.buildService(hostnetwork)
+	svc, err := ac.buildService(hostnetwork)
 	if err != nil {
 		return fmt.Errorf("error building service[%t]: %s", hostnetwork, err)
 	}
@@ -217,7 +217,7 @@ func (dc *deployCommand) deployAgent(log logrus.FieldLogger, hostnetwork bool, b
 		return err
 	}
 
-	ds, err := dc.buildDaemonSet(cm.GetName(), hostnetwork)
+	ds, err := ac.buildDaemonSet(cm.GetName(), hostnetwork)
 	if err != nil {
 		return fmt.Errorf("error building daemon set: %s", err)
 	}
@@ -395,54 +395,6 @@ func (dc *deployCommand) buildCommonConfigMap() (*corev1.ConfigMap, error) {
 	return cm, nil
 }
 
-func (dc *deployCommand) getNetworkConfig(hostnetwork bool) (name string, portGRPC, portMetrics int32) {
-	if hostnetwork {
-		name = common.NameDaemonSetAgentNodeNet
-		portGRPC = common.NodeNetPodGRPCPort
-		portMetrics = common.NodeNetPodMetricsPort
-	} else {
-		name = common.NameDaemonSetAgentPodNet
-		portGRPC = common.PodNetPodGRPCPort
-		portMetrics = common.PodNetPodMetricsPort
-	}
-	return
-}
-
-func (dc *deployCommand) buildService(hostnetwork bool) (*corev1.Service, error) {
-	name, _, _ := dc.getNetworkConfig(hostnetwork)
-	svc := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: common.NamespaceKubeSystem,
-		},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{
-					Name:     "grpc",
-					Protocol: corev1.ProtocolTCP,
-					Port:     80,
-					TargetPort: intstr.IntOrString{
-						Type:   intstr.String,
-						StrVal: "grpc",
-					},
-				},
-				{
-					Name:     "metrics",
-					Protocol: corev1.ProtocolTCP,
-					Port:     8080,
-					TargetPort: intstr.IntOrString{
-						Type:   intstr.String,
-						StrVal: "metrics",
-					},
-				},
-			},
-			Selector: dc.getLabels(name),
-			Type:     corev1.ServiceTypeClusterIP,
-		},
-	}
-	return svc, nil
-}
-
 func (dc *deployCommand) getPodNetServiceClusterIP() (string, error) {
 	ctx := context.Background()
 	svc, err := dc.clientset.CoreV1().Services(common.NamespaceKubeSystem).Get(ctx, common.NameDaemonSetAgentPodNet, metav1.GetOptions{})
@@ -450,171 +402,6 @@ func (dc *deployCommand) getPodNetServiceClusterIP() (string, error) {
 		return "", fmt.Errorf("error getting service %s/%s: %s", "getting", common.NamespaceKubeSystem, common.NameDaemonSetAgentPodNet, err)
 	}
 	return svc.Spec.ClusterIP, nil
-}
-
-func (dc *deployCommand) getLabels(name string) map[string]string {
-	return map[string]string{
-		common.LabelKeyK8sApp: name,
-		"gardener.cloud/role": "network-problem-detector",
-	}
-}
-
-func (dc *deployCommand) buildDaemonSet(nameConfigMap string, hostNetwork bool) (*appsv1.DaemonSet, error) {
-	var (
-		requestCPU, _          = resource.ParseQuantity("50m")
-		limitCPU, _            = resource.ParseQuantity("500m")
-		requestMemory, _       = resource.ParseQuantity("64Mi")
-		limitMemory, _         = resource.ParseQuantity("256Mi")
-		defaultMode      int32 = 0444
-		zero             int64 = 0
-	)
-	name, portGRPC, portMetrics := dc.getNetworkConfig(hostNetwork)
-
-	labels := dc.getLabels(name)
-
-	typ := corev1.HostPathDirectoryOrCreate
-	ds := &appsv1.DaemonSet{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: common.NamespaceKubeSystem,
-		},
-		Spec: appsv1.DaemonSetSpec{
-			RevisionHistoryLimit: pointer.Int32Ptr(5),
-			Selector:             &metav1.LabelSelector{MatchLabels: labels},
-			UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
-				Type: appsv1.RollingUpdateDaemonSetStrategyType,
-				RollingUpdate: &appsv1.RollingUpdateDaemonSet{
-					MaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "100%"},
-				},
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
-				},
-				Spec: corev1.PodSpec{
-					HostNetwork: hostNetwork,
-					//PriorityClassName:             "system-node-critical",
-					TerminationGracePeriodSeconds: &zero,
-					/*
-						Tolerations: []corev1.Toleration{
-							{
-								Effect:   corev1.TaintEffectNoSchedule,
-								Operator: corev1.TolerationOpExists,
-							},
-							{
-								Key:      "CriticalAddonsOnly",
-								Operator: corev1.TolerationOpExists,
-							},
-							{
-								Effect:   corev1.TaintEffectNoExecute,
-								Operator: corev1.TolerationOpExists,
-							},
-						},
-					*/
-					AutomountServiceAccountToken: pointer.Bool(false),
-					Containers: []corev1.Container{{
-						Name:            name,
-						Image:           dc.image,
-						ImagePullPolicy: corev1.PullIfNotPresent,
-						Command:         []string{"/nwpdcli", "run-agent", fmt.Sprintf("--hostNetwork=%t", hostNetwork), "--config", "/config/" + common.AgentConfigFilename},
-						Env: []corev1.EnvVar{
-							{
-								Name: common.EnvNodeName,
-								ValueFrom: &corev1.EnvVarSource{
-									FieldRef: &corev1.ObjectFieldSelector{
-										FieldPath: "spec.nodeName",
-									},
-								},
-							},
-							{
-								Name: common.EnvNodeIP,
-								ValueFrom: &corev1.EnvVarSource{
-									FieldRef: &corev1.ObjectFieldSelector{
-										FieldPath: "status.hostIP",
-									},
-								},
-							},
-							{
-								Name: common.EnvPodIP,
-								ValueFrom: &corev1.EnvVarSource{
-									FieldRef: &corev1.ObjectFieldSelector{
-										FieldPath: "status.podIP",
-									},
-								},
-							},
-						},
-						Ports: []corev1.ContainerPort{
-							{
-								Name:          "grpc",
-								ContainerPort: portGRPC,
-								Protocol:      "TCP",
-							},
-							{
-								Name:          "metrics",
-								ContainerPort: portMetrics,
-								Protocol:      "TCP",
-							},
-						},
-						Resources: corev1.ResourceRequirements{
-							Requests: corev1.ResourceList{
-								corev1.ResourceCPU:    requestCPU,
-								corev1.ResourceMemory: requestMemory,
-							},
-							Limits: corev1.ResourceList{
-								corev1.ResourceCPU:    limitCPU,
-								corev1.ResourceMemory: limitMemory,
-							},
-						},
-						SecurityContext: &corev1.SecurityContext{
-							Capabilities: &corev1.Capabilities{
-								Add: []corev1.Capability{"NET_ADMIN"},
-							},
-						},
-						VolumeMounts: []corev1.VolumeMount{
-							{
-								Name:      "output",
-								ReadOnly:  false,
-								MountPath: outputDir,
-							},
-							{
-								Name:      "config",
-								ReadOnly:  true,
-								MountPath: "/config",
-							},
-						},
-					}},
-					Volumes: []corev1.Volume{
-						{
-							Name: "output",
-							VolumeSource: corev1.VolumeSource{
-								HostPath: &corev1.HostPathVolumeSource{
-									Path: outputDir,
-									Type: &typ,
-								},
-							},
-						},
-						{
-							Name: "config",
-							VolumeSource: corev1.VolumeSource{
-								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{Name: nameConfigMap},
-									Items: []corev1.KeyToPath{
-										{
-											Key:  common.AgentConfigFilename,
-											Path: common.AgentConfigFilename,
-										},
-									},
-									DefaultMode: &defaultMode,
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	return ds, nil
 }
 
 func (dc *deployCommand) nodes() []*corev1.Node {

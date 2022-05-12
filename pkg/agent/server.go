@@ -14,11 +14,11 @@ import (
 	"sync"
 	"time"
 
-	"github/gardener/network-problem-detector/pkg/agent/aggregation"
-	"github/gardener/network-problem-detector/pkg/agent/db"
-	"github/gardener/network-problem-detector/pkg/agent/runners"
-	"github/gardener/network-problem-detector/pkg/common"
-	"github/gardener/network-problem-detector/pkg/common/nwpd"
+	"github.com/gardener/network-problem-detector/pkg/agent/aggregation"
+	"github.com/gardener/network-problem-detector/pkg/agent/db"
+	"github.com/gardener/network-problem-detector/pkg/agent/runners"
+	"github.com/gardener/network-problem-detector/pkg/common"
+	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"

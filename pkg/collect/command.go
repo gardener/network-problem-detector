@@ -15,8 +15,8 @@ import (
 	"path"
 	"path/filepath"
 
-	"github/gardener/network-problem-detector/pkg/agent/db"
-	"github/gardener/network-problem-detector/pkg/common"
+	"github.com/gardener/network-problem-detector/pkg/agent/db"
+	"github.com/gardener/network-problem-detector/pkg/common"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"

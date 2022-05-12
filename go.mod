@@ -1,4 +1,4 @@
-module github/gardener/network-problem-detector
+module github.com/gardener/network-problem-detector
 
 go 1.18
 

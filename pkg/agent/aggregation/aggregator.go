@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github/gardener/network-problem-detector/pkg/common/nwpd"
+	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
 
 	"github.com/sirupsen/logrus"
 )
