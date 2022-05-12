@@ -23,9 +23,8 @@ import (
 	"k8s.io/client-go/util/homedir"
 	"sigs.k8s.io/yaml"
 
-	"github.com/gardener/network-problem-detector/pkg/agent"
 	"github.com/gardener/network-problem-detector/pkg/common"
-	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
+	"github.com/gardener/network-problem-detector/pkg/common/config"
 )
 
 const (
@@ -43,7 +42,7 @@ type deployCommand struct {
 	clientset     *kubernetes.Clientset
 	nodeList      *corev1.NodeList
 	podList       *corev1.PodList
-	apiServer     *nwpd.Endpoint
+	apiServer     *config.Endpoint
 }
 
 func CreateDeployCmd() *cobra.Command {
@@ -145,7 +144,7 @@ func (dc *deployCommand) setupShootInfo() error {
 	if err != nil {
 		return fmt.Errorf("error looking up shoot apiserver %s: %s", apiServer, err)
 	}
-	dc.apiServer = &nwpd.Endpoint{
+	dc.apiServer = &config.Endpoint{
 		Hostname: apiServer,
 		IP:       ips[0].String(),
 		Port:     443,
@@ -248,17 +247,17 @@ func (dc *deployCommand) deleteDaemonSet(log logrus.FieldLogger, name, configMap
 	return nil
 }
 
-func (dc *deployCommand) buildDefaultConfig() (*agent.Config, error) {
-	cfg := agent.Config{
+func (dc *deployCommand) buildDefaultConfig() (*config.AgentConfig, error) {
+	cfg := config.AgentConfig{
 		OutputDir:         outputDir,
 		RetentionHours:    4,
 		LogDroppingFactor: 0.9,
-		NodeNetwork: &agent.NetworkConfig{
+		NodeNetwork: &config.NetworkConfig{
 			DataFilePrefix:  common.NameDaemonSetAgentNodeNet,
 			Port:            common.NodeNetPodGRPCPort,
 			StartMDNSServer: true,
 			DefaultPeriod:   dc.defaultPeriod,
-			Jobs: []nwpd.Job{
+			Jobs: []config.Job{
 				{
 					JobID: "ping-n2n",
 					Args:  []string{"pingHost"},
@@ -285,11 +284,11 @@ func (dc *deployCommand) buildDefaultConfig() (*agent.Config, error) {
 				},
 			},
 		},
-		PodNetwork: &agent.NetworkConfig{
+		PodNetwork: &config.NetworkConfig{
 			DataFilePrefix: common.NameDaemonSetAgentPodNet,
 			DefaultPeriod:  dc.defaultPeriod,
 			Port:           common.PodNetPodGRPCPort,
-			Jobs: []nwpd.Job{
+			Jobs: []config.Job{
 				{
 					JobID: "ping-p2n",
 					Args:  []string{"pingHost"},
@@ -322,11 +321,11 @@ func (dc *deployCommand) buildDefaultConfig() (*agent.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	cfg.NodeNetwork.Jobs = append(cfg.NodeNetwork.Jobs, nwpd.Job{
+	cfg.NodeNetwork.Jobs = append(cfg.NodeNetwork.Jobs, config.Job{
 		JobID: "tcp-n2svc",
 		Args:  []string{"checkTCPPort", "--endpoints", fmt.Sprintf("nwpd-agent-pod-net:%s:80", podNetServiceClusterIP)},
 	})
-	cfg.PodNetwork.Jobs = append(cfg.PodNetwork.Jobs, nwpd.Job{
+	cfg.PodNetwork.Jobs = append(cfg.PodNetwork.Jobs, config.Job{
 		JobID: "tcp-p2svc",
 		Args:  []string{"checkTCPPort", "--endpoints", fmt.Sprintf("nwpd-agent-pod-net:%s:80", podNetServiceClusterIP)},
 	})
@@ -339,8 +338,8 @@ func (dc *deployCommand) buildDefaultConfig() (*agent.Config, error) {
 	return &cfg, nil
 }
 
-func (dc *deployCommand) buildClusterConfig(nodes []*corev1.Node, agentPods []*corev1.Pod) (nwpd.ClusterConfig, error) {
-	config := nwpd.ClusterConfig{}
+func (dc *deployCommand) buildClusterConfig(nodes []*corev1.Node, agentPods []*corev1.Pod) (config.ClusterConfig, error) {
+	clusterConfig := config.ClusterConfig{}
 
 	for _, n := range nodes {
 		hostname := ""
@@ -354,16 +353,16 @@ func (dc *deployCommand) buildClusterConfig(nodes []*corev1.Node, agentPods []*c
 			}
 		}
 		if hostname == "" || ip == "" {
-			return config, fmt.Errorf("invalid node: %s", n.Name)
+			return clusterConfig, fmt.Errorf("invalid node: %s", n.Name)
 		}
-		config.Nodes = append(config.Nodes, nwpd.Node{
+		clusterConfig.Nodes = append(clusterConfig.Nodes, config.Node{
 			Hostname:   hostname,
 			InternalIP: ip,
 		})
 	}
 
 	for _, p := range agentPods {
-		config.PodEndpoints = append(config.PodEndpoints, nwpd.PodEndpoint{
+		clusterConfig.PodEndpoints = append(clusterConfig.PodEndpoints, config.PodEndpoint{
 			Nodename:  p.Spec.NodeName,
 			Podname:   p.Name,
 			ClusterIP: p.Status.PodIP,
@@ -371,7 +370,7 @@ func (dc *deployCommand) buildClusterConfig(nodes []*corev1.Node, agentPods []*c
 		})
 	}
 
-	return config, nil
+	return clusterConfig, nil
 }
 
 func (dc *deployCommand) buildCommonConfigMap() (*corev1.ConfigMap, error) {

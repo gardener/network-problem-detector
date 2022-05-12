@@ -2,22 +2,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package agent
+package config
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"fmt"
-	"io/ioutil"
 	"time"
-
-	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
-
-	"sigs.k8s.io/yaml"
 )
 
-type Config struct {
-	nwpd.ClusterConfig
+type AgentConfig struct {
+	ClusterConfig
 
 	// OutputDir is the directory to store the observations.
 	OutputDir string `json:"outputDir,omitempty"`
@@ -43,28 +35,14 @@ type NetworkConfig struct {
 	// Port is the port of the GRPC server. If 0, a dynamic port is used.
 	Port int `json:"port,omitempty"`
 	// Jobs are the jobs to execute.
-	Jobs []nwpd.Job `json:"jobs,omitempty"`
+	Jobs []Job `json:"jobs,omitempty"`
 	// StartMDNSServer specifies if the MDNS server should be started.
 	StartMDNSServer bool `json:"startMDNSServer,omitempty"`
 	// DefaultPeriod is the period used for a new job if it doesn't specify the period.
 	DefaultPeriod time.Duration `json:"defaultPeriod,omitempty"`
 }
 
-func loadConfig(configFile string, old *Config) (*Config, error) {
-	data, err := ioutil.ReadFile(configFile)
-	if err != nil {
-		return nil, err
-	}
-	hashCode := hex.EncodeToString(sha256.New().Sum(data))
-	if old != nil && old.hashCode == hashCode {
-		return old, nil
-	}
-
-	cfg := &Config{}
-	err = yaml.Unmarshal(data, cfg)
-	if err != nil {
-		return nil, fmt.Errorf("unmarshalling %s failed: %w", configFile, err)
-	}
-	cfg.hashCode = hashCode
-	return cfg, nil
+type Job struct {
+	JobID string   `json:"jobID"`
+	Args  []string `json:"args,omitempty"`
 }

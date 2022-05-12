@@ -18,6 +18,7 @@ import (
 	"github.com/gardener/network-problem-detector/pkg/agent/db"
 	"github.com/gardener/network-problem-detector/pkg/agent/runners"
 	"github.com/gardener/network-problem-detector/pkg/common"
+	"github.com/gardener/network-problem-detector/pkg/common/config"
 	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -32,10 +33,10 @@ type server struct {
 	log         logrus.FieldLogger
 	configFile  string
 	hostNetwork bool
-	jobs        []*nwpd.InternalJob
-	clusterCfg  nwpd.ClusterConfig
+	jobs        []*runners.InternalJob
+	clusterCfg  config.ClusterConfig
 	revision    atomic.Int64
-	lastConfig  *Config
+	lastConfig  *config.AgentConfig
 	obsChan     chan *nwpd.Observation
 	writer      nwpd.ObservationWriter
 	aggregator  nwpd.ObservationListener
@@ -60,8 +61,8 @@ func (s *server) isHostNetwork() bool {
 	return s.hostNetwork
 }
 
-func (s *server) getNetworkCfg() *NetworkConfig {
-	networkCfg := &NetworkConfig{}
+func (s *server) getNetworkCfg() *config.NetworkConfig {
+	networkCfg := &config.NetworkConfig{}
 	if s.lastConfig != nil {
 		if hostNetwork && s.lastConfig.NodeNetwork != nil {
 			networkCfg = s.lastConfig.NodeNetwork
@@ -73,7 +74,7 @@ func (s *server) getNetworkCfg() *NetworkConfig {
 }
 
 func (s *server) setup() error {
-	cfg, err := loadConfig(configFile, s.lastConfig)
+	cfg, err := config.LoadAgentConfig(configFile, s.lastConfig)
 	if err != nil {
 		return err
 	}
@@ -91,8 +92,8 @@ func (s *server) setup() error {
 	return s.applyConfig(cfg)
 }
 
-func (s *server) applyConfig(cfg *Config) error {
-	networkCfg := &NetworkConfig{}
+func (s *server) applyConfig(cfg *config.AgentConfig) error {
+	networkCfg := &config.NetworkConfig{}
 	if hostNetwork && cfg.NodeNetwork != nil {
 		networkCfg = cfg.NodeNetwork
 	} else if !hostNetwork && cfg.PodNetwork != nil {
@@ -127,7 +128,7 @@ func (s *server) applyConfig(cfg *Config) error {
 	return nil
 }
 
-func (s *server) parseJob(job *nwpd.Job) (*nwpd.InternalJob, error) {
+func (s *server) parseJob(job *config.Job) (*runners.InternalJob, error) {
 	n := len(job.Args)
 	if n == 0 {
 		return nil, fmt.Errorf("no job args")
@@ -137,7 +138,7 @@ func (s *server) parseJob(job *nwpd.Job) (*nwpd.InternalJob, error) {
 	if s.getNetworkCfg().DefaultPeriod != 0 {
 		defaultPeriod = s.getNetworkCfg().DefaultPeriod
 	}
-	config := nwpd.RunnerConfig{
+	config := runners.RunnerConfig{
 		JobID:  job.JobID,
 		Period: defaultPeriod,
 	}
@@ -145,10 +146,10 @@ func (s *server) parseJob(job *nwpd.Job) (*nwpd.InternalJob, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid job %s: %s", job.JobID, err)
 	}
-	return nwpd.NewInternalJob(job, runner), nil
+	return runners.NewInternalJob(job, runner), nil
 }
 
-func (s *server) addOrReplaceJob(job *nwpd.InternalJob) error {
+func (s *server) addOrReplaceJob(job *runners.InternalJob) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
@@ -279,7 +280,7 @@ func (s *server) stop() {
 }
 
 func (s *server) reloadConfig() {
-	cfg, err := loadConfig(s.configFile, s.lastConfig)
+	cfg, err := config.LoadAgentConfig(s.configFile, s.lastConfig)
 	if err != nil {
 		s.log.Warnf("cannot load configuration from %s", s.configFile)
 		return

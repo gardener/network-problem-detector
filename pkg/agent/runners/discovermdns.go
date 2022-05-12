@@ -39,19 +39,19 @@ func createDiscoverMDNSCmd(ra *runnerArgs) *cobra.Command {
 	return cmd
 }
 
-func NewDiscoverMDNS(config nwpd.RunnerConfig) *discoverMDNS {
+func NewDiscoverMDNS(config RunnerConfig) *discoverMDNS {
 	return &discoverMDNS{
 		config: config,
 	}
 }
 
 type discoverMDNS struct {
-	config nwpd.RunnerConfig
+	config RunnerConfig
 }
 
-var _ nwpd.Runner = &discoverMDNS{}
+var _ Runner = &discoverMDNS{}
 
-func (r *discoverMDNS) Config() nwpd.RunnerConfig {
+func (r *discoverMDNS) Config() RunnerConfig {
 	return r.config
 }
 

@@ -13,23 +13,6 @@ service AgentService {
   rpc GetAggregatedObservations(GetObservationsRequest) returns (GetAggregatedObservationsResponse) {}
 }
 
-message Node {
-  string hostname = 1;
-  string internalIP = 2;
-}
-
-message PodEndpoint {
-  string nodename = 1;
-  string podname = 2;
-  string clusterIP = 3;
-  int32 port = 4;
-}
-
-message Job {
-  string jobID = 1;
-  repeated string args = 2;
-}
-
 message GetObservationsRequest {
     google.protobuf.Timestamp start = 1;
     google.protobuf.Timestamp end = 2;

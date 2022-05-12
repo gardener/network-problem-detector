@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gardener/network-problem-detector/pkg/common/config"
 	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
 
 	"github.com/go-ping/ping"
@@ -24,14 +25,14 @@ type pingHostArgs struct {
 }
 
 func (a *pingHostArgs) createRunner(cmd *cobra.Command, args []string) error {
-	var nodes []nwpd.Node
+	var nodes []config.Node
 	if len(a.hosts) > 0 {
 		for _, host := range a.hosts {
 			parts := strings.SplitN(host, ":", 2)
 			if len(parts) != 2 {
 				return fmt.Errorf("invalid job: %s: invalid host %s", strings.Join(a.runnerArgs.args, " "), host)
 			}
-			nodes = append(nodes, nwpd.Node{
+			nodes = append(nodes, config.Node{
 				Hostname:   parts[0],
 				InternalIP: parts[1],
 			})
@@ -60,25 +61,25 @@ func createPingHostCmd(ra *runnerArgs) *cobra.Command {
 	return cmd
 }
 
-func NewPingHost(nodes []nwpd.Node, config nwpd.RunnerConfig) *pingHost {
+func NewPingHost(nodes []config.Node, rconfig RunnerConfig) *pingHost {
 	if len(nodes) == 0 {
 		return nil
 	}
 	return &pingHost{
 		nodes:  nodes,
-		config: config,
+		config: rconfig,
 	}
 }
 
 type pingHost struct {
-	nodes  []nwpd.Node
+	nodes  []config.Node
 	next   int
-	config nwpd.RunnerConfig
+	config RunnerConfig
 }
 
-var _ nwpd.Runner = &pingHost{}
+var _ Runner = &pingHost{}
 
-func (r *pingHost) Config() nwpd.RunnerConfig {
+func (r *pingHost) Config() RunnerConfig {
 	return r.config
 }
 
@@ -105,7 +106,7 @@ func (r *pingHost) Run(ch chan<- *nwpd.Observation) {
 	ch <- obs
 }
 
-func (r *pingHost) ping(node nwpd.Node) (string, time.Duration, error) {
+func (r *pingHost) ping(node config.Node) (string, time.Duration, error) {
 	pinger, err := ping.NewPinger(node.InternalIP)
 	if err != nil {
 		return "", 0, err

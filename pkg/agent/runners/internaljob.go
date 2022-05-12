@@ -1,8 +1,10 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Gardener contributors
-//
-// SPDX-License-Identifier: Apache-2.0
+/*
+ * SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Gardener contributors
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
-package nwpd
+package runners
 
 import (
 	"fmt"
@@ -11,6 +13,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/gardener/network-problem-detector/pkg/common/config"
+	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
 )
 
 type RunnerConfig struct {
@@ -19,7 +24,7 @@ type RunnerConfig struct {
 }
 
 type Runner interface {
-	Run(ch chan<- *Observation)
+	Run(ch chan<- *nwpd.Observation)
 	Config() RunnerConfig
 }
 
@@ -33,7 +38,7 @@ type InternalJob struct {
 	wg     sync.WaitGroup
 }
 
-func NewInternalJob(job *Job, runner Runner) *InternalJob {
+func NewInternalJob(job *config.Job, runner Runner) *InternalJob {
 	return &InternalJob{
 		JobID:  job.JobID,
 		Args:   job.Args[:],
@@ -56,7 +61,7 @@ func (j *InternalJob) Matches(filter string) bool {
 	return false
 }
 
-func (j *InternalJob) Start(ch chan<- *Observation) error {
+func (j *InternalJob) Start(ch chan<- *nwpd.Observation) error {
 	if j.ticker != nil {
 		return fmt.Errorf("already started")
 	}

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gardener/network-problem-detector/pkg/common/config"
 	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
 
 	"github.com/spf13/cobra"
@@ -27,7 +28,7 @@ type checkTCPPortArgs struct {
 
 func (a *checkTCPPortArgs) createRunner(cmd *cobra.Command, args []string) error {
 	allowEmpty := false
-	var endpoints []nwpd.Endpoint
+	var endpoints []config.Endpoint
 	if len(a.endpoints) > 0 {
 		for _, ep := range a.endpoints {
 			parts := strings.SplitN(ep, ":", 3)
@@ -38,7 +39,7 @@ func (a *checkTCPPortArgs) createRunner(cmd *cobra.Command, args []string) error
 			if err != nil {
 				return fmt.Errorf("invalid endpoint port %s", parts[2])
 			}
-			endpoints = append(endpoints, nwpd.Endpoint{
+			endpoints = append(endpoints, config.Endpoint{
 				Hostname: parts[0],
 				IP:       parts[1],
 				Port:     port,
@@ -47,7 +48,7 @@ func (a *checkTCPPortArgs) createRunner(cmd *cobra.Command, args []string) error
 	} else if a.nodePort != 0 {
 		allowEmpty = true
 		for _, n := range a.runnerArgs.clusterCfg.Nodes {
-			endpoints = append(endpoints, nwpd.Endpoint{
+			endpoints = append(endpoints, config.Endpoint{
 				Hostname: n.Hostname,
 				IP:       n.InternalIP,
 				Port:     a.nodePort,
@@ -56,7 +57,7 @@ func (a *checkTCPPortArgs) createRunner(cmd *cobra.Command, args []string) error
 	} else if a.podDS {
 		allowEmpty = true
 		for _, pe := range a.runnerArgs.clusterCfg.PodEndpoints {
-			endpoints = append(endpoints, nwpd.Endpoint{
+			endpoints = append(endpoints, config.Endpoint{
 				Hostname: pe.Nodename,
 				IP:       pe.ClusterIP,
 				Port:     int(pe.Port),
@@ -92,25 +93,25 @@ func createCheckTCPPortCmd(ra *runnerArgs) *cobra.Command {
 	return cmd
 }
 
-func NewCheckTCPPort(endpoints []nwpd.Endpoint, config nwpd.RunnerConfig) *checkTCPPort {
+func NewCheckTCPPort(endpoints []config.Endpoint, rconfig RunnerConfig) *checkTCPPort {
 	if len(endpoints) == 0 {
 		return nil
 	}
 	return &checkTCPPort{
-		endpoints: nwpd.CloneAndShuffleEndpoints(endpoints),
-		config:    config,
+		endpoints: config.CloneAndShuffleEndpoints(endpoints),
+		config:    rconfig,
 	}
 }
 
 type checkTCPPort struct {
-	endpoints []nwpd.Endpoint
+	endpoints []config.Endpoint
 	next      int
-	config    nwpd.RunnerConfig
+	config    RunnerConfig
 }
 
-var _ nwpd.Runner = &checkTCPPort{}
+var _ Runner = &checkTCPPort{}
 
-func (r *checkTCPPort) Config() nwpd.RunnerConfig {
+func (r *checkTCPPort) Config() RunnerConfig {
 	return r.config
 }
 
@@ -137,7 +138,7 @@ func (r *checkTCPPort) Run(ch chan<- *nwpd.Observation) {
 	ch <- obs
 }
 
-func (r *checkTCPPort) checkTCPPort(endpoint nwpd.Endpoint) (string, time.Duration, error) {
+func (r *checkTCPPort) checkTCPPort(endpoint config.Endpoint) (string, time.Duration, error) {
 	start := time.Now()
 	addr := fmt.Sprintf("%s:%d", endpoint.IP, endpoint.Port)
 	conn, err := net.Dial("tcp", addr)

@@ -2,12 +2,24 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package nwpd
+package config
+
+type Node struct {
+	Hostname   string `json:"hostname"`
+	InternalIP string `json:"internalIP"`
+}
+
+type PodEndpoint struct {
+	Nodename  string `json:"nodename"`
+	Podname   string `json:"podname"`
+	ClusterIP string `json:"clusterIP"`
+	Port      int32  `json:"port"`
+}
 
 type Endpoint struct {
-	Hostname string `json:"hostname,omitempty"`
-	IP       string `json:"ip,omitempty"`
-	Port     int    `json:"port,omitempty"`
+	Hostname string `json:"hostname"`
+	IP       string `json:"ip"`
+	Port     int    `json:"port"`
 }
 
 type ClusterConfig struct {

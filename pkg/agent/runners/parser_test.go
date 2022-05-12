@@ -7,8 +7,7 @@ package runners
 import (
 	"time"
 
-	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
-
+	"github.com/gardener/network-problem-detector/pkg/common/config"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -17,34 +16,34 @@ import (
 
 var _ = Describe("parser", func() {
 	var (
-		config1     = nwpd.RunnerConfig{JobID: "test", Period: 15 * time.Second}
-		clusterCfg1 = nwpd.ClusterConfig{
-			Nodes: []nwpd.Node{
+		config1     = RunnerConfig{JobID: "test", Period: 15 * time.Second}
+		clusterCfg1 = config.ClusterConfig{
+			Nodes: []config.Node{
 				{Hostname: "node1", InternalIP: "10.0.0.11"},
 				{Hostname: "node2", InternalIP: "10.0.0.12"},
 			},
 		}
-		config2     = nwpd.RunnerConfig{JobID: "test", Period: 10 * time.Second}
-		clusterCfg2 = nwpd.ClusterConfig{
-			Nodes: []nwpd.Node{
+		config2     = RunnerConfig{JobID: "test", Period: 10 * time.Second}
+		clusterCfg2 = config.ClusterConfig{
+			Nodes: []config.Node{
 				{Hostname: "node3", InternalIP: "10.0.0.13"},
 				{Hostname: "node4", InternalIP: "10.0.0.14"},
 			},
 		}
-		endpoints1 = []nwpd.Endpoint{
+		endpoints1 = []config.Endpoint{
 			{Hostname: "server", IP: "10.0.0.9", Port: 55555},
 		}
-		endpoints2 = []nwpd.Endpoint{
+		endpoints2 = []config.Endpoint{
 			{Hostname: "node1", IP: "10.0.0.11", Port: 55555},
 			{Hostname: "node2", IP: "10.0.0.12", Port: 55555},
 		}
 	)
 
 	DescribeTable("should parse runner commands",
-		func(clusterCfg nwpd.ClusterConfig, config nwpd.RunnerConfig, args []string, expected interface{}) {
+		func(clusterCfg config.ClusterConfig, config RunnerConfig, args []string, expected interface{}) {
 			actual, err := Parse(clusterCfg, config, args, false)
 			switch v := expected.(type) {
-			case nwpd.Runner:
+			case Runner:
 				Expect(err).To(BeNil())
 				Expect(actual).To(Equal(v))
 			case string:

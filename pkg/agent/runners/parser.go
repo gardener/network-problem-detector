@@ -7,18 +7,17 @@ package runners
 import (
 	"time"
 
-	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
-
+	"github.com/gardener/network-problem-detector/pkg/common/config"
 	"github.com/spf13/cobra"
 )
 
 type runnerArgs struct {
 	args       []string
-	clusterCfg nwpd.ClusterConfig
-	config     nwpd.RunnerConfig
+	clusterCfg config.ClusterConfig
+	config     RunnerConfig
 	period     time.Duration
 
-	runner nwpd.Runner
+	runner Runner
 }
 
 func GetNewRoot(ra *runnerArgs) *cobra.Command {
@@ -33,7 +32,7 @@ func GetNewRoot(ra *runnerArgs) *cobra.Command {
 	return root
 }
 
-func Parse(clusterCfg nwpd.ClusterConfig, config nwpd.RunnerConfig, args []string, shuffle bool) (nwpd.Runner, error) {
+func Parse(clusterCfg config.ClusterConfig, config RunnerConfig, args []string, shuffle bool) (Runner, error) {
 	ra := &runnerArgs{}
 	root := GetNewRoot(ra)
 

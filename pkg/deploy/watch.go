@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gardener/network-problem-detector/pkg/agent"
 	"github.com/gardener/network-problem-detector/pkg/common"
+	"github.com/gardener/network-problem-detector/pkg/common/config"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -145,7 +145,7 @@ func (dc *deployCommand) watch(cmd *cobra.Command, args []string) error {
 			continue
 		}
 		content := cm.Data[common.AgentConfigFilename]
-		cfg := &agent.Config{}
+		cfg := &config.AgentConfig{}
 		if err := yaml.Unmarshal([]byte(content), cfg); err != nil {
 			log.Errorf("unmarshal configmap %s/%s failed: %s", common.NamespaceKubeSystem, nameConfigMapAgentConfig, err)
 			continue
