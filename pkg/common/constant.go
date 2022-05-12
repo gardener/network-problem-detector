@@ -6,7 +6,7 @@ package common
 
 const (
 	// 	MDNSServiceNodeNetAgent is the mDNS service name of the agent running on the host network.
-	MDNSServiceNodeNetAgent = "nwpd-node-net._tcp"
+	MDNSServiceNodeNetAgent = "network-problem-detector-host-node._tcp"
 	// NamespaceKubeSystem is the kube-system namespace
 	NamespaceKubeSystem = "kube-system"
 	// AgentConfigFilename is the name of the config file
@@ -19,12 +19,18 @@ const (
 	EnvPodIP = "POD_IP"
 	// LabelKeyK8sApp is the label key used to mark the pods
 	LabelKeyK8sApp = "k8s-app"
+	// ApplicationName is the application name
+	ApplicationName = "network-problem-detector"
+	// NameAgentConfigMap name of the config map for the agents
+	NameAgentConfigMap = ApplicationName + "-config"
 	// NameDaemonSetAgentNodeNet name of the daemon set running in the node network
-	NameDaemonSetAgentNodeNet = "nwpd-agent-node-net"
+	NameDaemonSetAgentNodeNet = ApplicationName + "-host"
 	// NameDaemonSetAgentPodNet name of the daemon set running in the pod network
-	NameDaemonSetAgentPodNet = "nwpd-agent-pod-net"
+	NameDaemonSetAgentPodNet = ApplicationName + "-pod"
+	// PathOutputBaseDir parente directory path of output directory with observations in pods
+	PathOutputBaseDir = "/var/lib/gardener"
 	// PathOutputDir path of output directory with observations in pods
-	PathOutputDir = "/var/lib/gardener-nwpd"
+	PathOutputDir = PathOutputBaseDir + "/" + ApplicationName
 	// PodNetPodGRPCPort is the port used for the GRPC server of the pods running in the pod network
 	PodNetPodGRPCPort = 8880
 	// PodNetPodMetricsPort is the port used for the metrics http server of the pods running in the pod network

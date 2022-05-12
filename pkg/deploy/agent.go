@@ -10,6 +10,8 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	policyv1beta1 "k8s.io/api/policy/v1beta1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -24,8 +26,13 @@ type AgentDeployConfig struct {
 	Image string
 	// DefaultPeriod is the default period for jobs
 	DefaultPeriod time.Duration
+	// PingEnabled if ping checks are enabled (needs NET_ADMIN capabilities)
+	PingEnabled bool
+	// PodSecurityPolicyEnabled if psp should be deployed
+	PodSecurityPolicyEnabled bool
 }
 
+// DeployNetworkProblemDetectorAgent returns K8s resources to be created.
 func DeployNetworkProblemDetectorAgent(config *AgentDeployConfig) ([]Object, error) {
 	var objects []Object
 	for _, hostnetwork := range []bool{false, true} {
@@ -34,11 +41,18 @@ func DeployNetworkProblemDetectorAgent(config *AgentDeployConfig) ([]Object, err
 			return nil, err
 		}
 		objects = append(objects, svc)
-		ds, err := config.buildDaemonSet(nameConfigMapAgentConfig, hostnetwork)
+		ds, err := config.buildDaemonSet(common.NameAgentConfigMap, hostnetwork)
 		if err != nil {
 			return nil, err
 		}
 		objects = append(objects, ds)
+	}
+	if config.PodSecurityPolicyEnabled {
+		objs, err := config.buildPodSecurityPolicy(common.ApplicationName)
+		if err != nil {
+			return nil, err
+		}
+		objects = append(objects, objs...)
 	}
 	return objects, nil
 }
@@ -110,6 +124,13 @@ func (ac *AgentDeployConfig) buildDaemonSet(nameConfigMap string, hostNetwork bo
 	name, portGRPC, portMetrics := ac.getNetworkConfig(hostNetwork)
 
 	labels := ac.getLabels(name)
+
+	var capabilities *corev1.Capabilities
+	if ac.PingEnabled {
+		capabilities = &corev1.Capabilities{
+			Add: []corev1.Capability{"NET_ADMIN"},
+		}
+	}
 
 	typ := corev1.HostPathDirectoryOrCreate
 	ds := &appsv1.DaemonSet{
@@ -205,15 +226,13 @@ func (ac *AgentDeployConfig) buildDaemonSet(nameConfigMap string, hostNetwork bo
 							},
 						},
 						SecurityContext: &corev1.SecurityContext{
-							Capabilities: &corev1.Capabilities{
-								Add: []corev1.Capability{"NET_ADMIN"},
-							},
+							Capabilities: capabilities,
 						},
 						VolumeMounts: []corev1.VolumeMount{
 							{
 								Name:      "output",
 								ReadOnly:  false,
-								MountPath: outputDir,
+								MountPath: common.PathOutputDir,
 							},
 							{
 								Name:      "config",
@@ -227,7 +246,7 @@ func (ac *AgentDeployConfig) buildDaemonSet(nameConfigMap string, hostNetwork bo
 							Name: "output",
 							VolumeSource: corev1.VolumeSource{
 								HostPath: &corev1.HostPathVolumeSource{
-									Path: outputDir,
+									Path: common.PathOutputDir,
 									Type: &typ,
 								},
 							},
@@ -254,4 +273,89 @@ func (ac *AgentDeployConfig) buildDaemonSet(nameConfigMap string, hostNetwork bo
 	}
 
 	return ds, nil
+}
+
+// TODO test and fine-tuning
+func (ac *AgentDeployConfig) buildPodSecurityPolicy(serviceAccountName string) ([]Object, error) {
+	roleName := "gardener.cloud:psp:kube-system:" + common.ApplicationName
+	resourceName := "gardener.kube-system." + common.ApplicationName
+	clusterRole := &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: roleName,
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups:       []string{"policy"},
+				Verbs:           []string{"use"},
+				Resources:       []string{"podsecuritypolicies"},
+				ResourceNames:   []string{resourceName},
+				NonResourceURLs: nil,
+			},
+		},
+	}
+	clusterRoleBinding := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: roleName,
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     roleName,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      serviceAccountName,
+				Namespace: common.NamespaceKubeSystem,
+			},
+		},
+	}
+	serviceAccount := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceAccountName,
+			Namespace: common.NamespaceKubeSystem,
+		},
+	}
+	t := true
+	var allowedCapabilities []corev1.Capability
+	if ac.PingEnabled {
+		allowedCapabilities = []corev1.Capability{"NET_ADMIN"}
+	}
+	psp := &policyv1beta1.PodSecurityPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: resourceName,
+		},
+		Spec: policyv1beta1.PodSecurityPolicySpec{
+			Privileged:               false,
+			DefaultAddCapabilities:   nil,
+			RequiredDropCapabilities: nil,
+			AllowedCapabilities:      allowedCapabilities,
+			Volumes:                  []policyv1beta1.FSType{policyv1beta1.Secret, policyv1beta1.ConfigMap},
+			HostNetwork:              true,
+			HostPorts:                nil,
+			HostPID:                  false,
+			HostIPC:                  false,
+			SELinux: policyv1beta1.SELinuxStrategyOptions{
+				Rule: policyv1beta1.SELinuxStrategyRunAsAny,
+			},
+			RunAsUser: policyv1beta1.RunAsUserStrategyOptions{
+				Rule: policyv1beta1.RunAsUserStrategyRunAsAny,
+			},
+			RunAsGroup: nil,
+			SupplementalGroups: policyv1beta1.SupplementalGroupsStrategyOptions{
+				Rule: policyv1beta1.SupplementalGroupsStrategyRunAsAny,
+			},
+			FSGroup: policyv1beta1.FSGroupStrategyOptions{
+				Rule: policyv1beta1.FSGroupStrategyRunAsAny,
+			},
+			ReadOnlyRootFilesystem:          false,
+			DefaultAllowPrivilegeEscalation: nil,
+			AllowPrivilegeEscalation:        &t,
+			AllowedHostPaths: []policyv1beta1.AllowedHostPath{
+				{PathPrefix: common.PathOutputBaseDir, ReadOnly: false},
+			},
+		},
+	}
+
+	return []Object{clusterRole, clusterRoleBinding, serviceAccount, psp}, nil
 }

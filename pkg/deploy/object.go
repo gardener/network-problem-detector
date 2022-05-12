@@ -30,12 +30,12 @@ func createOrUpdate[T Object, S ObjectInterface[T]](ctx context.Context, typenam
 	op := "creating"
 	result, err = itf.Create(ctx, obj, metav1.CreateOptions{})
 	if errors.IsAlreadyExists(err) {
-		op = "updating"
 		var old T
 		old, err = itf.Get(ctx, obj.GetName(), metav1.GetOptions{})
 		if err != nil {
 			op = "getting"
 		} else {
+			op = "updating"
 			obj.SetResourceVersion(old.GetResourceVersion())
 			result, err = itf.Update(ctx, obj, metav1.UpdateOptions{})
 		}

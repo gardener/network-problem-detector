@@ -139,29 +139,29 @@ func (dc *deployCommand) watch(cmd *cobra.Command, args []string) error {
 		}
 
 		configmaps := dc.clientset.CoreV1().ConfigMaps(common.NamespaceKubeSystem)
-		cm, err := configmaps.Get(ctx, nameConfigMapAgentConfig, metav1.GetOptions{})
+		cm, err := configmaps.Get(ctx, common.NameAgentConfigMap, metav1.GetOptions{})
 		if err != nil {
-			log.Errorf("loading configmap %s/%s failed: %s", common.NamespaceKubeSystem, nameConfigMapAgentConfig, err)
+			log.Errorf("loading configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameAgentConfigMap, err)
 			continue
 		}
 		content := cm.Data[common.AgentConfigFilename]
 		cfg := &config.AgentConfig{}
 		if err := yaml.Unmarshal([]byte(content), cfg); err != nil {
-			log.Errorf("unmarshal configmap %s/%s failed: %s", common.NamespaceKubeSystem, nameConfigMapAgentConfig, err)
+			log.Errorf("unmarshal configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameAgentConfigMap, err)
 			continue
 		}
 		cfg.ClusterConfig, err = dc.buildClusterConfig(nodes, pods)
 		cfgBytes, err := yaml.Marshal(cfg)
 		if err != nil {
-			log.Errorf("marshal configmap %s/%s failed: %s", common.NamespaceKubeSystem, nameConfigMapAgentConfig, err)
+			log.Errorf("marshal configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameAgentConfigMap, err)
 			continue
 		}
 		cm.Data[common.AgentConfigFilename] = string(cfgBytes)
 		if _, err := configmaps.Update(ctx, cm, metav1.UpdateOptions{}); err != nil {
-			log.Errorf("updating configmap %s/%s failed: %s", common.NamespaceKubeSystem, nameConfigMapAgentConfig, err)
+			log.Errorf("updating configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameAgentConfigMap, err)
 			continue
 		}
-		log.Infof("updated configmap %s/%s", common.NamespaceKubeSystem, nameConfigMapAgentConfig)
+		log.Infof("updated configmap %s/%s", common.NamespaceKubeSystem, common.NameAgentConfigMap)
 	}
 
 	return nil
