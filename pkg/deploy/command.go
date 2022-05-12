@@ -37,7 +37,7 @@ const (
 	outputDir                = common.PathOutputDir
 )
 
-var defaultImage = "eu.gcr.io/gardener-project/test/network-problem-detector/nwpdcli:v0.1.0-dev-220511a"
+var defaultImage = "eu.gcr.io/gardener-project/test/network-problem-detector:v0.1.0-dev-220512a"
 
 type deployCommand struct {
 	kubeconfig    string
