@@ -17,7 +17,6 @@ import (
 	"github.com/gardener/network-problem-detector/pkg/agent/aggregation"
 	"github.com/gardener/network-problem-detector/pkg/agent/db"
 	"github.com/gardener/network-problem-detector/pkg/agent/runners"
-	"github.com/gardener/network-problem-detector/pkg/common"
 	"github.com/gardener/network-problem-detector/pkg/common/config"
 	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
 
@@ -299,11 +298,7 @@ func (s *server) run() {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, os.Kill)
 
-	if metrics {
-		port := common.PodNetPodHttpPort
-		if hostNetwork {
-			port = common.NodeNetPodHttpPort
-		}
+	if port := s.getNetworkCfg().HttpPort; port != 0 {
 		s.log.Infof("provide metrics at ':%d/metrics'", port)
 		http.Handle("/metrics", promhttp.Handler())
 		go func() {

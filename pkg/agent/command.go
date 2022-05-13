@@ -22,7 +22,6 @@ import (
 var (
 	configFile  string
 	hostNetwork bool
-	metrics     bool
 	grpcServer  *grpc.Server
 )
 
@@ -34,7 +33,6 @@ func CreateRunAgentCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&configFile, "config", "agent.config", "file configuration of agent server.")
 	cmd.Flags().BoolVar(&hostNetwork, "hostNetwork", false, "if agent runs on host network.")
-	cmd.Flags().BoolVar(&metrics, "metrics", true, "start http server for metrics.")
 	cmd.RunE = runAgent
 	return cmd
 }
