@@ -1,8 +1,10 @@
-// SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Gardener contributors
-//
-// SPDX-License-Identifier: Apache-2.0
+/*
+ * SPDX-FileCopyrightText: 2022 SAP SE or an SAP affiliate company and Gardener contributors
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
-package deploy
+package controller
 
 import (
 	"context"
@@ -11,9 +13,9 @@ import (
 
 	"github.com/gardener/network-problem-detector/pkg/common"
 	"github.com/gardener/network-problem-detector/pkg/common/config"
+	"github.com/gardener/network-problem-detector/pkg/deploy"
 
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/cobra"
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -102,14 +104,12 @@ func (c *nodePodController) isRelevant(obj interface{}) bool {
 	return false
 }
 
-func (dc *deployCommand) watch(cmd *cobra.Command, args []string) error {
-	log := logrus.WithField("cmd", "deploy-watch")
-
-	if err := dc.setupClientSet(); err != nil {
+func (cc *controllerCommand) watch(log logrus.FieldLogger) error {
+	if err := cc.SetupClientSet(); err != nil {
 		return err
 	}
 
-	controller := newNodePodController(dc.clientset, 24*time.Hour)
+	controller := newNodePodController(cc.Clientset, 24*time.Hour)
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 	if err := controller.Start(stopCh); err != nil {
@@ -120,11 +120,12 @@ func (dc *deployCommand) watch(cmd *cobra.Command, args []string) error {
 	var last time.Time
 	for {
 		now := time.Now()
-		if now.Sub(last) < 30*time.Second {
+		if now.Sub(last) < 10*time.Second {
 			time.Sleep(now.Sub(last))
 		}
 		last = now
 		if !controller.HasUpdates() {
+			cc.lastLoop.Store(last.UnixMilli())
 			continue
 		}
 		nodes, err := controller.ListNodes()
@@ -138,7 +139,7 @@ func (dc *deployCommand) watch(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
-		configmaps := dc.clientset.CoreV1().ConfigMaps(common.NamespaceKubeSystem)
+		configmaps := cc.Clientset.CoreV1().ConfigMaps(common.NamespaceKubeSystem)
 		cm, err := configmaps.Get(ctx, common.NameAgentConfigMap, metav1.GetOptions{})
 		if err != nil {
 			log.Errorf("loading configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameAgentConfigMap, err)
@@ -150,7 +151,7 @@ func (dc *deployCommand) watch(cmd *cobra.Command, args []string) error {
 			log.Errorf("unmarshal configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameAgentConfigMap, err)
 			continue
 		}
-		cfg.ClusterConfig, err = dc.buildClusterConfig(nodes, pods)
+		cfg.ClusterConfig, err = deploy.BuildClusterConfig(nodes, pods)
 		cfgBytes, err := yaml.Marshal(cfg)
 		if err != nil {
 			log.Errorf("marshal configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameAgentConfigMap, err)
@@ -164,8 +165,10 @@ func (dc *deployCommand) watch(cmd *cobra.Command, args []string) error {
 				continue
 			}
 			log.Infof("updated configmap %s/%s", common.NamespaceKubeSystem, common.NameAgentConfigMap)
+			cc.lastLoop.Store(last.UnixMilli())
 		} else {
 			log.Info("unchanged")
+			cc.lastLoop.Store(last.UnixMilli())
 		}
 	}
 

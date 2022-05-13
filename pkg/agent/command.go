@@ -99,7 +99,7 @@ func startAgentServer(log logrus.FieldLogger, configFile string, hostNetwork boo
 			return nil, err
 		}
 	*/
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", agentServer.getNetworkCfg().Port))
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", agentServer.getNetworkCfg().GRPCPort))
 	if err != nil {
 		return nil, 0, err
 	}

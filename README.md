@@ -25,7 +25,7 @@ This step will also provide a default configuration with jobs for the daemon set
 4. Optional: In a second shell run the controller to update the configuration on changes of nodes and pod endpoints of the pod network daemon set with
 
    ```bash
-   ./nwpdcli deploy run-controller 
+   ./nwpdcli run-controller 
    ```
 
    Alternatively install the agent controller with

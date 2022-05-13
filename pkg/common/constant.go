@@ -35,10 +35,10 @@ const (
 	PathOutputDir = PathOutputBaseDir + "/" + ApplicationName
 	// PodNetPodGRPCPort is the port used for the GRPC server of the pods running in the pod network
 	PodNetPodGRPCPort = 8880
-	// PodNetPodMetricsPort is the port used for the metrics http server of the pods running in the pod network
-	PodNetPodMetricsPort = 8881
+	// PodNetPodHttpPort is the port used for the metrics http server of the pods running in the pod network
+	PodNetPodHttpPort = 8881
 	// NodeNetPodGRPCPort is the port used for the GRPC server of the pods running in the node network
 	NodeNetPodGRPCPort = 1011
-	// NodeNetPodMetricsPort is the port used for the metrics http server of the pods running in the node network
-	NodeNetPodMetricsPort = 1012
+	// NodeNetPodHttpPort is the port used for the metrics http server of the pods running in the node network
+	NodeNetPodHttpPort = 1012
 )

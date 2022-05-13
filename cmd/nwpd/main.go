@@ -8,6 +8,7 @@ import (
 	"github.com/gardener/network-problem-detector/pkg/agent"
 	"github.com/gardener/network-problem-detector/pkg/aggregate"
 	"github.com/gardener/network-problem-detector/pkg/collect"
+	"github.com/gardener/network-problem-detector/pkg/controller"
 	"github.com/gardener/network-problem-detector/pkg/deploy"
 	"github.com/gardener/network-problem-detector/pkg/list"
 	"github.com/gardener/network-problem-detector/pkg/query"
@@ -24,6 +25,7 @@ var (
 
 func main() {
 	rootCmd.AddCommand(agent.CreateRunAgentCmd())
+	rootCmd.AddCommand(controller.CreateRunControllerCmd())
 	rootCmd.AddCommand(deploy.CreateDeployCmd())
 	rootCmd.AddCommand(collect.CreateCollectCmd())
 	rootCmd.AddCommand(aggregate.CreateAggregateCmd())

@@ -300,9 +300,9 @@ func (s *server) run() {
 	signal.Notify(interrupt, os.Interrupt, os.Kill)
 
 	if metrics {
-		port := common.PodNetPodMetricsPort
+		port := common.PodNetPodHttpPort
 		if hostNetwork {
-			port = common.NodeNetPodMetricsPort
+			port = common.NodeNetPodHttpPort
 		}
 		s.log.Infof("provide metrics at ':%d/metrics'", port)
 		http.Handle("/metrics", promhttp.Handler())

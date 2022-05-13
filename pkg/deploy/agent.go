@@ -106,11 +106,11 @@ func (ac *AgentDeployConfig) getNetworkConfig(hostnetwork bool) (name string, po
 	if hostnetwork {
 		name = common.NameDaemonSetAgentNodeNet
 		portGRPC = common.NodeNetPodGRPCPort
-		portMetrics = common.NodeNetPodMetricsPort
+		portMetrics = common.NodeNetPodHttpPort
 	} else {
 		name = common.NameDaemonSetAgentPodNet
 		portGRPC = common.PodNetPodGRPCPort
-		portMetrics = common.PodNetPodMetricsPort
+		portMetrics = common.PodNetPodHttpPort
 	}
 	return
 }
@@ -332,7 +332,7 @@ func (ac *AgentDeployConfig) buildControllerDeployment() (*appsv1.Deployment, *r
 						Name:            name,
 						Image:           ac.Image,
 						ImagePullPolicy: corev1.PullIfNotPresent,
-						Command:         []string{"/nwpdcli", "deploy", "run-controller", "--in-cluster"},
+						Command:         []string{"/nwpdcli", "run-controller", "--in-cluster"},
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
 								corev1.ResourceCPU:    requestCPU,
@@ -396,6 +396,11 @@ func (ac *AgentDeployConfig) buildControllerDeployment() (*appsv1.Deployment, *r
 				Resources:     []string{"configmaps"},
 				ResourceNames: []string{common.NameAgentConfigMap},
 			},
+			{
+				APIGroups: []string{""},
+				Verbs:     []string{"create"},
+				Resources: []string{"configmaps"},
+			},
 		},
 	}
 	roleBinding := &rbacv1.RoleBinding{
@@ -421,6 +426,7 @@ func (ac *AgentDeployConfig) buildControllerDeployment() (*appsv1.Deployment, *r
 			Name:      serviceAccountName,
 			Namespace: common.NamespaceKubeSystem,
 		},
+		AutomountServiceAccountToken: pointer.Bool(false),
 	}
 
 	return deployment, clusterRole, clusterRoleBinding, role, roleBinding, serviceAccount, nil

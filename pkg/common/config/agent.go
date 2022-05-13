@@ -32,8 +32,10 @@ type AgentConfig struct {
 type NetworkConfig struct {
 	// DataFilePrefix is the prefix for observation data files.
 	DataFilePrefix string `json:"dataFilePrefix,omitempty"`
-	// Port is the port of the GRPC server. If 0, a dynamic port is used.
-	Port int `json:"port,omitempty"`
+	// GRPCPort is the port of the GRPC server. If 0, a dynamic port is used.
+	GRPCPort int `json:"grpcPort,omitempty"`
+	// HttpPort is the port of the http server.
+	HttpPort int `json:"httpPort,omitempty"`
 	// Jobs are the jobs to execute.
 	Jobs []Job `json:"jobs,omitempty"`
 	// StartMDNSServer specifies if the MDNS server should be started.
