@@ -35,25 +35,28 @@ type AgentDeployConfig struct {
 // DeployNetworkProblemDetectorAgent returns K8s resources to be created.
 func DeployNetworkProblemDetectorAgent(config *AgentDeployConfig) ([]Object, error) {
 	var objects []Object
+	serviceAccountName := ""
+	if config.PodSecurityPolicyEnabled {
+		serviceAccountName = common.ApplicationName
+		cr, crb, sa, psp, err := config.buildPodSecurityPolicy(serviceAccountName)
+		if err != nil {
+			return nil, err
+		}
+		objects = append(objects, cr, crb, sa, psp)
+	}
 	for _, hostnetwork := range []bool{false, true} {
 		svc, err := config.buildService(hostnetwork)
 		if err != nil {
 			return nil, err
 		}
 		objects = append(objects, svc)
-		ds, err := config.buildDaemonSet(common.NameAgentConfigMap, hostnetwork)
+		ds, err := config.buildDaemonSet(common.NameAgentConfigMap, serviceAccountName, hostnetwork)
 		if err != nil {
 			return nil, err
 		}
 		objects = append(objects, ds)
 	}
-	if config.PodSecurityPolicyEnabled {
-		objs, err := config.buildPodSecurityPolicy(common.ApplicationName)
-		if err != nil {
-			return nil, err
-		}
-		objects = append(objects, objs...)
-	}
+
 	return objects, nil
 }
 
@@ -112,14 +115,13 @@ func (ac *AgentDeployConfig) getNetworkConfig(hostnetwork bool) (name string, po
 	return
 }
 
-func (ac *AgentDeployConfig) buildDaemonSet(nameConfigMap string, hostNetwork bool) (*appsv1.DaemonSet, error) {
+func (ac *AgentDeployConfig) buildDaemonSet(nameConfigMap, serviceAccountName string, hostNetwork bool) (*appsv1.DaemonSet, error) {
 	var (
-		requestCPU, _          = resource.ParseQuantity("50m")
-		limitCPU, _            = resource.ParseQuantity("500m")
-		requestMemory, _       = resource.ParseQuantity("64Mi")
-		limitMemory, _         = resource.ParseQuantity("256Mi")
+		requestCPU, _          = resource.ParseQuantity("10m")
+		limitCPU, _            = resource.ParseQuantity("50m")
+		requestMemory, _       = resource.ParseQuantity("32Mi")
+		limitMemory, _         = resource.ParseQuantity("64Mi")
 		defaultMode      int32 = 0444
-		zero             int64 = 0
 	)
 	name, portGRPC, portMetrics := ac.getNetworkConfig(hostNetwork)
 
@@ -154,7 +156,7 @@ func (ac *AgentDeployConfig) buildDaemonSet(nameConfigMap string, hostNetwork bo
 				Spec: corev1.PodSpec{
 					HostNetwork: hostNetwork,
 					//PriorityClassName:             "system-node-critical",
-					TerminationGracePeriodSeconds: &zero,
+					TerminationGracePeriodSeconds: pointer.Int64(0),
 					/*
 						Tolerations: []corev1.Toleration{
 							{
@@ -172,6 +174,7 @@ func (ac *AgentDeployConfig) buildDaemonSet(nameConfigMap string, hostNetwork bo
 						},
 					*/
 					AutomountServiceAccountToken: pointer.Bool(false),
+					ServiceAccountName:           serviceAccountName,
 					Containers: []corev1.Container{{
 						Name:            name,
 						Image:           ac.Image,
@@ -275,8 +278,156 @@ func (ac *AgentDeployConfig) buildDaemonSet(nameConfigMap string, hostNetwork bo
 	return ds, nil
 }
 
+func (ac *AgentDeployConfig) buildControllerDeployment() (*appsv1.Deployment, *rbacv1.ClusterRole, *rbacv1.ClusterRoleBinding,
+	*rbacv1.Role, *rbacv1.RoleBinding, *corev1.ServiceAccount, error) {
+	var (
+		requestCPU, _    = resource.ParseQuantity("10m")
+		limitCPU, _      = resource.ParseQuantity("50m")
+		requestMemory, _ = resource.ParseQuantity("32Mi")
+		limitMemory, _   = resource.ParseQuantity("128Mi")
+	)
+
+	name := common.NameDeploymentAgentController
+	labels := ac.getLabels(name)
+	serviceAccountName := name
+
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: common.NamespaceKubeSystem,
+		},
+		Spec: appsv1.DeploymentSpec{
+			RevisionHistoryLimit: pointer.Int32Ptr(5),
+			Selector:             &metav1.LabelSelector{MatchLabels: labels},
+			Replicas:             pointer.Int32(1),
+			Strategy: appsv1.DeploymentStrategy{
+				Type: appsv1.RecreateDeploymentStrategyType,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: labels,
+				},
+				Spec: corev1.PodSpec{
+					//PriorityClassName:             "system-node-critical",
+					TerminationGracePeriodSeconds: pointer.Int64(0),
+					/*
+						Tolerations: []corev1.Toleration{
+							{
+								Effect:   corev1.TaintEffectNoSchedule,
+								Operator: corev1.TolerationOpExists,
+							},
+							{
+								Key:      "CriticalAddonsOnly",
+								Operator: corev1.TolerationOpExists,
+							},
+							{
+								Effect:   corev1.TaintEffectNoExecute,
+								Operator: corev1.TolerationOpExists,
+							},
+						},
+					*/
+					AutomountServiceAccountToken: pointer.Bool(true),
+					ServiceAccountName:           serviceAccountName,
+					Containers: []corev1.Container{{
+						Name:            name,
+						Image:           ac.Image,
+						ImagePullPolicy: corev1.PullIfNotPresent,
+						Command:         []string{"/nwpdcli", "deploy", "run-controller", "--in-cluster"},
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceCPU:    requestCPU,
+								corev1.ResourceMemory: requestMemory,
+							},
+							Limits: corev1.ResourceList{
+								corev1.ResourceCPU:    limitCPU,
+								corev1.ResourceMemory: limitMemory,
+							},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	roleName := "gardener.cloud:" + name
+	clusterRole := &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: roleName,
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{""},
+				Verbs:     []string{"get", "list", "watch"},
+				Resources: []string{"nodes"},
+			},
+		},
+	}
+	clusterRoleBinding := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: roleName,
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     roleName,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      serviceAccountName,
+				Namespace: common.NamespaceKubeSystem,
+			},
+		},
+	}
+	role := &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      roleName,
+			Namespace: common.NamespaceKubeSystem,
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{""},
+				Verbs:     []string{"get", "list", "watch"},
+				Resources: []string{"pods"},
+			},
+			{
+				APIGroups:     []string{""},
+				Verbs:         []string{"get", "update", "patch"},
+				Resources:     []string{"configmaps"},
+				ResourceNames: []string{common.NameAgentConfigMap},
+			},
+		},
+	}
+	roleBinding := &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      roleName,
+			Namespace: common.NamespaceKubeSystem,
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "Role",
+			Name:     roleName,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      serviceAccountName,
+				Namespace: common.NamespaceKubeSystem,
+			},
+		},
+	}
+	serviceAccount := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceAccountName,
+			Namespace: common.NamespaceKubeSystem,
+		},
+	}
+
+	return deployment, clusterRole, clusterRoleBinding, role, roleBinding, serviceAccount, nil
+}
+
 // TODO test and fine-tuning
-func (ac *AgentDeployConfig) buildPodSecurityPolicy(serviceAccountName string) ([]Object, error) {
+func (ac *AgentDeployConfig) buildPodSecurityPolicy(serviceAccountName string) (*rbacv1.ClusterRole, *rbacv1.ClusterRoleBinding, *corev1.ServiceAccount, *policyv1beta1.PodSecurityPolicy, error) {
 	roleName := "gardener.cloud:psp:kube-system:" + common.ApplicationName
 	resourceName := "gardener.kube-system." + common.ApplicationName
 	clusterRole := &rbacv1.ClusterRole{
@@ -316,7 +467,6 @@ func (ac *AgentDeployConfig) buildPodSecurityPolicy(serviceAccountName string) (
 			Namespace: common.NamespaceKubeSystem,
 		},
 	}
-	t := true
 	var allowedCapabilities []corev1.Capability
 	if ac.PingEnabled {
 		allowedCapabilities = []corev1.Capability{"NET_ADMIN"}
@@ -350,12 +500,12 @@ func (ac *AgentDeployConfig) buildPodSecurityPolicy(serviceAccountName string) (
 			},
 			ReadOnlyRootFilesystem:          false,
 			DefaultAllowPrivilegeEscalation: nil,
-			AllowPrivilegeEscalation:        &t,
+			AllowPrivilegeEscalation:        pointer.Bool(true),
 			AllowedHostPaths: []policyv1beta1.AllowedHostPath{
 				{PathPrefix: common.PathOutputBaseDir, ReadOnly: false},
 			},
 		},
 	}
 
-	return []Object{clusterRole, clusterRoleBinding, serviceAccount, psp}, nil
+	return clusterRole, clusterRoleBinding, serviceAccount, psp, nil
 }

@@ -10,10 +10,10 @@ type Node struct {
 }
 
 type PodEndpoint struct {
-	Nodename  string `json:"nodename"`
-	Podname   string `json:"podname"`
-	ClusterIP string `json:"clusterIP"`
-	Port      int32  `json:"port"`
+	Nodename string `json:"nodename"`
+	Podname  string `json:"podname"`
+	PodIP    string `json:"podIP"`
+	Port     int32  `json:"port"`
 }
 
 type Endpoint struct {

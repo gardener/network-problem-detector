@@ -27,6 +27,8 @@ const (
 	NameDaemonSetAgentNodeNet = ApplicationName + "-host"
 	// NameDaemonSetAgentPodNet name of the daemon set running in the pod network
 	NameDaemonSetAgentPodNet = ApplicationName + "-pod"
+	// NameDeploymentAgentController name of the deployment running the agent controller
+	NameDeploymentAgentController = ApplicationName + "-controller"
 	// PathOutputBaseDir parente directory path of output directory with observations in pods
 	PathOutputBaseDir = "/var/lib/gardener"
 	// PathOutputDir path of output directory with observations in pods

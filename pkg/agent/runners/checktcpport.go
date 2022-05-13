@@ -59,7 +59,7 @@ func (a *checkTCPPortArgs) createRunner(cmd *cobra.Command, args []string) error
 		for _, pe := range a.runnerArgs.clusterCfg.PodEndpoints {
 			endpoints = append(endpoints, config.Endpoint{
 				Hostname: pe.Nodename,
-				IP:       pe.ClusterIP,
+				IP:       pe.PodIP,
 				Port:     int(pe.Port),
 			})
 		}

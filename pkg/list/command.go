@@ -88,7 +88,7 @@ func (lc *listCommand) list(ccmd *cobra.Command, args []string) error {
 	}
 	targetPort := lc.targetPort
 	if targetPort == 0 {
-		if strings.HasPrefix(podname, "nwpd-agent-node-net") {
+		if strings.HasPrefix(podname, common.NameDaemonSetAgentNodeNet) {
 			targetPort = common.NodeNetPodGRPCPort
 		} else {
 			targetPort = common.PodNetPodGRPCPort

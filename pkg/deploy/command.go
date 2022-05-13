@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 	"sigs.k8s.io/yaml"
@@ -27,7 +28,7 @@ import (
 	"github.com/gardener/network-problem-detector/pkg/common/config"
 )
 
-var defaultImage = "eu.gcr.io/gardener-project/test/network-problem-detector:v0.1.0-dev-220512b"
+var defaultImage = "eu.gcr.io/gardener-project/test/network-problem-detector:v0.1.0-dev-220513c"
 
 type deployCommand struct {
 	kubeconfig    string
@@ -35,6 +36,7 @@ type deployCommand struct {
 	delete        bool
 	pingEnabled   bool
 	pspEnabled    bool
+	inCluster     bool
 	defaultPeriod time.Duration
 	clientset     *kubernetes.Clientset
 	nodeList      *corev1.NodeList
@@ -47,7 +49,7 @@ func CreateDeployCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "deploy",
 		Short: "deploy nwpd daemonsets and deployments",
-		Long:  `deploy agent daemon sets (and leader?)`,
+		Long:  `deploy agent daemon sets and controller deployment`,
 	}
 	cmd.PersistentFlags().StringVar(&dc.kubeconfig, "kubeconfig", "", "kubeconfig for shoot cluster, uses KUBECONFIG if not specified.")
 	cmd.PersistentFlags().StringVar(&dc.image, "image", defaultImage, "the nwpd container image to use.")
@@ -55,26 +57,38 @@ func CreateDeployCmd() *cobra.Command {
 	cmd.PersistentFlags().BoolVar(&dc.pingEnabled, "enable-ping", false, "if ICMP pings should be used in addition to TCP connection checks")
 	cmd.PersistentFlags().BoolVar(&dc.pspEnabled, "enable-psp", false, "if pod security policy should be deployed")
 
-	allCmd := &cobra.Command{
-		Use:   "all",
-		Short: "deploy all agent daemonsets",
-		RunE:  dc.deployAgentAllDaemonsets,
+	agentCmd := &cobra.Command{
+		Use:     "agent",
+		Aliases: []string{"a"},
+		Short:   "deploy agent daemonsets",
+		RunE:    dc.deployAgentAllDaemonsets,
 	}
-	allCmd.Flags().BoolVar(&dc.delete, "delete", false, "if true, the deployment is deleted.")
+	agentCmd.Flags().BoolVar(&dc.delete, "delete", false, "if true, the daemonsets are deleted.")
+
+	controllerCmd := &cobra.Command{
+		Use:     "controller",
+		Aliases: []string{"c", "ctrl"},
+		Short:   "deploy controller for watching nodes and pods",
+		RunE:    dc.deployAgentControllerDeployment,
+	}
+	controllerCmd.Flags().BoolVar(&dc.delete, "delete", false, "if true, the deployment is deleted.")
 
 	printConfigCmd := &cobra.Command{
-		Use:   "print-default-config",
-		Short: "prints default configuration for nwpd-agent daemon sets.",
-		RunE:  dc.printDefaultConfig,
+		Use:     "print-default-config",
+		Aliases: []string{"print"},
+		Short:   "prints default configuration for nwpd-agent daemon sets.",
+		RunE:    dc.printDefaultConfig,
 	}
 
 	watchCmd := &cobra.Command{
-		Use:   "watch",
+		Use:   "run-controller",
 		Short: "watch nodes and pods to adjust configmap",
 		RunE:  dc.watch,
 	}
+	watchCmd.Flags().BoolVar(&dc.inCluster, "in-cluster", false, "if controller runs inside a pod")
 
-	cmd.AddCommand(allCmd)
+	cmd.AddCommand(agentCmd)
+	cmd.AddCommand(controllerCmd)
 	cmd.AddCommand(printConfigCmd)
 	cmd.AddCommand(watchCmd)
 	return cmd
@@ -93,20 +107,29 @@ func (dc *deployCommand) setup() error {
 }
 
 func (dc *deployCommand) setupClientSet() error {
-	if dc.kubeconfig == "" {
-		dc.kubeconfig = os.Getenv("KUBECONFIG")
-	}
-	if dc.kubeconfig == "" {
-		if home := homedir.HomeDir(); home != "" {
-			dc.kubeconfig = filepath.Join(home, ".kube", "config")
+	var err error
+	var config *rest.Config
+	if dc.inCluster {
+		config, err = rest.InClusterConfig()
+		if err != nil {
+			return fmt.Errorf("error on InClusterConfig: %s", err)
 		}
-	}
-	if dc.kubeconfig == "" {
-		return fmt.Errorf("cannot find kubeconfig: neither '--kubeconfig' option, env var 'KUBECONFIG', or file '$HOME/.kube/config' available")
-	}
-	config, err := clientcmd.BuildConfigFromFlags("", dc.kubeconfig)
-	if err != nil {
-		return fmt.Errorf("error on config from kubeconfig file %s: %s", dc.kubeconfig, err)
+	} else {
+		if dc.kubeconfig == "" {
+			dc.kubeconfig = os.Getenv("KUBECONFIG")
+		}
+		if dc.kubeconfig == "" {
+			if home := homedir.HomeDir(); home != "" {
+				dc.kubeconfig = filepath.Join(home, ".kube", "config")
+			}
+		}
+		if dc.kubeconfig == "" {
+			return fmt.Errorf("cannot find kubeconfig: neither '--kubeconfig' option, env var 'KUBECONFIG', or file '$HOME/.kube/config' available")
+		}
+		config, err = clientcmd.BuildConfigFromFlags("", dc.kubeconfig)
+		if err != nil {
+			return fmt.Errorf("error on config from kubeconfig file %s: %s", dc.kubeconfig, err)
+		}
 	}
 	dc.clientset, err = kubernetes.NewForConfig(config)
 	if err != nil {
@@ -171,7 +194,7 @@ func (dc *deployCommand) printDefaultConfig(cmd *cobra.Command, args []string) e
 }
 
 func (dc *deployCommand) deployAgentAllDaemonsets(cmd *cobra.Command, args []string) error {
-	log := logrus.WithField("cmd", "deploy-all")
+	log := logrus.WithField("cmd", "deploy-agent")
 	err := dc.deployAgent(log, false, dc.buildCommonConfigMap)
 	if err != nil {
 		return err
@@ -179,13 +202,57 @@ func (dc *deployCommand) deployAgentAllDaemonsets(cmd *cobra.Command, args []str
 	return dc.deployAgent(log, true, dc.buildCommonConfigMap)
 }
 
-func (dc *deployCommand) deployAgent(log logrus.FieldLogger, hostnetwork bool, buildConfigMap buildObject[*corev1.ConfigMap]) error {
-	ac := &AgentDeployConfig{
+func (dc *deployCommand) deployAgentControllerDeployment(cmd *cobra.Command, args []string) error {
+	log := logrus.WithField("cmd", "deploy-controller")
+
+	err := dc.setup()
+	if err != nil {
+		return err
+	}
+
+	ac := dc.buildAgentDeployConfig()
+	ctx := context.Background()
+	deployment, cr, crb, role, rolebinding, sa, err := ac.buildControllerDeployment()
+	if err != nil {
+		return err
+	}
+	for _, obj := range []Object{deployment, cr, crb, role, rolebinding, sa} {
+		if !dc.delete {
+			_, err = genericCreateOrUpdate(ctx, dc.clientset, obj)
+		} else {
+			err = genericDeleteWithLog(ctx, log, dc.clientset, obj)
+		}
+		if err != nil {
+			return err
+		}
+	}
+	if !dc.delete {
+		log.Infof("deployed deployment %s/%s", deployment.Namespace, deployment.Name)
+	}
+	return nil
+}
+
+func (dc *deployCommand) deleteAgentControllerDeployment(log logrus.FieldLogger) error {
+	ctx := context.Background()
+	name := common.NameDeploymentAgentController
+	if err := dc.clientset.AppsV1().Deployments(common.NamespaceKubeSystem).Delete(ctx, name, metav1.DeleteOptions{}); err != nil {
+		return err
+	}
+	log.Infof("daemonset %s/%s deleted", common.NamespaceKubeSystem, name)
+	return nil
+}
+
+func (dc *deployCommand) buildAgentDeployConfig() *AgentDeployConfig {
+	return &AgentDeployConfig{
 		Image:                    dc.image,
 		DefaultPeriod:            dc.defaultPeriod,
 		PingEnabled:              dc.pingEnabled,
 		PodSecurityPolicyEnabled: dc.pspEnabled,
 	}
+}
+
+func (dc *deployCommand) deployAgent(log logrus.FieldLogger, hostnetwork bool, buildConfigMap buildObject[*corev1.ConfigMap]) error {
+	ac := dc.buildAgentDeployConfig()
 	name, _, _ := ac.getNetworkConfig(hostnetwork)
 
 	err := dc.setup()
@@ -197,32 +264,41 @@ func (dc *deployCommand) deployAgent(log logrus.FieldLogger, hostnetwork bool, b
 		return dc.deleteDaemonSet(log, name, common.NameAgentConfigMap)
 	}
 
-	ctx := context.Background()
 	svc, err := ac.buildService(hostnetwork)
 	if err != nil {
 		return fmt.Errorf("error building service[%t]: %s", hostnetwork, err)
 	}
-	_, err = createOrUpdate(ctx, "service", dc.clientset.CoreV1().Services(common.NamespaceKubeSystem), svc)
-	if err != nil {
-		return err
-	}
-
 	cm, err := buildConfigMap()
 	if err != nil {
 		return fmt.Errorf("error building config map: %s", err)
 	}
-	_, err = createOrUpdate(ctx, "configmap", dc.clientset.CoreV1().ConfigMaps(common.NamespaceKubeSystem), cm)
-	if err != nil {
-		return err
+
+	ctx := context.Background()
+
+	serviceAccountName := ""
+	if ac.PodSecurityPolicyEnabled {
+		serviceAccountName = common.ApplicationName
+		cr, crb, sa, psp, err := ac.buildPodSecurityPolicy(serviceAccountName)
+		if err != nil {
+			return err
+		}
+		for _, obj := range []Object{cr, crb, sa, psp} {
+			_, err = genericCreateOrUpdate(ctx, dc.clientset, obj)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
-	ds, err := ac.buildDaemonSet(cm.GetName(), hostnetwork)
+	ds, err := ac.buildDaemonSet(cm.GetName(), serviceAccountName, hostnetwork)
 	if err != nil {
 		return fmt.Errorf("error building daemon set: %s", err)
 	}
-	_, err = createOrUpdate(ctx, "daemonset", dc.clientset.AppsV1().DaemonSets(common.NamespaceKubeSystem), ds)
-	if err != nil {
-		return err
+	for _, obj := range []Object{svc, cm, ds} {
+		_, err = genericCreateOrUpdate(ctx, dc.clientset, obj)
+		if err != nil {
+			return err
+		}
 	}
 
 	log.Infof("deployed daemonset %s/%s", ds.Namespace, ds.Name)
@@ -251,6 +327,26 @@ func (dc *deployCommand) deleteDaemonSet(log logrus.FieldLogger, name, configMap
 	}
 	if err3 != nil && !errors.IsNotFound(err3) {
 		return err3
+	}
+
+	if dc.pspEnabled {
+		return dc.deletePodSecurityPolicy(log)
+	}
+	return nil
+}
+
+func (dc *deployCommand) deletePodSecurityPolicy(log logrus.FieldLogger) error {
+	ac := dc.buildAgentDeployConfig()
+	ctx := context.Background()
+	serviceAccountName := common.ApplicationName
+	cr, crb, sa, psp, err := ac.buildPodSecurityPolicy(serviceAccountName)
+	if err != nil {
+		return err
+	}
+	for _, obj := range []Object{cr, crb, sa, psp} {
+		if err := genericDeleteWithLog(ctx, log, dc.clientset, obj); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -376,10 +472,10 @@ func (dc *deployCommand) buildClusterConfig(nodes []*corev1.Node, agentPods []*c
 
 	for _, p := range agentPods {
 		clusterConfig.PodEndpoints = append(clusterConfig.PodEndpoints, config.PodEndpoint{
-			Nodename:  p.Spec.NodeName,
-			Podname:   p.Name,
-			ClusterIP: p.Status.PodIP,
-			Port:      common.PodNetPodGRPCPort,
+			Nodename: p.Spec.NodeName,
+			Podname:  p.Name,
+			PodIP:    p.Status.PodIP,
+			Port:     common.PodNetPodGRPCPort,
 		})
 	}
 

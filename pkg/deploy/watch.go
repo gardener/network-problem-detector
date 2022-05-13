@@ -156,12 +156,17 @@ func (dc *deployCommand) watch(cmd *cobra.Command, args []string) error {
 			log.Errorf("marshal configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameAgentConfigMap, err)
 			continue
 		}
-		cm.Data[common.AgentConfigFilename] = string(cfgBytes)
-		if _, err := configmaps.Update(ctx, cm, metav1.UpdateOptions{}); err != nil {
-			log.Errorf("updating configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameAgentConfigMap, err)
-			continue
+		newContent := string(cfgBytes)
+		cm.Data[common.AgentConfigFilename] = newContent
+		if newContent != content {
+			if _, err := configmaps.Update(ctx, cm, metav1.UpdateOptions{}); err != nil {
+				log.Errorf("updating configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameAgentConfigMap, err)
+				continue
+			}
+			log.Infof("updated configmap %s/%s", common.NamespaceKubeSystem, common.NameAgentConfigMap)
+		} else {
+			log.Info("unchanged")
 		}
-		log.Infof("updated configmap %s/%s", common.NamespaceKubeSystem, common.NameAgentConfigMap)
 	}
 
 	return nil

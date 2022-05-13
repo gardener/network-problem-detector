@@ -17,7 +17,7 @@ An automated mechanism for aggregrating and collecting the the observations (=re
 3. Apply the two daemon sets (one for the node network, one for the pod network) with
 
    ```bash
-   ./nwpdcli deploy all
+   ./nwpdcli deploy agent
    ```
 
 This step will also provide a default configuration with jobs for the daemon sets on node and pod networks. See below for more details.
@@ -25,16 +25,22 @@ This step will also provide a default configuration with jobs for the daemon set
 4. Optional: In a second shell run the controller to update the configuration on changes of nodes and pod endpoints of the pod network daemon set with
 
    ```bash
-   ./nwpdcli deploy watch
+   ./nwpdcli deploy run-controller 
    ```
 
-5. Collect the observations from all nodes with
+   Alternatively install the agent controller with
+
+   ```bash
+   ./nwpdcli deploy controller 
+   ```
+
+6. Collect the observations from all nodes with
 
    ```bash
    ./nwpdcli collect
    ```
 
-6. Aggregate the observations in text or SVG form
+7. Aggregate the observations in text or SVG form
 
    ```bash
    ./nwpdcli aggr --minutes 10 --svg-output aggr.html
@@ -47,9 +53,14 @@ Your may apply filters on time window, source, destination or job ID to restrict
 
 8. Remove daemon sets with
 
+   ```bash
+   ./nwpdcli deploy agent --delete
+   ```
+
+9. Optional: Remove controller deployment  with
 
    ```bash
-   ./nwpdcli deploy all --delete
+   ./nwpdcli deploy controller --delete
    ```
 
 ## Default Configuration of Check "Jobs"
@@ -114,7 +125,7 @@ mDNS UDP broadcast discovery of the other nodes from all pods of the daemon set 
 
 #### Job ID `tcp-n2p`
 
-TCP connection check from all pods of the daemon set of the node network to pod endpoints (cluster IP, port of GRPC server) of the daemon set running in the pod network.
+TCP connection check from all pods of the daemon set of the node network to pod endpoints (pod IP, port of GRPC server) of the daemon set running in the pod network.
 
 #### Job ID `tcp-n2nodeport`
 
@@ -148,7 +159,7 @@ TCP connection check from all pods of the daemon set on the pod network to the p
 
 #### Job ID `tcp-p2p`
 
-TCP connection check from all pods of the daemon set on the pod network to pod endpoints (cluster IP, port of GRPC server) of the daemon set running in the pod network.
+TCP connection check from all pods of the daemon set on the pod network to pod endpoints (pod IP, port of GRPC server) of the daemon set running in the pod network.
 
 #### Job ID `tcp-p2nodeport`
 
