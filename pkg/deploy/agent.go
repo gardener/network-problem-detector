@@ -5,7 +5,6 @@
 package deploy
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"time"
@@ -18,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/pointer"
 	"sigs.k8s.io/yaml"
 
@@ -58,7 +56,7 @@ func DeployNetworkProblemDetectorAgent(config *AgentDeployConfig) ([]Object, err
 			return nil, err
 		}
 		objects = append(objects, svc)
-		ds, err := config.buildDaemonSet(common.NameAgentConfigMap, serviceAccountName, hostnetwork)
+		ds, err := config.buildDaemonSet(serviceAccountName, hostnetwork)
 		if err != nil {
 			return nil, err
 		}
@@ -134,7 +132,7 @@ func (ac *AgentDeployConfig) getNetworkConfig(hostnetwork bool) (name string, po
 	return
 }
 
-func (ac *AgentDeployConfig) buildDaemonSet(nameConfigMap, serviceAccountName string, hostNetwork bool) (*appsv1.DaemonSet, error) {
+func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwork bool) (*appsv1.DaemonSet, error) {
 	var (
 		requestCPU, _          = resource.ParseQuantity("10m")
 		limitCPU, _            = resource.ParseQuantity("50m")
@@ -198,7 +196,13 @@ func (ac *AgentDeployConfig) buildDaemonSet(nameConfigMap, serviceAccountName st
 						Name:            name,
 						Image:           ac.Image,
 						ImagePullPolicy: corev1.PullIfNotPresent,
-						Command:         []string{"/nwpdcli", "run-agent", fmt.Sprintf("--hostNetwork=%t", hostNetwork), "--config", "/config/" + common.AgentConfigFilename},
+						Command: []string{
+							"/nwpdcli",
+							"run-agent",
+							fmt.Sprintf("--hostNetwork=%t", hostNetwork),
+							"--config=/config/agent/" + common.AgentConfigFilename,
+							"--cluster-config=/config/cluster/" + common.ClusterConfigFilename,
+						},
 						Env: []corev1.EnvVar{
 							{
 								Name: common.EnvNodeName,
@@ -257,9 +261,14 @@ func (ac *AgentDeployConfig) buildDaemonSet(nameConfigMap, serviceAccountName st
 								MountPath: common.PathOutputDir,
 							},
 							{
-								Name:      "config",
+								Name:      "agent-config",
 								ReadOnly:  true,
-								MountPath: "/config",
+								MountPath: "/config/agent",
+							},
+							{
+								Name:      "cluster-config",
+								ReadOnly:  true,
+								MountPath: "/config/cluster",
 							},
 						},
 					}},
@@ -274,14 +283,29 @@ func (ac *AgentDeployConfig) buildDaemonSet(nameConfigMap, serviceAccountName st
 							},
 						},
 						{
-							Name: "config",
+							Name: "agent-config",
 							VolumeSource: corev1.VolumeSource{
 								ConfigMap: &corev1.ConfigMapVolumeSource{
-									LocalObjectReference: corev1.LocalObjectReference{Name: nameConfigMap},
+									LocalObjectReference: corev1.LocalObjectReference{Name: common.NameAgentConfigMap},
 									Items: []corev1.KeyToPath{
 										{
 											Key:  common.AgentConfigFilename,
 											Path: common.AgentConfigFilename,
+										},
+									},
+									DefaultMode: &defaultMode,
+								},
+							},
+						},
+						{
+							Name: "cluster-config",
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{Name: common.NameClusterConfigMap},
+									Items: []corev1.KeyToPath{
+										{
+											Key:  common.ClusterConfigFilename,
+											Path: common.ClusterConfigFilename,
 										},
 									},
 									DefaultMode: &defaultMode,
@@ -413,7 +437,7 @@ func (ac *AgentDeployConfig) buildControllerDeployment() (*appsv1.Deployment, *r
 				APIGroups:     []string{""},
 				Verbs:         []string{"get", "update", "patch"},
 				Resources:     []string{"configmaps"},
-				ResourceNames: []string{common.NameAgentConfigMap},
+				ResourceNames: []string{common.NameAgentConfigMap, common.NameClusterConfigMap},
 			},
 			{
 				APIGroups: []string{""},
@@ -535,7 +559,7 @@ func (ac *AgentDeployConfig) buildPodSecurityPolicy(serviceAccountName string) (
 	return clusterRole, clusterRoleBinding, serviceAccount, psp, nil
 }
 
-func (ac *AgentDeployConfig) BuildDefaultConfig(clusterConfig config.ClusterConfig, apiServer *config.Endpoint) (*config.AgentConfig, error) {
+func (ac *AgentDeployConfig) BuildAgentConfig(apiServer *config.Endpoint) (*config.AgentConfig, error) {
 	cfg := config.AgentConfig{
 		OutputDir:         common.PathOutputDir,
 		RetentionHours:    4,
@@ -589,7 +613,7 @@ func (ac *AgentDeployConfig) BuildDefaultConfig(clusterConfig config.ClusterConf
 				JobID: "tcp-n2api-ext",
 				Args:  []string{"checkTCPPort", "--endpoints", fmt.Sprintf("%s:%s:%d", apiServer.Hostname, apiServer.IP, apiServer.Port)},
 			})
-		cfg.PodNetwork.Jobs = append(cfg.NodeNetwork.Jobs,
+		cfg.PodNetwork.Jobs = append(cfg.PodNetwork.Jobs,
 			config.Job{
 				JobID: "tcp-p2api-ext",
 				Args:  []string{"checkTCPPort", "--endpoints", fmt.Sprintf("%s:%s:%d", apiServer.Hostname, apiServer.IP, apiServer.Port)},
@@ -608,21 +632,19 @@ func (ac *AgentDeployConfig) BuildDefaultConfig(clusterConfig config.ClusterConf
 					Args:  []string{"pingHost", "--hosts", apiServer.Hostname + ":" + apiServer.IP},
 				})
 		}
-		cfg.PodNetwork.Jobs = append(cfg.NodeNetwork.Jobs,
+		cfg.PodNetwork.Jobs = append(cfg.PodNetwork.Jobs,
 			config.Job{
 				JobID: "ping-p2n",
 				Args:  []string{"pingHost"},
 			})
 		if apiServer != nil {
-			cfg.PodNetwork.Jobs = append(cfg.NodeNetwork.Jobs,
+			cfg.PodNetwork.Jobs = append(cfg.PodNetwork.Jobs,
 				config.Job{
 					JobID: "ping-p2api-ext",
 					Args:  []string{"pingHost", "--hosts", apiServer.Hostname + ":" + apiServer.IP},
 				})
 		}
 	}
-
-	cfg.ClusterConfig = clusterConfig
 
 	return &cfg, nil
 }
@@ -644,14 +666,26 @@ func BuildAgentConfigMap(agentConfig *config.AgentConfig) (*corev1.ConfigMap, er
 	return cm, nil
 }
 
-func (ac *AgentDeployConfig) GetAPIServerEndpointFromShootInfo(clientset *kubernetes.Clientset) (*config.Endpoint, error) {
+func BuildClusterConfigMap(clusterConfig *config.ClusterConfig) (*corev1.ConfigMap, error) {
+	cfgBytes, err := yaml.Marshal(clusterConfig)
+	if err != nil {
+		return nil, err
+	}
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      common.NameClusterConfigMap,
+			Namespace: common.NamespaceKubeSystem,
+		},
+		Data: map[string]string{
+			common.ClusterConfigFilename: string(cfgBytes),
+		},
+	}
+	return cm, nil
+}
+
+func (ac *AgentDeployConfig) GetAPIServerEndpointFromShootInfo(shootInfo *corev1.ConfigMap) (*config.Endpoint, error) {
 	if ac.IgnoreAPIServerEndpoint {
 		return nil, nil
-	}
-	ctx := context.Background()
-	shootInfo, err := clientset.CoreV1().ConfigMaps(common.NamespaceKubeSystem).Get(ctx, "shoot-info", metav1.GetOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("error getting configmap %s/shoot-info", common.NamespaceKubeSystem)
 	}
 
 	domain, ok := shootInfo.Data["domain"]

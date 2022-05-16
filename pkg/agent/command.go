@@ -20,9 +20,10 @@ import (
 )
 
 var (
-	configFile  string
-	hostNetwork bool
-	grpcServer  *grpc.Server
+	agentConfigFile   string
+	clusterConfigFile string
+	hostNetwork       bool
+	grpcServer        *grpc.Server
 )
 
 func CreateRunAgentCmd() *cobra.Command {
@@ -31,7 +32,8 @@ func CreateRunAgentCmd() *cobra.Command {
 		Short: "runs agent server",
 		Long:  `The agent runs in a pod either on the host network or the pod network`,
 	}
-	cmd.Flags().StringVar(&configFile, "config", "agent.config", "file configuration of agent server.")
+	cmd.Flags().StringVar(&agentConfigFile, "config", "agent.config", "file configuration of agent server.")
+	cmd.Flags().StringVar(&clusterConfigFile, "cluster-config", "cluster.config", "file configuration of cluster nodes and agent pods.")
 	cmd.Flags().BoolVar(&hostNetwork, "hostNetwork", false, "if agent runs on host network.")
 	cmd.RunE = runAgent
 	return cmd
@@ -40,11 +42,14 @@ func CreateRunAgentCmd() *cobra.Command {
 func runAgent(cmd *cobra.Command, args []string) error {
 	log := logrus.WithField("cmd", "agent")
 
-	if configFile == "" {
+	if agentConfigFile == "" {
 		return fmt.Errorf("Missing --config option")
 	}
+	if clusterConfigFile == "" {
+		return fmt.Errorf("Missing --cluster-config option")
+	}
 
-	srv, realPort, err := startAgentServer(log, configFile, hostNetwork)
+	srv, realPort, err := startAgentServer(log, agentConfigFile, clusterConfigFile, hostNetwork)
 	if err != nil {
 		return fmt.Errorf("cannot start server: %w", err)
 	}
@@ -80,8 +85,8 @@ func runAgent(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func startAgentServer(log logrus.FieldLogger, configFile string, hostNetwork bool) (*server, int, error) {
-	agentServer, err := newServer(log, configFile, hostNetwork)
+func startAgentServer(log logrus.FieldLogger, agentConfigFile, clusterConfigFile string, hostNetwork bool) (*server, int, error) {
+	agentServer, err := newServer(log, agentConfigFile, clusterConfigFile, hostNetwork)
 	if err != nil {
 		return nil, 0, err
 	}

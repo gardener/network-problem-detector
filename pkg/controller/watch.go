@@ -140,31 +140,31 @@ func (cc *controllerCommand) watch(log logrus.FieldLogger) error {
 		}
 
 		configmaps := cc.Clientset.CoreV1().ConfigMaps(common.NamespaceKubeSystem)
-		cm, err := configmaps.Get(ctx, common.NameAgentConfigMap, metav1.GetOptions{})
+		cm, err := configmaps.Get(ctx, common.NameClusterConfigMap, metav1.GetOptions{})
 		if err != nil {
-			log.Errorf("loading configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameAgentConfigMap, err)
+			log.Errorf("loading configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameClusterConfigMap, err)
 			continue
 		}
-		content := cm.Data[common.AgentConfigFilename]
-		cfg := &config.AgentConfig{}
+		content := cm.Data[common.ClusterConfigFilename]
+		cfg := &config.ClusterConfig{}
 		if err := yaml.Unmarshal([]byte(content), cfg); err != nil {
-			log.Errorf("unmarshal configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameAgentConfigMap, err)
+			log.Errorf("unmarshal configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameClusterConfigMap, err)
 			continue
 		}
-		cfg.ClusterConfig, err = deploy.BuildClusterConfig(nodes, pods)
+		cfg, err = deploy.BuildClusterConfig(nodes, pods)
 		cfgBytes, err := yaml.Marshal(cfg)
 		if err != nil {
-			log.Errorf("marshal configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameAgentConfigMap, err)
+			log.Errorf("marshal configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameClusterConfigMap, err)
 			continue
 		}
 		newContent := string(cfgBytes)
-		cm.Data[common.AgentConfigFilename] = newContent
+		cm.Data[common.ClusterConfigFilename] = newContent
 		if newContent != content {
 			if _, err := configmaps.Update(ctx, cm, metav1.UpdateOptions{}); err != nil {
-				log.Errorf("updating configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameAgentConfigMap, err)
+				log.Errorf("updating configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameClusterConfigMap, err)
 				continue
 			}
-			log.Infof("updated configmap %s/%s", common.NamespaceKubeSystem, common.NameAgentConfigMap)
+			log.Infof("updated configmap %s/%s", common.NamespaceKubeSystem, common.NameClusterConfigMap)
 			cc.lastLoop.Store(last.UnixMilli())
 		} else {
 			log.Info("unchanged")

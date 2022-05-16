@@ -9,8 +9,6 @@ import (
 )
 
 type AgentConfig struct {
-	ClusterConfig
-
 	// OutputDir is the directory to store the observations.
 	OutputDir string `json:"outputDir,omitempty"`
 	// RetentionHours defines how many hours to keep old observations.

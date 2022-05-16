@@ -40,6 +40,20 @@ func LoadAgentConfig(configFile string, old *AgentConfig) (*AgentConfig, error) 
 	return cfg, nil
 }
 
+func LoadClusterConfig(configFile string) (*ClusterConfig, error) {
+	data, err := ioutil.ReadFile(configFile)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg := &ClusterConfig{}
+	err = yaml.Unmarshal(data, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshalling %s failed: %w", configFile, err)
+	}
+	return cfg, nil
+}
+
 func CloneAndShuffleNodes(items []Node) []Node {
 	if len(items) == 0 {
 		return nil
