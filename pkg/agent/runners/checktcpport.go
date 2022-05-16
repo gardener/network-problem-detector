@@ -20,10 +20,11 @@ import (
 )
 
 type checkTCPPortArgs struct {
-	runnerArgs *runnerArgs
-	nodePort   int
-	podDS      bool
-	endpoints  []string
+	runnerArgs   *runnerArgs
+	nodePort     int
+	podDS        bool
+	externalKAPI bool
+	endpoints    []string
 }
 
 func (a *checkTCPPortArgs) createRunner(cmd *cobra.Command, args []string) error {
@@ -63,6 +64,11 @@ func (a *checkTCPPortArgs) createRunner(cmd *cobra.Command, args []string) error
 				Port:     int(pe.Port),
 			})
 		}
+	} else if a.externalKAPI {
+		allowEmpty = true
+		if pe := a.runnerArgs.clusterCfg.KubeAPIServer; pe != nil {
+			endpoints = append(endpoints, *pe)
+		}
 	}
 
 	if !allowEmpty && len(endpoints) == 0 {
@@ -90,6 +96,7 @@ func createCheckTCPPortCmd(ra *runnerArgs) *cobra.Command {
 	cmd.Flags().StringSliceVar(&a.endpoints, "endpoints", nil, "endpoints in format <hostname>:<ip>.:<port>.")
 	cmd.Flags().IntVar(&a.nodePort, "node-port", 0, "port on nodes as alternative to specifying endpoints.")
 	cmd.Flags().BoolVar(&a.podDS, "endpoints-of-pod-ds", false, "uses known pod endpoints of the 'nwpd-agent-pod-net' service.")
+	cmd.Flags().BoolVar(&a.externalKAPI, "endpoint-external-kube-apiserver", false, "uses known external endpoint kube-apiserver.")
 	return cmd
 }
 
@@ -98,7 +105,7 @@ func NewCheckTCPPort(endpoints []config.Endpoint, rconfig RunnerConfig) *checkTC
 		return nil
 	}
 	return &checkTCPPort{
-		endpoints: config.CloneAndShuffleEndpoints(endpoints),
+		endpoints: config.CloneAndShuffle(endpoints),
 		config:    rconfig,
 	}
 }

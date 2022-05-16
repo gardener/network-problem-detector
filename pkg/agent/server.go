@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -35,7 +36,6 @@ type server struct {
 	clusterConfigFile string
 	hostNetwork       bool
 	jobs              []*runners.InternalJob
-	clusterCfg        config.ClusterConfig
 	revision          atomic.Int64
 	lastAgentConfig   *config.AgentConfig
 	lastClusterConfig *config.ClusterConfig
@@ -192,6 +192,7 @@ func (s *server) addOrReplaceJob(job *runners.InternalJob) error {
 		}
 	}
 	s.jobs = append(s.jobs, job)
+	s.log.Infof("starting job %s: %s", job.JobID, strings.Join(job.Args, " "))
 	return job.Start(s.obsChan)
 }
 
@@ -344,7 +345,7 @@ func (s *server) reloadConfig() {
 			s.log.Warnf("cannot apply new agent configuration from %s", s.agentConfigFile)
 			return
 		}
-		s.log.Infof("reloaded configuration from %s", s.agentConfigFile)
+		s.log.Infof("reloaded configuration from %s and %s", s.agentConfigFile, s.clusterConfigFile)
 	}
 }
 

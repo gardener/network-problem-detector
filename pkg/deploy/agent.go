@@ -6,7 +6,6 @@ package deploy
 
 import (
 	"fmt"
-	"net"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -444,6 +443,12 @@ func (ac *AgentDeployConfig) buildControllerDeployment() (*appsv1.Deployment, *r
 				Verbs:     []string{"create"},
 				Resources: []string{"configmaps"},
 			},
+			{
+				APIGroups:     []string{""},
+				Verbs:         []string{"get"},
+				Resources:     []string{"configmaps"},
+				ResourceNames: []string{common.NameGardenerShootInfo},
+			},
 		},
 	}
 	roleBinding := &rbacv1.RoleBinding{
@@ -559,7 +564,7 @@ func (ac *AgentDeployConfig) buildPodSecurityPolicy(serviceAccountName string) (
 	return clusterRole, clusterRoleBinding, serviceAccount, psp, nil
 }
 
-func (ac *AgentDeployConfig) BuildAgentConfig(apiServer *config.Endpoint) (*config.AgentConfig, error) {
+func (ac *AgentDeployConfig) BuildAgentConfig() (*config.AgentConfig, error) {
 	cfg := config.AgentConfig{
 		OutputDir:         common.PathOutputDir,
 		RetentionHours:    4,
@@ -607,16 +612,16 @@ func (ac *AgentDeployConfig) BuildAgentConfig(apiServer *config.Endpoint) (*conf
 		},
 	}
 
-	if apiServer != nil {
+	if !ac.IgnoreAPIServerEndpoint {
 		cfg.NodeNetwork.Jobs = append(cfg.NodeNetwork.Jobs,
 			config.Job{
 				JobID: "tcp-n2api-ext",
-				Args:  []string{"checkTCPPort", "--endpoints", fmt.Sprintf("%s:%s:%d", apiServer.Hostname, apiServer.IP, apiServer.Port)},
+				Args:  []string{"checkTCPPort", "--endpoint-external-kube-apiserver"},
 			})
 		cfg.PodNetwork.Jobs = append(cfg.PodNetwork.Jobs,
 			config.Job{
 				JobID: "tcp-p2api-ext",
-				Args:  []string{"checkTCPPort", "--endpoints", fmt.Sprintf("%s:%s:%d", apiServer.Hostname, apiServer.IP, apiServer.Port)},
+				Args:  []string{"checkTCPPort", "--endpoint-external-kube-apiserver"},
 			})
 	}
 	if ac.PingEnabled {
@@ -625,25 +630,11 @@ func (ac *AgentDeployConfig) BuildAgentConfig(apiServer *config.Endpoint) (*conf
 				JobID: "ping-n2n",
 				Args:  []string{"pingHost"},
 			})
-		if apiServer != nil {
-			cfg.NodeNetwork.Jobs = append(cfg.NodeNetwork.Jobs,
-				config.Job{
-					JobID: "ping-n2api-ext",
-					Args:  []string{"pingHost", "--hosts", apiServer.Hostname + ":" + apiServer.IP},
-				})
-		}
 		cfg.PodNetwork.Jobs = append(cfg.PodNetwork.Jobs,
 			config.Job{
 				JobID: "ping-p2n",
 				Args:  []string{"pingHost"},
 			})
-		if apiServer != nil {
-			cfg.PodNetwork.Jobs = append(cfg.PodNetwork.Jobs,
-				config.Job{
-					JobID: "ping-p2api-ext",
-					Args:  []string{"pingHost", "--hosts", apiServer.Hostname + ":" + apiServer.IP},
-				})
-		}
 	}
 
 	return &cfg, nil
@@ -681,25 +672,4 @@ func BuildClusterConfigMap(clusterConfig *config.ClusterConfig) (*corev1.ConfigM
 		},
 	}
 	return cm, nil
-}
-
-func (ac *AgentDeployConfig) GetAPIServerEndpointFromShootInfo(shootInfo *corev1.ConfigMap) (*config.Endpoint, error) {
-	if ac.IgnoreAPIServerEndpoint {
-		return nil, nil
-	}
-
-	domain, ok := shootInfo.Data["domain"]
-	if !ok {
-		return nil, fmt.Errorf("missing 'domain' key in configmap %s/shoot-info", common.NamespaceKubeSystem)
-	}
-	apiServer := "api." + domain
-	ips, err := net.LookupIP(apiServer)
-	if err != nil {
-		return nil, fmt.Errorf("error looking up shoot apiserver %s: %s", apiServer, err)
-	}
-	return &config.Endpoint{
-		Hostname: apiServer,
-		IP:       ips[0].String(),
-		Port:     443,
-	}, nil
 }

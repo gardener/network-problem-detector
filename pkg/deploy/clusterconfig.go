@@ -6,6 +6,7 @@ package deploy
 
 import (
 	"fmt"
+	"net"
 	"sort"
 	"strings"
 
@@ -14,8 +15,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func BuildClusterConfig(nodes []*corev1.Node, agentPods []*corev1.Pod) (*config.ClusterConfig, error) {
-	clusterConfig := &config.ClusterConfig{}
+func BuildClusterConfig(nodes []*corev1.Node, agentPods []*corev1.Pod, kubeAPIServer *config.Endpoint) (*config.ClusterConfig, error) {
+	clusterConfig := &config.ClusterConfig{
+		KubeAPIServer: kubeAPIServer,
+	}
 
 	for _, n := range nodes {
 		hostname := ""
@@ -56,5 +59,23 @@ func BuildClusterConfig(nodes []*corev1.Node, agentPods []*corev1.Pod) (*config.
 		}
 		return cmp < 0
 	})
+
 	return clusterConfig, nil
+}
+
+func GetAPIServerEndpointFromShootInfo(shootInfo *corev1.ConfigMap) (*config.Endpoint, error) {
+	domain, ok := shootInfo.Data["domain"]
+	if !ok {
+		return nil, fmt.Errorf("missing 'domain' key in configmap %s/%s", common.NamespaceKubeSystem, common.NameGardenerShootInfo)
+	}
+	apiServer := "api." + domain
+	ips, err := net.LookupIP(apiServer)
+	if err != nil {
+		return nil, fmt.Errorf("error looking up shoot apiserver %s: %s", apiServer, err)
+	}
+	return &config.Endpoint{
+		Hostname: apiServer,
+		IP:       ips[0].String(),
+		Port:     443,
+	}, nil
 }

@@ -17,6 +17,8 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+var DisableShuffleForTesting = false
+
 func init() {
 	rand.Seed(time.Now().UnixNano())
 }
@@ -54,42 +56,15 @@ func LoadClusterConfig(configFile string) (*ClusterConfig, error) {
 	return cfg, nil
 }
 
-func CloneAndShuffleNodes(items []Node) []Node {
+func CloneAndShuffle[T any](items []T) []T {
+	if DisableShuffleForTesting {
+		return items
+	}
 	if len(items) == 0 {
 		return nil
 	}
-	clone := make([]Node, len(items))
+	clone := make([]T, len(items))
 	copy(clone, items)
-	rand.Shuffle(len(clone), func(i, j int) { clone[i], clone[j] = clone[j], clone[i] })
-	return clone
-}
-
-func CloneAndShufflePodEndpoints(items []PodEndpoint) []PodEndpoint {
-	if len(items) == 0 {
-		return nil
-	}
-	clone := make([]PodEndpoint, len(items))
-	copy(clone, items)
-	rand.Shuffle(len(clone), func(i, j int) { clone[i], clone[j] = clone[j], clone[i] })
-	return clone
-}
-
-func CloneAndShuffleEndpoints(items []Endpoint) []Endpoint {
-	if len(items) == 0 {
-		return nil
-	}
-	clone := make([]Endpoint, len(items))
-	copy(clone, items)
-	rand.Shuffle(len(clone), func(i, j int) { clone[i], clone[j] = clone[j], clone[i] })
-	return clone
-}
-
-func CloneAndShuffleStrings(list []string) []string {
-	if len(list) == 0 {
-		return nil
-	}
-	clone := make([]string, len(list))
-	copy(clone, list)
 	rand.Shuffle(len(clone), func(i, j int) { clone[i], clone[j] = clone[j], clone[i] })
 	return clone
 }

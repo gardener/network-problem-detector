@@ -19,14 +19,12 @@ import (
 	"github.com/gardener/network-problem-detector/pkg/common/config"
 )
 
-var defaultImage = "eu.gcr.io/gardener-project/test/network-problem-detector:v0.1.0-dev-220516e"
+var defaultImage = "eu.gcr.io/gardener-project/test/network-problem-detector:v0.1.0-dev-220516k"
 
 type deployCommand struct {
 	common.ClientsetBase
 	delete            bool
 	agentDeployConfig AgentDeployConfig
-	nodeList          *corev1.NodeList
-	podList           *corev1.PodList
 }
 
 func CreateDeployCmd() *cobra.Command {
@@ -73,27 +71,6 @@ func (dc *deployCommand) setup() error {
 	if err := dc.SetupClientSet(); err != nil {
 		return err
 	}
-	if !dc.delete {
-		if err := dc.setupNodeAndPodLists(); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (dc *deployCommand) setupNodeAndPodLists() error {
-	var err error
-	ctx := context.Background()
-	dc.nodeList, err = dc.Clientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("error listing nodes", err)
-	}
-	dc.podList, err = dc.Clientset.CoreV1().Pods(common.NamespaceKubeSystem).List(ctx, metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("%s=%s", common.LabelKeyK8sApp, common.NameDaemonSetAgentPodNet),
-	})
-	if err != nil {
-		return fmt.Errorf("error listing pods", err)
-	}
 	return nil
 }
 
@@ -103,7 +80,7 @@ func (dc *deployCommand) printDefaultConfig(cmd *cobra.Command, args []string) e
 		return err
 	}
 
-	cfg, err := dc.buildDefaultConfig()
+	cfg, err := dc.agentDeployConfig.BuildAgentConfig()
 	if err != nil {
 		return err
 	}
@@ -273,29 +250,8 @@ func (dc *deployCommand) deletePodSecurityPolicy(log logrus.FieldLogger) error {
 	return nil
 }
 
-func (dc *deployCommand) buildDefaultConfig() (*config.AgentConfig, error) {
-	var apiServer *config.Endpoint
-	if !dc.agentDeployConfig.IgnoreAPIServerEndpoint {
-		ctx := context.Background()
-		shootInfo, err := dc.Clientset.CoreV1().ConfigMaps(common.NamespaceKubeSystem).Get(ctx, common.NameGardenerShootInfo, metav1.GetOptions{})
-		if err != nil {
-			return nil, fmt.Errorf("error getting configmap %s/%s", common.NamespaceKubeSystem, common.NameGardenerShootInfo)
-		}
-		apiServer, err = dc.agentDeployConfig.GetAPIServerEndpointFromShootInfo(shootInfo)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	agentConfig, err := dc.agentDeployConfig.BuildAgentConfig(apiServer)
-	if err != nil {
-		return nil, err
-	}
-	return agentConfig, err
-}
-
 func (dc *deployCommand) buildAgentConfigMap() (*corev1.ConfigMap, error) {
-	agentConfig, err := dc.buildDefaultConfig()
+	agentConfig, err := dc.agentDeployConfig.BuildAgentConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -303,33 +259,67 @@ func (dc *deployCommand) buildAgentConfigMap() (*corev1.ConfigMap, error) {
 }
 
 func (dc *deployCommand) buildClusterConfigMap() (*corev1.ConfigMap, error) {
-	clusterConfig, err := BuildClusterConfig(dc.nodes(), dc.agentPods())
+	var apiServer *config.Endpoint
+	if !dc.agentDeployConfig.IgnoreAPIServerEndpoint {
+		ctx := context.Background()
+		shootInfo, err := dc.Clientset.CoreV1().ConfigMaps(common.NamespaceKubeSystem).Get(ctx, common.NameGardenerShootInfo, metav1.GetOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("error getting configmap %s/%s", common.NamespaceKubeSystem, common.NameGardenerShootInfo)
+		}
+		apiServer, err = GetAPIServerEndpointFromShootInfo(shootInfo)
+		if err != nil {
+			return nil, err
+		}
+	}
+	nodes, err := dc.nodes()
+	if err != nil {
+		return nil, err
+	}
+	agentPods, err := dc.agentPods()
+	if err != nil {
+		return nil, err
+	}
+
+	clusterConfig, err := BuildClusterConfig(nodes, agentPods, apiServer)
 	if err != nil {
 		return nil, err
 	}
 	return BuildClusterConfigMap(clusterConfig)
 }
 
-func (dc *deployCommand) nodes() []*corev1.Node {
-	if dc.nodeList == nil {
-		return nil
+func (dc *deployCommand) nodes() ([]*corev1.Node, error) {
+	ctx := context.Background()
+	nodeList, err := dc.Clientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("error listing nodes", err)
+	}
+	if nodeList == nil {
+		return nil, nil
 	}
 	var nodes []*corev1.Node
-	for _, n := range dc.nodeList.Items {
+	for _, n := range nodeList.Items {
 		item := n
 		nodes = append(nodes, &item)
 	}
-	return nodes
+	return nodes, nil
 }
 
-func (dc *deployCommand) agentPods() []*corev1.Pod {
-	if dc.podList == nil {
-		return nil
+func (dc *deployCommand) agentPods() ([]*corev1.Pod, error) {
+	ctx := context.Background()
+	podList, err := dc.Clientset.CoreV1().Pods(common.NamespaceKubeSystem).List(ctx, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s", common.LabelKeyK8sApp, common.NameDaemonSetAgentPodNet),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error listing pods", err)
+	}
+
+	if podList == nil {
+		return nil, nil
 	}
 	var pods []*corev1.Pod
-	for _, p := range dc.podList.Items {
+	for _, p := range podList.Items {
 		item := p
 		pods = append(pods, &item)
 	}
-	return pods
+	return pods, nil
 }

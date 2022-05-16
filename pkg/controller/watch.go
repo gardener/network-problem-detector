@@ -14,6 +14,7 @@ import (
 	"github.com/gardener/network-problem-detector/pkg/common"
 	"github.com/gardener/network-problem-detector/pkg/common/config"
 	"github.com/gardener/network-problem-detector/pkg/deploy"
+	"k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/sirupsen/logrus"
 	"go.uber.org/atomic"
@@ -85,6 +86,15 @@ func (c *nodePodController) OnAdd(obj interface{}) {
 }
 
 func (c *nodePodController) OnUpdate(oldObj, newObj interface{}) {
+	if oldPod, ok := oldObj.(*corev1.Pod); ok {
+		if c.isRelevant(newObj) {
+			if newPod, ok := newObj.(*corev1.Pod); ok {
+				if oldPod.Status.Phase != corev1.PodRunning && newPod.Status.Phase == corev1.PodRunning {
+					c.hasUpdates.Store(true)
+				}
+			}
+		}
+	}
 }
 
 func (c *nodePodController) OnDelete(obj interface{}) {
@@ -120,8 +130,9 @@ func (cc *controllerCommand) watch(log logrus.FieldLogger) error {
 	var last time.Time
 	for {
 		now := time.Now()
-		if now.Sub(last) < 10*time.Second {
-			time.Sleep(now.Sub(last))
+		if delta := now.Sub(last); delta < 10*time.Second {
+			time.Sleep(delta)
+			continue
 		}
 		last = now
 		if !controller.HasUpdates() {
@@ -140,6 +151,22 @@ func (cc *controllerCommand) watch(log logrus.FieldLogger) error {
 		}
 
 		configmaps := cc.Clientset.CoreV1().ConfigMaps(common.NamespaceKubeSystem)
+		shootInfo, err := configmaps.Get(ctx, common.NameGardenerShootInfo, metav1.GetOptions{})
+		var apiServer *config.Endpoint
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				log.Errorf("loading configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameGardenerShootInfo, err)
+				continue
+			}
+		}
+		if err == nil {
+			apiServer, err = deploy.GetAPIServerEndpointFromShootInfo(shootInfo)
+			if err != nil {
+				log.Errorf("fetching kube-apiserver external endpoint failed: %s", err)
+				continue
+			}
+		}
+
 		cm, err := configmaps.Get(ctx, common.NameClusterConfigMap, metav1.GetOptions{})
 		if err != nil {
 			log.Errorf("loading configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameClusterConfigMap, err)
@@ -151,7 +178,7 @@ func (cc *controllerCommand) watch(log logrus.FieldLogger) error {
 			log.Errorf("unmarshal configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameClusterConfigMap, err)
 			continue
 		}
-		cfg, err = deploy.BuildClusterConfig(nodes, pods)
+		cfg, err = deploy.BuildClusterConfig(nodes, pods, apiServer)
 		cfgBytes, err := yaml.Marshal(cfg)
 		if err != nil {
 			log.Errorf("marshal configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameClusterConfigMap, err)

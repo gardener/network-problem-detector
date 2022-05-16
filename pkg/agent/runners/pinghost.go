@@ -66,7 +66,7 @@ func NewPingHost(nodes []config.Node, rconfig RunnerConfig) *pingHost {
 		return nil
 	}
 	return &pingHost{
-		nodes:  nodes,
+		nodes:  config.CloneAndShuffle(nodes),
 		config: rconfig,
 	}
 }
