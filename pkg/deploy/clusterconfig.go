@@ -15,9 +15,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func BuildClusterConfig(nodes []*corev1.Node, agentPods []*corev1.Pod, kubeAPIServer *config.Endpoint) (*config.ClusterConfig, error) {
+func BuildClusterConfig(nodes []*corev1.Node, agentPods []*corev1.Pod,
+	internalKubeAPIServer, kubeAPIServer *config.Endpoint) (*config.ClusterConfig, error) {
 	clusterConfig := &config.ClusterConfig{
-		KubeAPIServer: kubeAPIServer,
+		InternalKubeAPIServer: internalKubeAPIServer,
+		KubeAPIServer:         kubeAPIServer,
 	}
 
 	for _, n := range nodes {

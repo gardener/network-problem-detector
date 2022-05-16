@@ -23,6 +23,7 @@ type checkTCPPortArgs struct {
 	runnerArgs   *runnerArgs
 	nodePort     int
 	podDS        bool
+	internalKAPI bool
 	externalKAPI bool
 	endpoints    []string
 }
@@ -64,6 +65,11 @@ func (a *checkTCPPortArgs) createRunner(cmd *cobra.Command, args []string) error
 				Port:     int(pe.Port),
 			})
 		}
+	} else if a.internalKAPI {
+		allowEmpty = true
+		if pe := a.runnerArgs.clusterCfg.InternalKubeAPIServer; pe != nil {
+			endpoints = append(endpoints, *pe)
+		}
 	} else if a.externalKAPI {
 		allowEmpty = true
 		if pe := a.runnerArgs.clusterCfg.KubeAPIServer; pe != nil {
@@ -96,7 +102,8 @@ func createCheckTCPPortCmd(ra *runnerArgs) *cobra.Command {
 	cmd.Flags().StringSliceVar(&a.endpoints, "endpoints", nil, "endpoints in format <hostname>:<ip>.:<port>.")
 	cmd.Flags().IntVar(&a.nodePort, "node-port", 0, "port on nodes as alternative to specifying endpoints.")
 	cmd.Flags().BoolVar(&a.podDS, "endpoints-of-pod-ds", false, "uses known pod endpoints of the 'nwpd-agent-pod-net' service.")
-	cmd.Flags().BoolVar(&a.externalKAPI, "endpoint-external-kube-apiserver", false, "uses known external endpoint kube-apiserver.")
+	cmd.Flags().BoolVar(&a.internalKAPI, "endpoint-internal-kube-apiserver", false, "uses known internal endpoint of kube-apiserver.")
+	cmd.Flags().BoolVar(&a.externalKAPI, "endpoint-external-kube-apiserver", false, "uses known external endpoint of kube-apiserver.")
 	return cmd
 }
 

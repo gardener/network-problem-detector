@@ -7,8 +7,12 @@ package common
 const (
 	// 	MDNSServiceNodeNetAgent is the mDNS service name of the agent running on the host network.
 	MDNSServiceNodeNetAgent = "network-problem-detector-host-node._tcp"
+	// NamespaceDefault is the default namespace
+	NamespaceDefault = "default"
 	// NamespaceKubeSystem is the kube-system namespace
 	NamespaceKubeSystem = "kube-system"
+	// NameKubernetes is the kubernetes service name
+	NameKubernetes = "kubernetes"
 	// NameGardenerShootInfo is the name of the shoot info config map from Gardener
 	NameGardenerShootInfo = "shoot-info"
 	// AgentConfigFilename is the name of the config file

@@ -27,14 +27,17 @@ type ClusterConfig struct {
 	Nodes []Node `json:"nodes,omitempty"`
 	// PodEndpoints are the known pods of the 'nwpd-agent-pod-net' daemon set.
 	PodEndpoints []PodEndpoint `json:"podEndpoints,omitempty"`
+	// InternalKubeAPIServer is the discovered internal address of the kube-apiserver
+	InternalKubeAPIServer *Endpoint `json:"internalKubeAPIServer,omitempty"`
 	// KubeAPIServer is the discovered external address of the kube-apiserver (relies on Gardener shoot-info)
 	KubeAPIServer *Endpoint `json:"kubeAPIServer,omitempty"`
 }
 
 func (cc ClusterConfig) Shuffled() ClusterConfig {
 	return ClusterConfig{
-		Nodes:         CloneAndShuffle(cc.Nodes),
-		PodEndpoints:  CloneAndShuffle(cc.PodEndpoints),
-		KubeAPIServer: cc.KubeAPIServer,
+		Nodes:                 CloneAndShuffle(cc.Nodes),
+		PodEndpoints:          CloneAndShuffle(cc.PodEndpoints),
+		InternalKubeAPIServer: cc.InternalKubeAPIServer,
+		KubeAPIServer:         cc.KubeAPIServer,
 	}
 }

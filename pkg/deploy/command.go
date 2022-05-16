@@ -19,7 +19,7 @@ import (
 	"github.com/gardener/network-problem-detector/pkg/common/config"
 )
 
-var defaultImage = "eu.gcr.io/gardener-project/test/network-problem-detector:v0.1.0-dev-220516k"
+var defaultImage = "eu.gcr.io/gardener-project/test/network-problem-detector:v0.1.0-dev-220516m"
 
 type deployCommand struct {
 	common.ClientsetBase
@@ -259,9 +259,18 @@ func (dc *deployCommand) buildAgentConfigMap() (*corev1.ConfigMap, error) {
 }
 
 func (dc *deployCommand) buildClusterConfigMap() (*corev1.ConfigMap, error) {
+	ctx := context.Background()
+	svc, err := dc.Clientset.CoreV1().Services(common.NamespaceDefault).Get(ctx, common.NameKubernetes, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	internalApiServer := &config.Endpoint{
+		Hostname: common.NameKubernetes,
+		IP:       svc.Spec.ClusterIP,
+		Port:     int(svc.Spec.Ports[0].Port),
+	}
 	var apiServer *config.Endpoint
 	if !dc.agentDeployConfig.IgnoreAPIServerEndpoint {
-		ctx := context.Background()
 		shootInfo, err := dc.Clientset.CoreV1().ConfigMaps(common.NamespaceKubeSystem).Get(ctx, common.NameGardenerShootInfo, metav1.GetOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("error getting configmap %s/%s", common.NamespaceKubeSystem, common.NameGardenerShootInfo)
@@ -280,7 +289,7 @@ func (dc *deployCommand) buildClusterConfigMap() (*corev1.ConfigMap, error) {
 		return nil, err
 	}
 
-	clusterConfig, err := BuildClusterConfig(nodes, agentPods, apiServer)
+	clusterConfig, err := BuildClusterConfig(nodes, agentPods, internalApiServer, apiServer)
 	if err != nil {
 		return nil, err
 	}

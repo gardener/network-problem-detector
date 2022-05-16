@@ -150,9 +150,19 @@ func (cc *controllerCommand) watch(log logrus.FieldLogger) error {
 			continue
 		}
 
+		svc, err := cc.Clientset.CoreV1().Services(common.NamespaceDefault).Get(ctx, common.NameKubernetes, metav1.GetOptions{})
+		if err != nil {
+			log.Errorf("loading service %s/%s failed: %s", common.NamespaceDefault, common.NameKubernetes, err)
+			continue
+		}
+		internalApiServer := &config.Endpoint{
+			Hostname: common.NameKubernetes,
+			IP:       svc.Spec.ClusterIP,
+			Port:     int(svc.Spec.Ports[0].Port),
+		}
+		var apiServer *config.Endpoint
 		configmaps := cc.Clientset.CoreV1().ConfigMaps(common.NamespaceKubeSystem)
 		shootInfo, err := configmaps.Get(ctx, common.NameGardenerShootInfo, metav1.GetOptions{})
-		var apiServer *config.Endpoint
 		if err != nil {
 			if !errors.IsNotFound(err) {
 				log.Errorf("loading configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameGardenerShootInfo, err)
@@ -178,7 +188,7 @@ func (cc *controllerCommand) watch(log logrus.FieldLogger) error {
 			log.Errorf("unmarshal configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameClusterConfigMap, err)
 			continue
 		}
-		cfg, err = deploy.BuildClusterConfig(nodes, pods, apiServer)
+		cfg, err = deploy.BuildClusterConfig(nodes, pods, internalApiServer, apiServer)
 		cfgBytes, err := yaml.Marshal(cfg)
 		if err != nil {
 			log.Errorf("marshal configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameClusterConfigMap, err)

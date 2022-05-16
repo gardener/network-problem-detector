@@ -30,6 +30,11 @@ var _ = Describe("parser", func() {
 				{Nodename: "node1", Podname: "pod1", PodIP: "10.128.0.11", Port: 1234},
 				{Nodename: "node2", Podname: "pod2", PodIP: "10.128.0.12", Port: 1234},
 			},
+			InternalKubeAPIServer: &config.Endpoint{
+				Hostname: "kubernetes",
+				IP:       "100.64.0.1",
+				Port:     443,
+			},
 			KubeAPIServer: &config.Endpoint{
 				Hostname: "api.shoot.domain.com",
 				IP:       "1.2.3.4",
@@ -53,6 +58,9 @@ var _ = Describe("parser", func() {
 		endpointsPods = []config.Endpoint{
 			{Hostname: "node1", IP: "10.128.0.11", Port: 1234},
 			{Hostname: "node2", IP: "10.128.0.12", Port: 1234},
+		}
+		endpointsInternalKubeApiServer = []config.Endpoint{
+			{Hostname: "kubernetes", IP: "100.64.0.1", Port: 443},
 		}
 		endpointsKubeApiServer = []config.Endpoint{
 			{Hostname: "api.shoot.domain.com", IP: "1.2.3.4", Port: 443},
@@ -83,6 +91,7 @@ var _ = Describe("parser", func() {
 		Entry("checkTCPPort - invalid endpoint", clusterCfg1, config1, []string{"checkTCPPort", "--endpoints", "server:10.0.0.9:x"}, "invalid endpoint port x"),
 		Entry("checkTCPPort with node port", clusterCfg1, config1, []string{"checkTCPPort", "--node-port", "55555"}, NewCheckTCPPort(endpoints2, config1)),
 		Entry("checkTCPPort with pod endpoints", clusterCfg1, config1, []string{"checkTCPPort", "--endpoints-of-pod-ds"}, NewCheckTCPPort(endpointsPods, config1)),
+		Entry("checkTCPPort with internal kube-apiserver endpoints", clusterCfg1, config1, []string{"checkTCPPort", "--endpoint-internal-kube-apiserver"}, NewCheckTCPPort(endpointsInternalKubeApiServer, config1)),
 		Entry("checkTCPPort with external kube-apiserver endpoints", clusterCfg1, config1, []string{"checkTCPPort", "--endpoint-external-kube-apiserver"}, NewCheckTCPPort(endpointsKubeApiServer, config1)),
 		Entry("discoverMDNS", clusterCfg1, config1, []string{"discoverMDNS"}, NewDiscoverMDNS(config1)),
 	)

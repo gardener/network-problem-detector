@@ -402,6 +402,12 @@ func (ac *AgentDeployConfig) buildControllerDeployment() (*appsv1.Deployment, *r
 				Verbs:     []string{"get", "list", "watch"},
 				Resources: []string{"nodes"},
 			},
+			{
+				APIGroups:     []string{""},
+				Verbs:         []string{"get"},
+				Resources:     []string{"services"},
+				ResourceNames: []string{common.NameKubernetes},
+			},
 		},
 	}
 	clusterRoleBinding := &rbacv1.ClusterRoleBinding{
@@ -577,6 +583,10 @@ func (ac *AgentDeployConfig) BuildAgentConfig() (*config.AgentConfig, error) {
 			DefaultPeriod:   ac.DefaultPeriod,
 			Jobs: []config.Job{
 				{
+					JobID: "tcp-n2api-int",
+					Args:  []string{"checkTCPPort", "--endpoint-internal-kube-apiserver"},
+				},
+				{
 					JobID: "tcp-n2kubeproxy",
 					Args:  []string{"checkTCPPort", "--node-port", "10249"},
 				},
@@ -598,7 +608,7 @@ func (ac *AgentDeployConfig) BuildAgentConfig() (*config.AgentConfig, error) {
 			Jobs: []config.Job{
 				{
 					JobID: "tcp-p2api-int",
-					Args:  []string{"checkTCPPort", "--endpoints", "kubernetes:100.64.0.1:443"},
+					Args:  []string{"checkTCPPort", "--endpoint-internal-kube-apiserver"},
 				},
 				{
 					JobID: "tcp-p2kubeproxy",
