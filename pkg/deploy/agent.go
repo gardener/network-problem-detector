@@ -5,9 +5,12 @@
 package deploy
 
 import (
+	"context"
 	"fmt"
+	"net"
 	"time"
 
+	"github.com/spf13/pflag"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
@@ -15,9 +18,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/pointer"
+	"sigs.k8s.io/yaml"
 
 	"github.com/gardener/network-problem-detector/pkg/common"
+	"github.com/gardener/network-problem-detector/pkg/common/config"
 )
 
 // AgentDeployConfig contains configuration for deploying the nwpd agent daemonset
@@ -30,6 +36,8 @@ type AgentDeployConfig struct {
 	PingEnabled bool
 	// PodSecurityPolicyEnabled if psp should be deployed
 	PodSecurityPolicyEnabled bool
+	// IgnoreAPIServerEndpoint if the check of the API server endpoint should be ignored
+	IgnoreAPIServerEndpoint bool
 }
 
 // DeployNetworkProblemDetectorAgent returns K8s resources to be created.
@@ -58,6 +66,17 @@ func DeployNetworkProblemDetectorAgent(config *AgentDeployConfig) ([]Object, err
 	}
 
 	return objects, nil
+}
+
+func (ac *AgentDeployConfig) AddImageFlag(flags *pflag.FlagSet) {
+	flags.StringVar(&ac.Image, "image", defaultImage, "the nwpd container image to use.")
+}
+
+func (ac *AgentDeployConfig) AddOptionFlags(flags *pflag.FlagSet) {
+	flags.DurationVar(&ac.DefaultPeriod, "default-period", 10*time.Second, "default period for jobs.")
+	flags.BoolVar(&ac.PingEnabled, "enable-ping", false, "if ICMP pings should be used in addition to TCP connection checks")
+	flags.BoolVar(&ac.PodSecurityPolicyEnabled, "enable-psp", false, "if pod security policy should be deployed")
+	flags.BoolVar(&ac.IgnoreAPIServerEndpoint, "ignore-gardener-kube-api-server", false, "if true, does not try to lookup kube api-server of Gardener control plane")
 }
 
 func (ac *AgentDeployConfig) buildService(hostnetwork bool) (*corev1.Service, error) {
@@ -514,4 +533,139 @@ func (ac *AgentDeployConfig) buildPodSecurityPolicy(serviceAccountName string) (
 	}
 
 	return clusterRole, clusterRoleBinding, serviceAccount, psp, nil
+}
+
+func (ac *AgentDeployConfig) BuildDefaultConfig(clusterConfig config.ClusterConfig, apiServer *config.Endpoint) (*config.AgentConfig, error) {
+	cfg := config.AgentConfig{
+		OutputDir:         common.PathOutputDir,
+		RetentionHours:    4,
+		LogDroppingFactor: 0.9,
+		NodeNetwork: &config.NetworkConfig{
+			DataFilePrefix:  common.NameDaemonSetAgentNodeNet,
+			GRPCPort:        common.NodeNetPodGRPCPort,
+			HttpPort:        common.NodeNetPodHttpPort,
+			StartMDNSServer: true,
+			DefaultPeriod:   ac.DefaultPeriod,
+			Jobs: []config.Job{
+				{
+					JobID: "tcp-n2kubeproxy",
+					Args:  []string{"checkTCPPort", "--node-port", "10249"},
+				},
+				{
+					JobID: "mdns-n2n",
+					Args:  []string{"discoverMDNS", "--period", "1m"},
+				},
+				{
+					JobID: "tcp-n2p",
+					Args:  []string{"checkTCPPort", "--endpoints-of-pod-ds"},
+				},
+			},
+		},
+		PodNetwork: &config.NetworkConfig{
+			DataFilePrefix: common.NameDaemonSetAgentPodNet,
+			DefaultPeriod:  ac.DefaultPeriod,
+			GRPCPort:       common.PodNetPodGRPCPort,
+			HttpPort:       common.PodNetPodHttpPort,
+			Jobs: []config.Job{
+				{
+					JobID: "tcp-p2api-int",
+					Args:  []string{"checkTCPPort", "--endpoints", "kubernetes:100.64.0.1:443"},
+				},
+				{
+					JobID: "tcp-p2kubeproxy",
+					Args:  []string{"checkTCPPort", "--node-port", "10249"},
+				},
+				{
+					JobID: "tcp-p2p",
+					Args:  []string{"checkTCPPort", "--endpoints-of-pod-ds"},
+				},
+			},
+		},
+	}
+
+	if apiServer != nil {
+		cfg.NodeNetwork.Jobs = append(cfg.NodeNetwork.Jobs,
+			config.Job{
+				JobID: "tcp-n2api-ext",
+				Args:  []string{"checkTCPPort", "--endpoints", fmt.Sprintf("%s:%s:%d", apiServer.Hostname, apiServer.IP, apiServer.Port)},
+			})
+		cfg.PodNetwork.Jobs = append(cfg.NodeNetwork.Jobs,
+			config.Job{
+				JobID: "tcp-p2api-ext",
+				Args:  []string{"checkTCPPort", "--endpoints", fmt.Sprintf("%s:%s:%d", apiServer.Hostname, apiServer.IP, apiServer.Port)},
+			})
+	}
+	if ac.PingEnabled {
+		cfg.NodeNetwork.Jobs = append(cfg.NodeNetwork.Jobs,
+			config.Job{
+				JobID: "ping-n2n",
+				Args:  []string{"pingHost"},
+			})
+		if apiServer != nil {
+			cfg.NodeNetwork.Jobs = append(cfg.NodeNetwork.Jobs,
+				config.Job{
+					JobID: "ping-n2api-ext",
+					Args:  []string{"pingHost", "--hosts", apiServer.Hostname + ":" + apiServer.IP},
+				})
+		}
+		cfg.PodNetwork.Jobs = append(cfg.NodeNetwork.Jobs,
+			config.Job{
+				JobID: "ping-p2n",
+				Args:  []string{"pingHost"},
+			})
+		if apiServer != nil {
+			cfg.PodNetwork.Jobs = append(cfg.NodeNetwork.Jobs,
+				config.Job{
+					JobID: "ping-p2api-ext",
+					Args:  []string{"pingHost", "--hosts", apiServer.Hostname + ":" + apiServer.IP},
+				})
+		}
+	}
+
+	cfg.ClusterConfig = clusterConfig
+
+	return &cfg, nil
+}
+
+func BuildAgentConfigMap(agentConfig *config.AgentConfig) (*corev1.ConfigMap, error) {
+	cfgBytes, err := yaml.Marshal(agentConfig)
+	if err != nil {
+		return nil, err
+	}
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      common.NameAgentConfigMap,
+			Namespace: common.NamespaceKubeSystem,
+		},
+		Data: map[string]string{
+			common.AgentConfigFilename: string(cfgBytes),
+		},
+	}
+	return cm, nil
+}
+
+func (ac *AgentDeployConfig) GetAPIServerEndpointFromShootInfo(clientset *kubernetes.Clientset) (*config.Endpoint, error) {
+	if ac.IgnoreAPIServerEndpoint {
+		return nil, nil
+	}
+	ctx := context.Background()
+	shootInfo, err := clientset.CoreV1().ConfigMaps(common.NamespaceKubeSystem).Get(ctx, "shoot-info", metav1.GetOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("error getting configmap %s/shoot-info", common.NamespaceKubeSystem)
+	}
+
+	domain, ok := shootInfo.Data["domain"]
+	if !ok {
+		return nil, fmt.Errorf("missing 'domain' key in configmap %s/shoot-info", common.NamespaceKubeSystem)
+	}
+	apiServer := "api." + domain
+	ips, err := net.LookupIP(apiServer)
+	if err != nil {
+		return nil, fmt.Errorf("error looking up shoot apiserver %s: %s", apiServer, err)
+	}
+	return &config.Endpoint{
+		Hostname: apiServer,
+		IP:       ips[0].String(),
+		Port:     443,
+	}, nil
 }
