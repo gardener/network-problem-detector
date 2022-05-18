@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 REGISTRY              := eu.gcr.io/gardener-project
 EXECUTABLE            := nwpdcli
 PROJECT               := github.com/gardener/network-problem-detector
