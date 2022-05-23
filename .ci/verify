@@ -14,5 +14,4 @@ git config --global user.email "gardener@sap.com"
 git config --global user.name "Gardener CI/CD"
 
 make install-requirements
-make prepare-default-image
 make verify
