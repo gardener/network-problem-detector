@@ -129,6 +129,10 @@ mDNS UDP broadcast discovery of the other nodes from all pods of the daemon set 
 
 TCP connection check from all pods of the daemon set of the node network to pod endpoints (pod IP, port of GRPC server) of the daemon set running in the pod network.
 
+#### Job ID `nslookup-n`
+
+Lookup of IP addresses for external DNS name `eu.gcr.io`, and external name of Kube API server.
+
 ### Jobs as defined in the default configuration for the **pod network**
 
 #### Job ID `ping-p2n`
@@ -145,7 +149,7 @@ TCP connection check from all pods of the daemon set on the pod network to the e
 
 #### Job ID `tcp-p2api-int`
 
-TCP connection check from all pods of the daemon set on the pod network to the internal address of the Kube API server (`100.64.0.1:443`).
+TCP connection check from all pods of the daemon set on the pod network to the internal address of the Kube API server (e.g. `100.64.0.1:443`).
 
 #### Job ID `tcp-p2kubeproxy`
 
@@ -154,3 +158,7 @@ TCP connection check from all pods of the daemon set on the pod network to the p
 #### Job ID `tcp-p2p`
 
 TCP connection check from all pods of the daemon set on the pod network to pod endpoints (pod IP, port of GRPC server) of the daemon set running in the pod network.
+
+#### Job ID `nslookup-p`
+
+Lookup of IP addresses for external DNS name `eu.gcr.io`, and internal and external names of Kube API server.
