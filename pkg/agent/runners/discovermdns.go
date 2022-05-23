@@ -100,3 +100,10 @@ func normalise(dnsname string) string {
 	}
 	return dnsname
 }
+
+func fullQualified(dnsname string) string {
+	if !strings.HasSuffix(dnsname, ".") {
+		return dnsname + "."
+	}
+	return dnsname
+}

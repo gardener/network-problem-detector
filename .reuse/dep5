@@ -7,11 +7,14 @@ Source: https://github.com/gardener/<repo name>
 # source code
 
 Files:
+  .ci/*
   .github/*
   .gitignore
   CODEOWNERS
   go.mod
   go.sum
+  pkg/deploy/DEFAULT_IMAGE
+  vendor/modules.txt
   VERSION
 Copyright: 2020 SAP SE or an SAP affiliate company and Gardener contributors
 License: Apache-2.0
@@ -27,6 +30,10 @@ License: CC-BY-4.0
 
 # --------------------------------------------------
 # source dependencies
+
+Files: vendor/github.com/ajstarks/svgo/*
+Copyright: n/a (Anthony Starks?)
+License: CC-BY-4.0
 
 Files: vendor/github.com/beorn7/perks/*
 Copyright: Copyright 2012-2015 The Prometheus Authors
@@ -51,6 +58,10 @@ License: BSD-3-Clause
 Files: vendor/github.com/go-logr/logr/*
 Copyright: Copyright 2020 The logr
 License: Apache-2.0
+
+Files: vendor/github.com/go-ping/ping/*
+Copyright: Copyright (c) 2016 Cameron Sparr and contributors.
+License: MIT
 
 Files: vendor/github.com/gogo/protobuf/*
 Copyright: Copyright 2015 The Go Authors
@@ -85,6 +96,14 @@ Copyright: Copyright 2013 Dario Castane
 Copyright: Copyright 2009 The Go Authors
 License: BSD-3-Clause
 
+Files: vendor/github.com/inconshreveable/mousetrap/*
+Copyright: Copyright 2014 Alan Shreve
+License: Apache-2.0
+
+Files: vendor/github.com/jamiealquiza/tachymeter/*
+Copyright: Copyright (c) 2016 Jamie Alquiza
+License: MIT
+
 Files: vendor/github.com/json-iterator/go/*
 Copyright: Copyright (c) 2016 json-iterator
 License: MIT
@@ -92,6 +111,12 @@ License: MIT
 Files: vendor/github.com/matttproud/golang_protobuf_extensions/*
 Copyright: Copyright 2012 Matt T. Proud (matt.proud@gmail.com)
 License: Apache-2.0
+
+Files: vendor/github.com/miekg/dns/*
+Copyright: Copyright 2009 The Go Authors
+Copyright: Copyright 2011 Miek Gieben
+Copyright: Copyright 2014 CloudFlare
+License: BSD-3-Clause
 
 Files: vendor/github.com/modern-go/concurrent/*
 Copyright: n/a
@@ -146,6 +171,10 @@ Files: vendor/github.com/spf13/pflag/*
 Copyright: Copyright (c) 2012 Alex Ogier
 Copyright: Copyright (c) 2012 The Go Authors
 License: BSD-3-Clause
+
+Files: vendor/go.uber.org/atomic/*
+Copyright: Copyright (c) 2016 Uber Technologies, Inc.
+License: MIT
 
 Files: vendor/golang.org/x/net/*
 Copyright: Copyright (c) 2009 The Go Authors

@@ -6,6 +6,7 @@ package deploy
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 
@@ -19,7 +20,9 @@ import (
 	"github.com/gardener/network-problem-detector/pkg/common/config"
 )
 
-var defaultImage = "eu.gcr.io/gardener-project/test/network-problem-detector:v0.1.0-dev-220516m"
+// DefaultImage is the default image used for deployment
+//go:embed DEFAULT_IMAGE
+var defaultImage string
 
 type deployCommand struct {
 	common.ClientsetBase

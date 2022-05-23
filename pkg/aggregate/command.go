@@ -49,39 +49,39 @@ type edgeData struct {
 }
 
 type results struct {
-	bucketsData     []*bucketData
-	lastGoodMillis  int64
-	lastBadMillis   int64
-	count           int
-	cumulativeDelta int64
-	tachy           *tachymeter.Tachymeter
+	bucketsData      []*bucketData
+	lastOkMillis     int64
+	lastFailedMillis int64
+	count            int
+	cumulativeDelta  int64
+	tachy            *tachymeter.Tachymeter
 }
 
 type bucketData struct {
-	good               uint16
-	bad                uint16
+	okCount            uint16
+	failedCount        uint16
 	durationCumulative time.Duration
 	minDuration        time.Duration
 	maxDuration        time.Duration
 }
 
-func (r *results) incr(bucket int, good bool, duration time.Duration) {
+func (r *results) incr(bucket int, ok bool, duration time.Duration) {
 	bd := r.bucketsData[bucket]
 	if bd == nil {
 		bd = &bucketData{}
 		r.bucketsData[bucket] = bd
 	}
-	if good {
+	if ok {
 		bd.durationCumulative += duration
-		if bd.good == 0 || bd.minDuration > duration {
+		if bd.okCount == 0 || bd.minDuration > duration {
 			bd.minDuration = duration
 		}
-		if bd.good == 0 || bd.maxDuration < duration {
+		if bd.okCount == 0 || bd.maxDuration < duration {
 			bd.maxDuration = duration
 		}
-		bd.good++
+		bd.okCount++
 	} else {
-		bd.bad++
+		bd.failedCount++
 	}
 }
 
@@ -191,21 +191,21 @@ func (ac *aggrCommand) aggr(cmd *cobra.Command, args []string) error {
 			}
 			aggrBucket := int((timeMillis - startMillis) * int64(ac.buckets) / (endMillis - startMillis))
 			jr.incr(aggrBucket, obs.Ok, obs.Duration.AsDuration())
-			last := jr.lastGoodMillis
-			if jr.lastBadMillis > last {
-				last = jr.lastBadMillis
+			last := jr.lastOkMillis
+			if jr.lastFailedMillis > last {
+				last = jr.lastFailedMillis
 			}
 			if last > 0 {
 				jr.cumulativeDelta += timeMillis - last
 				jr.count++
 			}
 			if obs.Ok {
-				jr.lastGoodMillis = timeMillis
+				jr.lastOkMillis = timeMillis
 				if obs.Duration != nil {
 					jr.tachy.AddTime(obs.Duration.AsDuration())
 				}
 			} else {
-				jr.lastBadMillis = timeMillis
+				jr.lastFailedMillis = timeMillis
 			}
 			return nil
 		})
@@ -274,11 +274,11 @@ func (ac *aggrCommand) printJobResultLine(src, dest string, jr *results) {
 	var sb strings.Builder
 	for i := 0; i < ac.buckets; i++ {
 		bd := jr.bucketsData[i]
-		if bd == nil || (bd.good == 0 && bd.bad == 0) {
+		if bd == nil || (bd.okCount == 0 && bd.failedCount == 0) {
 			sb.WriteString(" ")
-		} else if bd.bad == 0 {
+		} else if bd.failedCount == 0 {
 			sb.WriteString(".")
-		} else if bd.good < bd.bad {
+		} else if bd.okCount < bd.failedCount {
 			sb.WriteString("E")
 		} else {
 			sb.WriteString("e")
@@ -304,18 +304,18 @@ func (ac *aggrCommand) writeOpenMetricsFile(jobs, srcNodes, destNodes []string, 
 	}
 	defer f.Close()
 	err = ac.writeMetrics(f, "nwpd_aggregation_counter", "gauge",
-		"The number of good or bad checks per aggregated bucket with labels source, destination, jobID, success.",
+		"The number of ok or failed checks per aggregated bucket with labels source, destination, jobID, success.",
 		jobs, srcNodes, destNodes, data, startUnixSecs, bucketMillis,
 		func(w io.StringWriter, name, src, dest, jobID string, bd *bucketData, t int64) error {
-			if bd.good > 0 {
+			if bd.okCount > 0 {
 				if _, err := w.WriteString(fmt.Sprintf("%s{src=%q,dest=%q,job=%q,ok=\"true\"} %d %d\n",
-					name, src, dest, jobID, bd.good, t)); err != nil {
+					name, src, dest, jobID, bd.okCount, t)); err != nil {
 					return err
 				}
 			}
-			if bd.bad > 0 {
+			if bd.failedCount > 0 {
 				if _, err := w.WriteString(fmt.Sprintf("%s{src=%q,dest=%q,job=%q,ok=\"false\"} %d %d\n",
-					name, src, dest, jobID, bd.bad, t)); err != nil {
+					name, src, dest, jobID, bd.failedCount, t)); err != nil {
 					return err
 				}
 			}
@@ -328,8 +328,8 @@ func (ac *aggrCommand) writeOpenMetricsFile(jobs, srcNodes, destNodes []string, 
 		"The mean latence per aggregated bucket with labels source, destination, jobID.",
 		jobs, srcNodes, destNodes, data, startUnixSecs, bucketMillis,
 		func(w io.StringWriter, name, src, dest, jobID string, bd *bucketData, t int64) error {
-			if bd.good > 0 {
-				d := (bd.durationCumulative / time.Duration(bd.good)).Milliseconds()
+			if bd.okCount > 0 {
+				d := (bd.durationCumulative / time.Duration(bd.okCount)).Milliseconds()
 				if _, err := w.WriteString(fmt.Sprintf("%s{src=%q,dest=%q,job=%q,value=\"mean\"} %d %d\n",
 					name, src, dest, jobID, d, t)); err != nil {
 					return err
@@ -443,24 +443,24 @@ func (ac *aggrCommand) writeSVGFile(jobs, srcNodes, destNodes []string, startUni
 			for i := 0; i < ac.buckets; i++ {
 				x := left + id*bucketWidth + i + 1
 				badJobs := map[string]struct{}{}
-				var good, bad int
+				var okCount, failedCount int
 				for _, jobID := range jobs {
 					jr := ed.jobResults[jobID]
 					if jr != nil {
 						bd := jr.bucketsData[i]
 						if bd != nil {
-							good += int(bd.good)
-							bad += int(bd.bad)
-							if bd.bad > 0 {
+							okCount += int(bd.okCount)
+							failedCount += int(bd.failedCount)
+							if bd.failedCount > 0 {
 								badJobs[jobID] = struct{}{}
 							}
 						}
 					}
 				}
-				if good > 0 {
+				if okCount > 0 {
 					canvas.Rect(x, y0+1, 1, 4, "fill: green; fill-opacity: .85;")
 				}
-				if bad > 0 {
+				if failedCount > 0 {
 					canvas.Group()
 					canvas.Rect(x, y0+5, 1, 4, "fill: red; fill-opacity: .85;")
 					label := strings.Join(toSortedArray(badJobs), ", ")

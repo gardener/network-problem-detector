@@ -65,6 +65,9 @@ var _ = Describe("parser", func() {
 		endpointsKubeApiServer = []config.Endpoint{
 			{Hostname: "api.shoot.domain.com", IP: "1.2.3.4", Port: 443},
 		}
+		dnsnames = []string{
+			"eu.gcr.io.", "foo.bar.", "kubernetes.default.svc.cluster.local.", "api.shoot.domain.com.",
+		}
 	)
 
 	DescribeTable("should parse runner commands",
@@ -82,17 +85,32 @@ var _ = Describe("parser", func() {
 			}
 		},
 
-		Entry("pingHost", clusterCfg1, config1, []string{"pingHost"}, NewPingHost(clusterCfg1.Nodes, config1)),
-		Entry("pingHost with hosts and custom period", clusterCfg1, config1, []string{"pingHost", "--period", "10s", "--hosts", "node3:10.0.0.13,node4:10.0.0.14"}, NewPingHost(clusterCfg2.Nodes, config2)),
-		Entry("pingHost - invalid option", clusterCfg1, config1, []string{"pingHost", "--foo"}, "unknown flag: --foo"),
-		Entry("pingHost - invalid host", clusterCfg1, config1, []string{"pingHost", "--hosts", "node3"}, "invalid host node3"),
-		Entry("checkTCPPort", clusterCfg1, config1, []string{"checkTCPPort", "--period", "10s", "--endpoints", "server:10.0.0.9:55555"}, NewCheckTCPPort(endpoints1, config2)),
-		Entry("checkTCPPort - missing endpoints", clusterCfg1, config1, []string{"checkTCPPort"}, "no endpoints"),
-		Entry("checkTCPPort - invalid endpoint", clusterCfg1, config1, []string{"checkTCPPort", "--endpoints", "server:10.0.0.9:x"}, "invalid endpoint port x"),
-		Entry("checkTCPPort with node port", clusterCfg1, config1, []string{"checkTCPPort", "--node-port", "55555"}, NewCheckTCPPort(endpoints2, config1)),
-		Entry("checkTCPPort with pod endpoints", clusterCfg1, config1, []string{"checkTCPPort", "--endpoints-of-pod-ds"}, NewCheckTCPPort(endpointsPods, config1)),
-		Entry("checkTCPPort with internal kube-apiserver endpoints", clusterCfg1, config1, []string{"checkTCPPort", "--endpoint-internal-kube-apiserver"}, NewCheckTCPPort(endpointsInternalKubeApiServer, config1)),
-		Entry("checkTCPPort with external kube-apiserver endpoints", clusterCfg1, config1, []string{"checkTCPPort", "--endpoint-external-kube-apiserver"}, NewCheckTCPPort(endpointsKubeApiServer, config1)),
-		Entry("discoverMDNS", clusterCfg1, config1, []string{"discoverMDNS"}, NewDiscoverMDNS(config1)),
+		Entry("pingHost", clusterCfg1, config1,
+			[]string{"pingHost"}, NewPingHost(clusterCfg1.Nodes, config1)),
+		Entry("pingHost with hosts and custom period", clusterCfg1, config1,
+			[]string{"pingHost", "--period", "10s", "--hosts", "node3:10.0.0.13,node4:10.0.0.14"}, NewPingHost(clusterCfg2.Nodes, config2)),
+		Entry("pingHost - invalid option", clusterCfg1, config1,
+			[]string{"pingHost", "--foo"}, "unknown flag: --foo"),
+		Entry("pingHost - invalid host", clusterCfg1, config1,
+			[]string{"pingHost", "--hosts", "node3"}, "invalid host node3"),
+		Entry("checkTCPPort", clusterCfg1, config1,
+			[]string{"checkTCPPort", "--period", "10s", "--endpoints", "server:10.0.0.9:55555"}, NewCheckTCPPort(endpoints1, config2)),
+		Entry("checkTCPPort - missing endpoints", clusterCfg1, config1,
+			[]string{"checkTCPPort"}, "no endpoints"),
+		Entry("checkTCPPort - invalid endpoint", clusterCfg1, config1,
+			[]string{"checkTCPPort", "--endpoints", "server:10.0.0.9:x"}, "invalid endpoint port x"),
+		Entry("checkTCPPort with node port", clusterCfg1, config1,
+			[]string{"checkTCPPort", "--node-port", "55555"}, NewCheckTCPPort(endpoints2, config1)),
+		Entry("checkTCPPort with pod endpoints", clusterCfg1, config1,
+			[]string{"checkTCPPort", "--endpoints-of-pod-ds"}, NewCheckTCPPort(endpointsPods, config1)),
+		Entry("checkTCPPort with internal kube-apiserver endpoints", clusterCfg1, config1,
+			[]string{"checkTCPPort", "--endpoint-internal-kube-apiserver"}, NewCheckTCPPort(endpointsInternalKubeApiServer, config1)),
+		Entry("checkTCPPort with external kube-apiserver endpoints", clusterCfg1, config1,
+			[]string{"checkTCPPort", "--endpoint-external-kube-apiserver"}, NewCheckTCPPort(endpointsKubeApiServer, config1)),
+		Entry("discoverMDNS", clusterCfg1, config1,
+			[]string{"discoverMDNS"}, NewDiscoverMDNS(config1)),
+		Entry("nslookup with host names", clusterCfg1, config1,
+			[]string{"nslookup", "--names", "eu.gcr.io,foo.bar.", "--name-internal-kube-apiserver", "--name-external-kube-apiserver"},
+			NewNSLookup(dnsnames, config1)),
 	)
 })

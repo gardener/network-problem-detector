@@ -7,7 +7,6 @@ package agent
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
@@ -87,7 +86,7 @@ func (s *server) setup() error {
 	}
 
 	reportPeriod := 60 * time.Second
-	timeWindow := 10 * time.Minute
+	timeWindow := 30 * time.Minute
 	if cfg.AggregationReportPeriodSeconds != nil {
 		reportPeriod = time.Duration(*cfg.AggregationReportPeriodSeconds) * time.Second
 	}
@@ -373,7 +372,7 @@ func (s *server) run() {
 			s.stop()
 			return
 		case obs := <-s.obsChan:
-			logObservation := s.lastAgentConfig.LogDroppingFactor == 0 || rand.Float32() > s.lastAgentConfig.LogDroppingFactor
+			logObservation := s.lastAgentConfig.LogObservations
 			if logObservation {
 				fields := logrus.Fields{
 					"src":   obs.SrcHost,

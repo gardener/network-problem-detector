@@ -13,8 +13,8 @@ type AgentConfig struct {
 	OutputDir string `json:"outputDir,omitempty"`
 	// RetentionHours defines how many hours to keep old observations.
 	RetentionHours int `json:"retentionHours,omitempty"`
-	// LogDroppingFactor defines the dropping factor of observations log entries
-	LogDroppingFactor float32 `json:"logDroppingFactor,omitempty"`
+	// LogObservations defines if observations should be logged additionally (for debug purposes)
+	LogObservations bool `json:"logObservations"`
 	// AggregationReportPeriodSeconds defines how often aggregated report is logged. Default is 60s if not set
 	AggregationReportPeriodSeconds *int `json:"aggregationReportPeriodSeconds,omitempty"`
 	// AggregationTimeWindowSeconds defines when a aggregation edge outdates if no new observations arrive

@@ -572,9 +572,9 @@ func (ac *AgentDeployConfig) buildPodSecurityPolicy(serviceAccountName string) (
 
 func (ac *AgentDeployConfig) BuildAgentConfig() (*config.AgentConfig, error) {
 	cfg := config.AgentConfig{
-		OutputDir:         common.PathOutputDir,
-		RetentionHours:    4,
-		LogDroppingFactor: 0.9,
+		OutputDir:       common.PathOutputDir,
+		RetentionHours:  4,
+		LogObservations: false,
 		NodeNetwork: &config.NetworkConfig{
 			DataFilePrefix:  common.NameDaemonSetAgentNodeNet,
 			GRPCPort:        common.NodeNetPodGRPCPort,
@@ -598,6 +598,10 @@ func (ac *AgentDeployConfig) BuildAgentConfig() (*config.AgentConfig, error) {
 					JobID: "tcp-n2p",
 					Args:  []string{"checkTCPPort", "--endpoints-of-pod-ds"},
 				},
+				{
+					JobID: "nslookup-n",
+					Args:  []string{"nslookup", "--names", "eu.gcr.io.", "--period", "1m"},
+				},
 			},
 		},
 		PodNetwork: &config.NetworkConfig{
@@ -618,11 +622,29 @@ func (ac *AgentDeployConfig) BuildAgentConfig() (*config.AgentConfig, error) {
 					JobID: "tcp-p2p",
 					Args:  []string{"checkTCPPort", "--endpoints-of-pod-ds"},
 				},
+				{
+					JobID: "nslookup-p",
+					Args:  []string{"nslookup", "--names", "eu.gcr.io.", "--name-internal-kube-apiserver", "--period", "1m"},
+				},
 			},
 		},
 	}
 
 	if !ac.IgnoreAPIServerEndpoint {
+		for i := range cfg.NodeNetwork.Jobs {
+			job := &cfg.NodeNetwork.Jobs[i]
+			if job.JobID == "nslookup-n" {
+				job.Args = append(job.Args, "--name-external-kube-apiserver")
+				break
+			}
+		}
+		for i := range cfg.PodNetwork.Jobs {
+			job := &cfg.PodNetwork.Jobs[i]
+			if job.JobID == "nslookup-p" {
+				job.Args = append(job.Args, "--name-external-kube-apiserver")
+				break
+			}
+		}
 		cfg.NodeNetwork.Jobs = append(cfg.NodeNetwork.Jobs,
 			config.Job{
 				JobID: "tcp-n2api-ext",

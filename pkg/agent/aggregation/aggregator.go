@@ -36,81 +36,84 @@ func (je jobEdge) String() string {
 }
 
 type jobEdgeAggregation struct {
-	firstTime       time.Time
-	totalCount      int
-	reportStart     time.Time
-	reportGoodCount int
-	reportBadCount  int
-	goodLast        time.Time
-	goodStrike      int
-	badLast         time.Time
-	badStrike       int
-	lastObs         *nwpd.Observation
+	firstTime          time.Time
+	totalCount         int
+	reportStart        time.Time
+	reportOkCount      int
+	reportFailureCount int
+	okLast             time.Time
+	okStrike           int
+	failedLast         time.Time
+	failedStrike       int
+	lastObs            *nwpd.Observation
 }
 
 func (jea *jobEdgeAggregation) IsOKSinceLastReport() bool {
-	return jea.reportBadCount == 0
+	return jea.reportFailureCount == 0
 }
 
 func (jea *jobEdgeAggregation) IsLastOK() bool {
-	return jea.goodStrike > 0
+	return jea.okStrike > 0
 }
 
-func (jea *jobEdgeAggregation) Report(je jobEdge) string {
+func (jea *jobEdgeAggregation) Report(je jobEdge, start time.Time) string {
 	if jea.IsOKSinceLastReport() {
 		msg := fmt.Sprintf("%s: OK", je)
 		if jea.lastObs != nil && jea.lastObs.Duration != nil {
 			d := jea.lastObs.Duration.AsDuration().Milliseconds()
 			msg += fmt.Sprintf(" (%d ms)", d)
 		}
+		if jea.lastObs != nil && jea.lastObs.Timestamp.AsTime().Before(start) {
+			msg += fmt.Sprintf(" last observed: %s", utctime(jea.lastObs.Timestamp.AsTime()))
+		}
 		return msg
 	}
 	seconds := int(time.Now().Sub(jea.reportStart).Seconds())
-	return fmt.Sprintf("%s: %d/%d checks failed in last %ds (last good: %s)", je,
-		jea.reportBadCount, jea.reportBadCount+jea.reportGoodCount, seconds, utctime(jea.goodLast))
+	return fmt.Sprintf("%s: %d/%d checks failed in last %ds (last ok: %s)", je,
+		jea.reportFailureCount, jea.reportFailureCount+jea.reportOkCount, seconds, utctime(jea.okLast))
 }
 
 func (jea *jobEdgeAggregation) add(obs *nwpd.Observation) {
 	jea.totalCount++
 	jea.lastObs = obs
 	if obs.Ok {
-		if jea.goodLast.Before(jea.badLast) {
-			jea.goodStrike = 0
+		if jea.okLast.Before(jea.failedLast) {
+			jea.okStrike = 0
 		}
-		jea.goodLast = obs.Timestamp.AsTime()
-		jea.goodStrike++
-		jea.reportGoodCount++
+		jea.okLast = obs.Timestamp.AsTime()
+		jea.okStrike++
+		jea.reportOkCount++
 	} else {
-		if jea.badLast.Before(jea.goodLast) {
-			jea.badStrike = 0
+		if jea.failedLast.Before(jea.okLast) {
+			jea.failedStrike = 0
 		}
-		jea.badLast = obs.Timestamp.AsTime()
-		jea.badStrike++
-		jea.reportBadCount++
+		jea.failedLast = obs.Timestamp.AsTime()
+		jea.failedStrike++
+		jea.reportFailureCount++
 	}
 }
 
 func (jea *jobEdgeAggregation) lastTimestamp() time.Time {
-	if jea.goodStrike > 0 {
-		return jea.goodLast
+	if jea.okStrike > 0 {
+		return jea.okLast
 	}
-	if jea.badStrike > 0 {
-		return jea.badLast
+	if jea.failedStrike > 0 {
+		return jea.failedLast
 	}
 	return jea.firstTime
 }
 
 type groupCounter struct {
-	good    map[string]int
+	ok      map[string]int
 	unknown map[string]int
-	bad     map[string]int
+	failed  map[string]int
 }
 
 func newGroupCounter() *groupCounter {
 	return &groupCounter{
-		good:    map[string]int{},
+		ok:      map[string]int{},
 		unknown: map[string]int{},
-		bad:     map[string]int{},
+		failed:  map[string]int{},
 	}
 }
 
@@ -118,23 +121,23 @@ func (c *groupCounter) inc(key string, ok *bool) {
 	if ok == nil {
 		c.unknown[key] += 1
 	} else if *ok {
-		c.good[key] += 1
+		c.ok[key] += 1
 	} else {
-		c.bad[key] += 1
+		c.failed[key] += 1
 	}
 }
 
 func (c *groupCounter) summary() string {
-	var bad []string
-	for key := range c.bad {
-		bad = append(bad, key)
+	var failedNames []string
+	for key := range c.failed {
+		failedNames = append(failedNames, key)
 	}
-	sort.Strings(bad)
+	sort.Strings(failedNames)
 	suffix := ""
-	if len(bad) > 0 {
-		suffix = fmt.Sprintf(" (failed items: %s)", strings.Join(bad, ","))
+	if len(failedNames) > 0 {
+		suffix = fmt.Sprintf(" (failed items: %s)", strings.Join(failedNames, ","))
 	}
-	return fmt.Sprintf("good/unknown/bad: %d/%d/%d%s", len(c.good), len(c.unknown), len(c.bad), suffix)
+	return fmt.Sprintf("ok/unknown/failed: %d/%d/%d%s", len(c.ok), len(c.unknown), len(c.failed), suffix)
 }
 
 var _ nwpd.ObservationListener = &obsAggr{}
@@ -173,17 +176,20 @@ func (a *obsAggr) Add(obs *nwpd.Observation) {
 
 type reportData struct {
 	fullReport  bool
-	timestamp   time.Time
+	start       time.Time
+	end         time.Time
 	jobCounter  *groupCounter
 	srcCounter  *groupCounter
 	destCounter *groupCounter
+	noissues    []string
 	issues      []string
 }
 
-func newReportData(fullReport bool) *reportData {
+func newReportData(start, end time.Time, fullReport bool) *reportData {
 	return &reportData{
 		fullReport:  fullReport,
-		timestamp:   time.Now(),
+		start:       start,
+		end:         end,
 		jobCounter:  newGroupCounter(),
 		srcCounter:  newGroupCounter(),
 		destCounter: newGroupCounter(),
@@ -192,20 +198,23 @@ func newReportData(fullReport bool) *reportData {
 
 func (r *reportData) add(je jobEdge, aggr *jobEdgeAggregation) {
 	var ok *bool
-	if aggr.reportBadCount != 0 || aggr.reportGoodCount != 0 {
-		good := aggr.reportBadCount == 0
+	if aggr.reportFailureCount != 0 || aggr.reportOkCount != 0 {
+		good := aggr.reportFailureCount == 0
 		ok = &good
 	}
 	r.jobCounter.inc(je.jobID, ok)
 	r.srcCounter.inc(je.srcHost, ok)
 	r.destCounter.inc(je.destHost, ok)
-	if r.fullReport || ok == nil || !*ok {
-		r.issues = append(r.issues, aggr.Report(je))
+	if ok != nil && !*ok {
+		r.issues = append(r.issues, aggr.Report(je, r.start))
+	} else if r.fullReport || ok == nil {
+		r.noissues = append(r.noissues, aggr.Report(je, r.start))
 	}
 }
 
 func (r *reportData) sort() {
 	sort.Strings(r.issues)
+	sort.Strings(r.noissues)
 }
 
 func (r *reportData) summary() []string {
@@ -219,11 +228,15 @@ func (r *reportData) summary() []string {
 func (a *obsAggr) reportToLog() {
 	report := a.calcReport(false, true)
 	report.sort()
+	prefix := "Report: "
+	for _, s := range report.noissues {
+		a.log.Info(prefix + s)
+	}
 	for _, s := range report.issues {
-		a.log.Warn(s)
+		a.log.Warn(prefix + s)
 	}
 	for _, s := range report.summary() {
-		a.log.Info(s)
+		a.log.Info(prefix + s)
 	}
 }
 
@@ -231,16 +244,18 @@ func (a *obsAggr) calcReport(fullReport, resetCount bool) *reportData {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 
-	outdated := time.Now().Add(-1 * a.timeWindow)
-	report := newReportData(fullReport)
+	end := time.Now()
+	start := end.Add(-1 * a.reportPeriod)
+	outdated := end.Add(-1 * a.timeWindow)
+	report := newReportData(start, end, fullReport)
 	for je, aggr := range a.aggregations {
 		if aggr.lastTimestamp().Before(outdated) {
 			delete(a.aggregations, je)
 		}
 		report.add(je, aggr)
 		if resetCount {
-			aggr.reportGoodCount = 0
-			aggr.reportBadCount = 0
+			aggr.reportOkCount = 0
+			aggr.reportFailureCount = 0
 		}
 	}
 	return report

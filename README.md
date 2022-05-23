@@ -1,5 +1,7 @@
 # Network Problem Detector POC
 
+[![reuse compliant](https://reuse.software/badge/reuse-compliant.svg)](https://reuse.software/)
+
 The Network Problem Detector performs and collects various checks between all nodes of a Kubernetes cluster, to its Kube API server and/or external endpoints. Checks are performed using TCP connections, PING (ICMP) or mDNS (UDP).
 
 ## Summary

@@ -29,6 +29,7 @@ func GetNewRoot(ra *runnerArgs) *cobra.Command {
 	root.AddCommand(createPingHostCmd(ra))
 	root.AddCommand(createCheckTCPPortCmd(ra))
 	root.AddCommand(createDiscoverMDNSCmd(ra))
+	root.AddCommand(createNSLookupCmd(ra))
 	return root
 }
 
