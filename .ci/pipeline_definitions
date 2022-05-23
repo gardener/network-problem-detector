@@ -15,7 +15,9 @@ network-problem-detector:
             registry: 'gcr-readwrite'
             image: 'eu.gcr.io/gardener-project/gardener/network-problem-detector'
             dockerfile: 'Dockerfile'
-    steps: ~
+    steps:
+      verify:
+        image: golang:1.18.2
   jobs:
     head-update:
       traits:
