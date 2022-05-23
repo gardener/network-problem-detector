@@ -67,6 +67,10 @@ generate-proto:
 install-requirements:
 	@go install -mod=vendor $(REPO_ROOT)/vendor/golang.org/x/tools/cmd/goimports
 
+.PHONY: prepare-default-image
+prepare-default-image:
+	@echo "$(IMAGE_REPOSITORY):$(EFFECTIVE_VERSION)" >$(REPO_ROOT)/pkg/deploy/DEFAULT_IMAGE
+
 .PHONY: docker-images
 docker-images:
 	@docker build -t $(IMAGE_REPOSITORY):$(IMAGE_TAG) -f Dockerfile .
