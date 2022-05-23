@@ -208,6 +208,4 @@ func (cc *controllerCommand) watch(log logrus.FieldLogger) error {
 			cc.lastLoop.Store(last.UnixMilli())
 		}
 	}
-
-	return nil
 }

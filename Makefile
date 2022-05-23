@@ -6,6 +6,7 @@ REGISTRY              := eu.gcr.io/gardener-project
 EXECUTABLE            := nwpdcli
 PROJECT               := github.com/gardener/network-problem-detector
 IMAGE_REPOSITORY      := $(REGISTRY)/gardener/network-problem-detector
+REPO_ROOT             := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 VERSION               := $(shell cat VERSION)
 IMAGE_TAG             := $(VERSION)
 EFFECTIVE_VERSION     := $(VERSION)-$(shell git rev-parse HEAD)
@@ -16,9 +17,13 @@ revendor:
 	@GO111MODULE=on go mod tidy
 
 
-#.PHONY: check
-#check:
-#	@.ci/check
+.PHONY: check
+check: $(GOIMPORTS)
+	go vet ./...
+
+.PHONY: format
+format:
+	@$(REPO_ROOT)/hack/format.sh ./cmd ./pkg
 
 .PHONY: build
 build:
@@ -44,11 +49,12 @@ release:
         -ldflags "-w -X main.Version=$(VERSION)" \
 	    ./cmd/nwpd
 
-#.PHONY: test
-#test:
-#	GO111MODULE=on go test -mod=vendor ./pkg/...
-#	@echo ----- Skipping long running integration tests, use \'make alltests\' to run all tests -----
-#	test/integration/run.sh $(kindargs) -- -skip Many $(args)
+.PHONY: test
+test:
+	GO111MODULE=on go test -mod=vendor ./pkg/...
+
+.PHONY: verify
+verify: check format test
 
 .PHONY: generate-proto
 generate-proto:
@@ -57,11 +63,9 @@ generate-proto:
     --experimental_allow_proto3_optional \
     pkg/common/nwpd/nwpd.proto
 
-#.PHONY: install-requirements
-#install-requirements:
-#	@go install -mod=vendor github.com/onsi/ginkgo/ginkgo
-#	@GO111MODULE=off go get golang.org/x/tools/cmd/goimports
-#	@./hack/install-requirements.sh
+.PHONY: install-requirements
+install-requirements:
+	@go install -mod=vendor $(REPO_ROOT)/vendor/golang.org/x/tools/cmd/goimports
 
 .PHONY: docker-images
 docker-images:

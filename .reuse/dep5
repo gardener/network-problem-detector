@@ -176,6 +176,10 @@ Files: vendor/go.uber.org/atomic/*
 Copyright: Copyright (c) 2016 Uber Technologies, Inc.
 License: MIT
 
+Files: vendor/golang.org/x/mod/*
+Copyright: Copyright (c) 2009 The Go Authors
+License: BSD-3-Clause
+
 Files: vendor/golang.org/x/net/*
 Copyright: Copyright (c) 2009 The Go Authors
 License: BSD-3-Clause
@@ -202,6 +206,14 @@ License: BSD-3-Clause
 
 Files: vendor/golang.org/x/time/*
 Copyright: Copyright (c) 2009 The Go Authors
+License: BSD-3-Clause
+
+Files: vendor/golang.org/x/tools/*
+Copyright: Copyright (c) 2009 The Go Authors
+License: BSD-3-Clause
+
+Files: vendor/golang.org/x/xerrors/*
+Copyright: Copyright 2018 The Go Authors
 License: BSD-3-Clause
 
 Files: vendor/google.golang.org/appengine/*
