@@ -81,7 +81,7 @@ func (s *server) getNetworkCfg() *config.NetworkConfig {
 }
 
 func (s *server) setup() error {
-	cfg, err := config.LoadAgentConfig(s.agentConfigFile, s.lastAgentConfig)
+	cfg, err := config.LoadAgentConfig(s.agentConfigFile)
 	if err != nil {
 		return err
 	}
@@ -100,10 +100,10 @@ func (s *server) setup() error {
 	}
 	s.aggregator = aggregation.NewObsAggregator(s.log.WithField("sub", "aggr"), reportPeriod, timeWindow)
 
-	return s.applyConfig(cfg)
+	return s.applyAgentConfig(cfg)
 }
 
-func (s *server) applyConfig(cfg *config.AgentConfig) error {
+func (s *server) applyAgentConfig(cfg *config.AgentConfig) error {
 	networkCfg := &config.NetworkConfig{}
 	if hostNetwork && cfg.HostNetwork != nil {
 		networkCfg = cfg.HostNetwork
@@ -154,8 +154,12 @@ func (s *server) applyConfig(cfg *config.AgentConfig) error {
 		}
 	}
 
-	s.lastAgentConfig = cfg
-	return nil
+	if clone, err := cfg.Clone(); err != nil {
+		return err
+	} else {
+		s.lastAgentConfig = clone
+		return nil
+	}
 }
 
 func (s *server) parseJob(job *config.Job) (*runners.InternalJob, error) {
@@ -343,7 +347,7 @@ func (s *server) reloadConfig() {
 	s.reloadLock.Lock()
 	defer s.reloadLock.Unlock()
 
-	agentConfig, err := config.LoadAgentConfig(s.agentConfigFile, s.lastAgentConfig)
+	agentConfig, err := config.LoadAgentConfig(s.agentConfigFile)
 	if err != nil {
 		s.log.Warnf("cannot load agent configuration from %s", s.agentConfigFile)
 		return
@@ -354,11 +358,10 @@ func (s *server) reloadConfig() {
 		return
 	}
 	changed := !reflect.DeepEqual(clusterConfig, s.lastClusterConfig) || !reflect.DeepEqual(agentConfig, s.lastAgentConfig)
-	s.lastAgentConfig = agentConfig
-	s.lastClusterConfig = clusterConfig
 	if changed {
 		s.log.Infof("reloaded configuration from %s and %s", s.agentConfigFile, s.clusterConfigFile)
-		err = s.applyConfig(agentConfig)
+		s.lastClusterConfig = clusterConfig
+		err = s.applyAgentConfig(agentConfig)
 		if err != nil {
 			s.log.Warnf("cannot apply new agent configuration from %s", s.agentConfigFile)
 			return

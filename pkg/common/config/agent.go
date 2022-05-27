@@ -5,6 +5,7 @@
 package config
 
 import (
+	"encoding/json"
 	"time"
 )
 
@@ -23,8 +24,18 @@ type AgentConfig struct {
 	HostNetwork *NetworkConfig `json:"hostNetwork,omitempty"`
 	// PodNetwork is the configuration specific for daemon set in node network
 	PodNetwork *NetworkConfig `json:"podNetwork,omitempty"`
+}
 
-	hashCode string
+func (c *AgentConfig) Clone() (*AgentConfig, error) {
+	data, err := json.Marshal(c)
+	if err != nil {
+		return nil, err
+	}
+	clone := &AgentConfig{}
+	if err = json.Unmarshal(data, clone); err != nil {
+		return nil, err
+	}
+	return clone, nil
 }
 
 type NetworkConfig struct {

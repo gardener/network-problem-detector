@@ -20,7 +20,7 @@ func init() {
 
 var _ = Describe("parser", func() {
 	var (
-		config1     = RunnerConfig{JobID: "test", Period: 15 * time.Second}
+		config1     = RunnerConfig{Job: config.Job{JobID: "test"}, Period: 15 * time.Second}
 		clusterCfg1 = config.ClusterConfig{
 			Nodes: []config.Node{
 				{Hostname: "node1", InternalIP: "10.0.0.11"},
@@ -41,7 +41,7 @@ var _ = Describe("parser", func() {
 				Port:     443,
 			},
 		}
-		config2     = RunnerConfig{JobID: "test", Period: 10 * time.Second}
+		config2     = RunnerConfig{Job: config.Job{JobID: "test"}, Period: 10 * time.Second}
 		clusterCfg2 = config.ClusterConfig{
 			Nodes: []config.Node{
 				{Hostname: "node3", InternalIP: "10.0.0.13"},

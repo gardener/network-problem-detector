@@ -174,22 +174,22 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 					HostNetwork: hostNetwork,
 					//PriorityClassName:             "system-node-critical",
 					TerminationGracePeriodSeconds: pointer.Int64(0),
-					/*
-						Tolerations: []corev1.Toleration{
-							{
-								Effect:   corev1.TaintEffectNoSchedule,
-								Operator: corev1.TolerationOpExists,
-							},
+					Tolerations: []corev1.Toleration{
+						{
+							Effect:   corev1.TaintEffectNoSchedule,
+							Operator: corev1.TolerationOpExists,
+						},
+						/*
 							{
 								Key:      "CriticalAddonsOnly",
 								Operator: corev1.TolerationOpExists,
 							},
-							{
-								Effect:   corev1.TaintEffectNoExecute,
-								Operator: corev1.TolerationOpExists,
-							},
+						*/
+						{
+							Effect:   corev1.TaintEffectNoExecute,
+							Operator: corev1.TolerationOpExists,
 						},
-					*/
+					},
 					AutomountServiceAccountToken: pointer.Bool(false),
 					ServiceAccountName:           serviceAccountName,
 					Containers: []corev1.Container{{
@@ -359,10 +359,10 @@ func (ac *AgentDeployConfig) buildControllerDeployment() (*appsv1.Deployment, *r
 								Effect:   corev1.TaintEffectNoSchedule,
 								Operator: corev1.TolerationOpExists,
 							},
-							{
-								Key:      "CriticalAddonsOnly",
-								Operator: corev1.TolerationOpExists,
-							},
+								{
+									Key:      "CriticalAddonsOnly",
+									Operator: corev1.TolerationOpExists,
+								},
 							{
 								Effect:   corev1.TaintEffectNoExecute,
 								Operator: corev1.TolerationOpExists,
@@ -491,7 +491,6 @@ func (ac *AgentDeployConfig) buildControllerDeployment() (*appsv1.Deployment, *r
 	return deployment, clusterRole, clusterRoleBinding, role, roleBinding, serviceAccount, nil
 }
 
-// TODO test and fine-tuning
 func (ac *AgentDeployConfig) buildPodSecurityPolicy(serviceAccountName string) (*rbacv1.ClusterRole, *rbacv1.ClusterRoleBinding, *corev1.ServiceAccount, *policyv1beta1.PodSecurityPolicy, error) {
 	roleName := "gardener.cloud:psp:kube-system:" + common.ApplicationName
 	resourceName := "gardener.kube-system." + common.ApplicationName
@@ -595,8 +594,8 @@ func (ac *AgentDeployConfig) BuildAgentConfig() (*config.AgentConfig, error) {
 					Args:  []string{"checkTCPPort", "--endpoint-internal-kube-apiserver", "--scale-period"},
 				},
 				{
-					JobID: "tcp-n2kubeproxy",
-					Args:  []string{"checkTCPPort", "--node-port", "10249"},
+					JobID: "tcp-n2n",
+					Args:  []string{"checkTCPPort", "--node-port", fmt.Sprintf("%d", common.HostNetPodGRPCPort)},
 				},
 				{
 					JobID: "mdns-n2n",
@@ -623,8 +622,8 @@ func (ac *AgentDeployConfig) BuildAgentConfig() (*config.AgentConfig, error) {
 					Args:  []string{"checkTCPPort", "--endpoint-internal-kube-apiserver", "--scale-period"},
 				},
 				{
-					JobID: "tcp-p2kubeproxy",
-					Args:  []string{"checkTCPPort", "--node-port", "10249"},
+					JobID: "tcp-p2n",
+					Args:  []string{"checkTCPPort", "--node-port", fmt.Sprintf("%d", common.HostNetPodGRPCPort)},
 				},
 				{
 					JobID: "tcp-p2p",

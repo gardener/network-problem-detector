@@ -7,8 +7,6 @@
 package config
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -23,14 +21,10 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-func LoadAgentConfig(configFile string, old *AgentConfig) (*AgentConfig, error) {
+func LoadAgentConfig(configFile string) (*AgentConfig, error) {
 	data, err := ioutil.ReadFile(configFile)
 	if err != nil {
 		return nil, err
-	}
-	hashCode := hex.EncodeToString(sha256.New().Sum(data))
-	if old != nil && old.hashCode == hashCode {
-		return old, nil
 	}
 
 	cfg := &AgentConfig{}
@@ -38,7 +32,6 @@ func LoadAgentConfig(configFile string, old *AgentConfig) (*AgentConfig, error) 
 	if err != nil {
 		return nil, fmt.Errorf("unmarshalling %s failed: %w", configFile, err)
 	}
-	cfg.hashCode = hashCode
 	return cfg, nil
 }
 
