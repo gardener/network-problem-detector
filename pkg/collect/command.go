@@ -54,7 +54,7 @@ func (cc *collectCommand) collect(cmd *cobra.Command, args []string) error {
 
 	ctx := context.Background()
 	list, err := cc.Clientset.CoreV1().Pods(common.NamespaceKubeSystem).List(ctx, metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("%s=%s", common.LabelKeyK8sApp, common.NameDaemonSetAgentNodeNet),
+		LabelSelector: fmt.Sprintf("%s=%s", common.LabelKeyK8sApp, common.NameDaemonSetAgentHostNet),
 	})
 	if err != nil {
 		return fmt.Errorf("listing pods failed: %w", err)

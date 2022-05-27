@@ -67,7 +67,7 @@ func runAgent(cmd *cobra.Command, args []string) error {
 			ips = append(ips, ip)
 		}
 		info := []string{"network problem detector agent server"}
-		service, err := mdns.NewMDNSService(nodeName, common.MDNSServiceNodeNetAgent, "", "", realPort, ips, info)
+		service, err := mdns.NewMDNSService(nodeName, common.MDNSServiceHostNetAgent, "", "", realPort, ips, info)
 		if err != nil {
 			return fmt.Errorf("NewMDNSService failed: %w", err)
 		}

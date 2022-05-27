@@ -19,8 +19,8 @@ type AgentConfig struct {
 	AggregationReportPeriodSeconds *int `json:"aggregationReportPeriodSeconds,omitempty"`
 	// AggregationTimeWindowSeconds defines when a aggregation edge outdates if no new observations arrive
 	AggregationTimeWindowSeconds *int `json:"aggregationTimeWindowSeconds,omitempty"`
-	// NodeNetwork is the configuration specific for daemon set in node network
-	NodeNetwork *NetworkConfig `json:"nodeNetwork,omitempty"`
+	// HostNetwork is the configuration specific for daemon set in node network
+	HostNetwork *NetworkConfig `json:"hostNetwork,omitempty"`
 	// PodNetwork is the configuration specific for daemon set in node network
 	PodNetwork *NetworkConfig `json:"podNetwork,omitempty"`
 

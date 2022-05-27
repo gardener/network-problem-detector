@@ -40,10 +40,8 @@ func (a *pingHostArgs) createRunner(cmd *cobra.Command, args []string) error {
 	} else {
 		nodes = a.runnerArgs.clusterCfg.Nodes
 	}
-	config := a.runnerArgs.config
-	if a.runnerArgs.period != 0 {
-		config.Period = a.runnerArgs.period
-	}
+
+	config := a.runnerArgs.prepareConfig()
 	if r := NewPingHost(nodes, config); r != nil {
 		a.runnerArgs.runner = r
 	}
@@ -81,6 +79,10 @@ var _ Runner = &pingHost{}
 
 func (r *pingHost) Config() RunnerConfig {
 	return r.config
+}
+
+func (r *pingHost) Description() string {
+	return fmt.Sprintf("%d hosts", len(r.nodes))
 }
 
 func (r *pingHost) Run(ch chan<- *nwpd.Observation) {

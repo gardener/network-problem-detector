@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"strings"
 	"sync"
 	"time"
 
@@ -19,49 +18,47 @@ import (
 )
 
 type RunnerConfig struct {
-	JobID  string
+	config.Job
 	Period time.Duration
 }
 
 type Runner interface {
 	Run(ch chan<- *nwpd.Observation)
 	Config() RunnerConfig
+	Description() string
 }
 
 type InternalJob struct {
-	JobID string
-	Args  []string
-
-	runner Runner
-	ticker *time.Ticker
-	done   chan struct{}
-	wg     sync.WaitGroup
+	runner   Runner
+	ticker   *time.Ticker
+	done     chan struct{}
+	wg       sync.WaitGroup
+	lastTick time.Time
 }
 
-func NewInternalJob(job *config.Job, runner Runner) *InternalJob {
+func NewInternalJob(runner Runner) *InternalJob {
 	return &InternalJob{
-		JobID:  job.JobID,
-		Args:   job.Args[:],
 		runner: runner,
 	}
 }
 
-func (j *InternalJob) Matches(filter string) bool {
-	if filter == "" {
-		return true
-	}
-	if strings.Contains(j.JobID, filter) {
-		return true
-	}
-	for _, arg := range j.Args {
-		if strings.Contains(arg, filter) {
-			return true
-		}
-	}
-	return false
+func (j *InternalJob) JobID() string {
+	return j.runner.Config().JobID
 }
 
-func (j *InternalJob) Start(ch chan<- *nwpd.Observation) error {
+func (j *InternalJob) Period() time.Duration {
+	return j.runner.Config().Period
+}
+
+func (j *InternalJob) Config() RunnerConfig {
+	return j.runner.Config()
+}
+
+func (j *InternalJob) Description() string {
+	return j.runner.Description()
+}
+
+func (j *InternalJob) Start(ch chan<- *nwpd.Observation, initialWait time.Duration) error {
 	if j.ticker != nil {
 		return fmt.Errorf("already started")
 	}
@@ -75,8 +72,10 @@ func (j *InternalJob) Start(ch chan<- *nwpd.Observation) error {
 
 	j.wg.Add(1)
 	go func() {
+		time.Sleep(initialWait)
 	loop:
 		for {
+			j.lastTick = time.Now()
 			j.runner.Run(ch)
 			select {
 			case <-j.done:
@@ -93,13 +92,13 @@ func (j *InternalJob) Start(ch chan<- *nwpd.Observation) error {
 	return nil
 }
 
-func (j *InternalJob) Stop() error {
+func (j *InternalJob) Stop() (time.Duration, error) {
 	if j.ticker == nil || j.runner == nil {
-		return nil
+		return 0, nil
 	}
 	j.ticker.Stop()
 	j.done <- struct{}{}
 	j.wg.Wait()
 	j.ticker = nil
-	return nil
+	return time.Now().Sub(j.lastTick), nil
 }

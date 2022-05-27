@@ -81,11 +81,7 @@ func (a *checkTCPPortArgs) createRunner(cmd *cobra.Command, args []string) error
 		return fmt.Errorf("no endpoints")
 	}
 
-	config := a.runnerArgs.config
-	if a.runnerArgs.period != 0 {
-		config.Period = a.runnerArgs.period
-	}
-
+	config := a.runnerArgs.prepareConfig()
 	if r := NewCheckTCPPort(endpoints, config); r != nil {
 		a.runnerArgs.runner = r
 	}
@@ -127,6 +123,10 @@ var _ Runner = &checkTCPPort{}
 
 func (r *checkTCPPort) Config() RunnerConfig {
 	return r.config
+}
+
+func (r *checkTCPPort) Description() string {
+	return fmt.Sprintf("%d endpoints", len(r.endpoints))
 }
 
 func (r *checkTCPPort) Run(ch chan<- *nwpd.Observation) {

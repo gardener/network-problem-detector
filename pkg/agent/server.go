@@ -7,14 +7,17 @@ package agent
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"path"
 	"reflect"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/gardener/network-problem-detector/pkg/agent/aggregation"
 	"github.com/gardener/network-problem-detector/pkg/agent/db"
 	"github.com/gardener/network-problem-detector/pkg/agent/runners"
@@ -28,13 +31,16 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+type jobid = string
+
 type server struct {
 	lock              sync.Mutex
+	reloadLock        sync.Mutex
 	log               logrus.FieldLogger
 	agentConfigFile   string
 	clusterConfigFile string
 	hostNetwork       bool
-	jobs              []*runners.InternalJob
+	jobs              map[jobid]*runners.InternalJob
 	revision          atomic.Int64
 	lastAgentConfig   *config.AgentConfig
 	lastClusterConfig *config.ClusterConfig
@@ -42,7 +48,6 @@ type server struct {
 	writer            nwpd.ObservationWriter
 	aggregator        nwpd.ObservationListener
 	done              chan struct{}
-	ticker            *time.Ticker
 
 	nwpd.UnimplementedAgentServiceServer
 }
@@ -53,9 +58,9 @@ func newServer(log logrus.FieldLogger, agentConfigFile, clusterConfigFile string
 		agentConfigFile:   agentConfigFile,
 		clusterConfigFile: clusterConfigFile,
 		hostNetwork:       hostNetwork,
+		jobs:              map[jobid]*runners.InternalJob{},
 		obsChan:           make(chan *nwpd.Observation, 100),
 		done:              make(chan struct{}),
-		ticker:            time.NewTicker(30 * time.Second),
 	}, nil
 }
 
@@ -66,8 +71,8 @@ func (s *server) isHostNetwork() bool {
 func (s *server) getNetworkCfg() *config.NetworkConfig {
 	networkCfg := &config.NetworkConfig{}
 	if s.lastAgentConfig != nil {
-		if hostNetwork && s.lastAgentConfig.NodeNetwork != nil {
-			networkCfg = s.lastAgentConfig.NodeNetwork
+		if hostNetwork && s.lastAgentConfig.HostNetwork != nil {
+			networkCfg = s.lastAgentConfig.HostNetwork
 		} else if !hostNetwork && s.lastAgentConfig.PodNetwork != nil {
 			networkCfg = s.lastAgentConfig.PodNetwork
 		}
@@ -100,8 +105,8 @@ func (s *server) setup() error {
 
 func (s *server) applyConfig(cfg *config.AgentConfig) error {
 	networkCfg := &config.NetworkConfig{}
-	if hostNetwork && cfg.NodeNetwork != nil {
-		networkCfg = cfg.NodeNetwork
+	if hostNetwork && cfg.HostNetwork != nil {
+		networkCfg = cfg.HostNetwork
 	} else if !hostNetwork && cfg.PodNetwork != nil {
 		networkCfg = cfg.PodNetwork
 	}
@@ -124,17 +129,19 @@ func (s *server) applyConfig(cfg *config.AgentConfig) error {
 		if err != nil {
 			return err
 		}
-		err = s.addOrReplaceJob(job)
-		if err != nil {
-			return err
+		if job != nil {
+			err = s.addOrReplaceJob(job)
+			if err != nil {
+				return err
+			}
 		}
 		applied[j.JobID] = struct{}{}
 	}
 
 	if s.lastAgentConfig != nil {
 		oldNetworkCfg := &config.NetworkConfig{}
-		if hostNetwork && s.lastAgentConfig.NodeNetwork != nil {
-			oldNetworkCfg = s.lastAgentConfig.NodeNetwork
+		if hostNetwork && s.lastAgentConfig.HostNetwork != nil {
+			oldNetworkCfg = s.lastAgentConfig.HostNetwork
 		} else if !hostNetwork && s.lastAgentConfig.PodNetwork != nil {
 			oldNetworkCfg = s.lastAgentConfig.PodNetwork
 		}
@@ -162,7 +169,7 @@ func (s *server) parseJob(job *config.Job) (*runners.InternalJob, error) {
 		defaultPeriod = s.getNetworkCfg().DefaultPeriod
 	}
 	rconfig := runners.RunnerConfig{
-		JobID:  job.JobID,
+		Job:    *job,
 		Period: defaultPeriod,
 	}
 	clusterCfg := config.ClusterConfig{}
@@ -173,41 +180,53 @@ func (s *server) parseJob(job *config.Job) (*runners.InternalJob, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid job %s: %s", job.JobID, err)
 	}
-	return runners.NewInternalJob(job, runner), nil
+	if runner == nil {
+		return nil, nil
+	}
+	return runners.NewInternalJob(runner), nil
 }
 
 func (s *server) addOrReplaceJob(job *runners.InternalJob) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	for i, j := range s.jobs {
-		if j.JobID == job.JobID {
-			err := s.jobs[i].Stop()
-			if err != nil {
-				return err
-			}
-			s.jobs[i] = job
-			return job.Start(s.obsChan)
+	if oldJob := s.jobs[job.JobID()]; oldJob != nil {
+		delta, err := oldJob.Stop()
+		if err != nil {
+			return err
 		}
+		var initialWait time.Duration
+		if delta < job.Period() {
+			initialWait = job.Period() - delta
+		}
+		s.logStart(job, "restarting")
+		return job.Start(s.obsChan, initialWait)
 	}
-	s.jobs = append(s.jobs, job)
-	s.log.Infof("starting job %s: %s", job.JobID, strings.Join(job.Args, " "))
-	return job.Start(s.obsChan)
+	s.jobs[job.JobID()] = job
+	s.logStart(job, "starting")
+	return job.Start(s.obsChan, 0)
+}
+
+func (s *server) logStart(job *runners.InternalJob, prefix string) {
+	desc := job.Description()
+	if desc != "" {
+		desc += ", "
+	}
+	s.log.Infof("%s job %s: %s [%speriod=%.1fs]", prefix, job.Config().JobID, strings.Join(job.Config().Args, " "),
+		desc, job.Period().Seconds())
 }
 
 func (s *server) deleteJob(jobID string) error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	for i, j := range s.jobs {
-		if j.JobID == jobID {
-			err := s.jobs[i].Stop()
-			if err != nil {
-				return err
-			}
-			s.jobs = append(s.jobs[:i], s.jobs[i+1:]...)
-			return nil
+	if oldJob := s.jobs[jobID]; oldJob != nil {
+		_, err := oldJob.Stop()
+		if err != nil {
+			return err
 		}
+		delete(s.jobs, jobID)
+		s.log.Infof("deleted job %s", jobID)
 	}
 	return nil
 }
@@ -314,10 +333,6 @@ func (s *server) GetAggregatedObservations(ctx context.Context, request *nwpd.Ge
 }
 
 func (s *server) stop() {
-	if s.ticker != nil {
-		s.ticker.Stop()
-		s.ticker = nil
-	}
 	if s.writer != nil {
 		s.writer.Stop()
 		s.writer = nil
@@ -325,6 +340,9 @@ func (s *server) stop() {
 }
 
 func (s *server) reloadConfig() {
+	s.reloadLock.Lock()
+	defer s.reloadLock.Unlock()
+
 	agentConfig, err := config.LoadAgentConfig(s.agentConfigFile, s.lastAgentConfig)
 	if err != nil {
 		s.log.Warnf("cannot load agent configuration from %s", s.agentConfigFile)
@@ -339,12 +357,15 @@ func (s *server) reloadConfig() {
 	s.lastAgentConfig = agentConfig
 	s.lastClusterConfig = clusterConfig
 	if changed {
+		s.log.Infof("reloaded configuration from %s and %s", s.agentConfigFile, s.clusterConfigFile)
 		err = s.applyConfig(agentConfig)
 		if err != nil {
 			s.log.Warnf("cannot apply new agent configuration from %s", s.agentConfigFile)
 			return
 		}
-		s.log.Infof("reloaded configuration from %s and %s", s.agentConfigFile, s.clusterConfigFile)
+		s.log.Infof("configuration applied")
+	} else {
+		s.log.Debug("no reload needed")
 	}
 }
 
@@ -361,6 +382,17 @@ func (s *server) run() {
 	}
 	if s.writer != nil {
 		go s.writer.Run()
+	}
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer watcher.Close()
+	if err := watcher.Add(path.Dir(s.agentConfigFile)); err != nil {
+		log.Fatal(err)
+	}
+	if err := watcher.Add(path.Dir(s.clusterConfigFile)); err != nil {
+		log.Fatal(err)
 	}
 
 	for {
@@ -393,7 +425,12 @@ func (s *server) run() {
 			if s.aggregator != nil {
 				s.aggregator.Add(obs)
 			}
-		case <-s.ticker.C:
+		case err := <-watcher.Errors:
+			s.log.Warning("watcher failed: %s", err)
+			s.stop()
+			return
+		case <-watcher.Events:
+			s.log.Debug("watch")
 			go s.reloadConfig()
 		}
 	}

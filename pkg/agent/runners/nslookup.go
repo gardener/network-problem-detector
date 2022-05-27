@@ -47,11 +47,7 @@ func (a *nslookupArgs) createRunner(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no DNS names")
 	}
 
-	config := a.runnerArgs.config
-	if a.runnerArgs.period != 0 {
-		config.Period = a.runnerArgs.period
-	}
-
+	config := a.runnerArgs.prepareConfig()
 	if r := NewNSLookup(names, config); r != nil {
 		a.runnerArgs.runner = r
 	}
@@ -91,6 +87,10 @@ var _ Runner = &nslookup{}
 
 func (r *nslookup) Config() RunnerConfig {
 	return r.config
+}
+
+func (r *nslookup) Description() string {
+	return fmt.Sprintf("%d names", len(r.names))
 }
 
 func (r *nslookup) Run(ch chan<- *nwpd.Observation) {

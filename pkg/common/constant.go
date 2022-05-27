@@ -5,8 +5,8 @@
 package common
 
 const (
-	// 	MDNSServiceNodeNetAgent is the mDNS service name of the agent running on the host network.
-	MDNSServiceNodeNetAgent = "network-problem-detector-host-node._tcp"
+	// 	MDNSServiceHostNetAgent is the mDNS service name of the agent running on the host network.
+	MDNSServiceHostNetAgent = "network-problem-detector-host-node._tcp"
 	// NamespaceDefault is the default namespace
 	NamespaceDefault = "default"
 	// NamespaceKubeSystem is the kube-system namespace
@@ -33,8 +33,8 @@ const (
 	NameAgentConfigMap = ApplicationName + "-config"
 	// NameClusterConfigMap name of the config map for the agents containing current nodes and agent pods
 	NameClusterConfigMap = ApplicationName + "-cluster-config"
-	// NameDaemonSetAgentNodeNet name of the daemon set running in the node network
-	NameDaemonSetAgentNodeNet = ApplicationName + "-host"
+	// NameDaemonSetAgentHostNet name of the daemon set running in the host network
+	NameDaemonSetAgentHostNet = ApplicationName + "-host"
 	// NameDaemonSetAgentPodNet name of the daemon set running in the pod network
 	NameDaemonSetAgentPodNet = ApplicationName + "-pod"
 	// NameDeploymentAgentController name of the deployment running the agent controller
@@ -47,8 +47,8 @@ const (
 	PodNetPodGRPCPort = 8880
 	// PodNetPodHttpPort is the port used for the metrics http server of the pods running in the pod network
 	PodNetPodHttpPort = 8881
-	// NodeNetPodGRPCPort is the port used for the GRPC server of the pods running in the node network
-	NodeNetPodGRPCPort = 1011
-	// NodeNetPodHttpPort is the port used for the metrics http server of the pods running in the node network
-	NodeNetPodHttpPort = 1012
+	// HostNetPodGRPCPort is the port used for the GRPC server of the pods running in the host network
+	HostNetPodGRPCPort = 1011
+	// HostNetPodHttpPort is the port used for the metrics http server of the pods running in the host network
+	HostNetPodHttpPort = 1012
 )

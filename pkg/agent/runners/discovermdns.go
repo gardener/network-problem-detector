@@ -21,10 +21,7 @@ type discoverMDNSArgs struct {
 }
 
 func (a *discoverMDNSArgs) createRunner(cmd *cobra.Command, args []string) error {
-	config := a.runnerArgs.config
-	if a.runnerArgs.period != 0 {
-		config.Period = a.runnerArgs.period
-	}
+	config := a.runnerArgs.prepareConfig()
 	a.runnerArgs.runner = NewDiscoverMDNS(config)
 	return nil
 }
@@ -55,6 +52,10 @@ func (r *discoverMDNS) Config() RunnerConfig {
 	return r.config
 }
 
+func (r *discoverMDNS) Description() string {
+	return ""
+}
+
 func (r *discoverMDNS) Run(ch chan<- *nwpd.Observation) {
 	nodeName := GetNodeName()
 
@@ -77,7 +78,7 @@ func (r *discoverMDNS) Run(ch chan<- *nwpd.Observation) {
 	}()
 
 	// Start the lookup
-	params := mdns.DefaultParams(common.MDNSServiceNodeNetAgent)
+	params := mdns.DefaultParams(common.MDNSServiceHostNetAgent)
 	params.DisableIPv6 = true
 	params.Entries = entriesCh
 	err := mdns.Query(params)
