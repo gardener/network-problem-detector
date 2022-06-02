@@ -8,14 +8,9 @@ import (
 	"bytes"
 	"fmt"
 	"net"
-	"time"
 
 	"github.com/gardener/network-problem-detector/pkg/common/config"
-	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
-
 	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/types/known/durationpb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type nslookupArgs struct {
@@ -71,57 +66,36 @@ func NewNSLookup(names []string, rconfig RunnerConfig) *nslookup {
 	if len(names) == 0 {
 		return nil
 	}
+	var dnsNames []dnsName
+	for _, name := range names {
+		dnsNames = append(dnsNames, dnsName(name))
+	}
 	return &nslookup{
-		names:  config.CloneAndShuffle(names),
-		config: rconfig,
+		robinRound[dnsName]{
+			itemsName: "names",
+			items:     config.CloneAndShuffle(dnsNames),
+			runFunc:   lookupFunc,
+			config:    rconfig,
+		},
 	}
 }
 
+type dnsName string
+
+func (n dnsName) DestHost() string {
+	return normalise(string(n))
+}
+
 type nslookup struct {
-	names  []string
-	next   int
-	config RunnerConfig
+	robinRound[dnsName]
 }
 
 var _ Runner = &nslookup{}
 
-func (r *nslookup) Config() RunnerConfig {
-	return r.config
-}
-
-func (r *nslookup) Description() string {
-	return fmt.Sprintf("%d names", len(r.names))
-}
-
-func (r *nslookup) Run(ch chan<- *nwpd.Observation) {
-	name := r.names[r.next]
-	r.next = (r.next + 1) % len(r.names)
-
-	nodeName := GetNodeName()
-	obs := &nwpd.Observation{
-		SrcHost:   nodeName,
-		DestHost:  normalise(name),
-		Timestamp: timestamppb.Now(),
-		JobID:     r.config.JobID,
-	}
-
-	result, d, err := r.lookup(name)
-	obs.Duration = durationpb.New(d)
-	obs.Ok = err == nil
+func lookupFunc(name dnsName) (string, error) {
+	ips, err := net.LookupIP(string(name))
 	if err != nil {
-		obs.Result = fmt.Sprintf("error: %s", err)
-	} else {
-		obs.Result = result
-	}
-	ch <- obs
-}
-
-func (r *nslookup) lookup(name string) (string, time.Duration, error) {
-	start := time.Now()
-	ips, err := net.LookupIP(name)
-	delta := time.Now().Sub(start)
-	if err != nil {
-		return "", delta, err
+		return "", err
 	}
 	sb := bytes.Buffer{}
 	for _, ip := range ips {
@@ -130,5 +104,5 @@ func (r *nslookup) lookup(name string) (string, time.Duration, error) {
 		}
 		sb.Write([]byte(ip.String()))
 	}
-	return sb.String(), delta, nil
+	return sb.String(), nil
 }

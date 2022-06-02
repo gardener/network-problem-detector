@@ -41,6 +41,7 @@ func GetNewRoot(ra *runnerArgs) *cobra.Command {
 	root.PersistentFlags().BoolVar(&ra.scalePeriod, "scale-period", false, "scales period by number of nodes")
 	root.AddCommand(createPingHostCmd(ra))
 	root.AddCommand(createCheckTCPPortCmd(ra))
+	root.AddCommand(createCheckHTTPSGetArgs(ra))
 	root.AddCommand(createDiscoverMDNSCmd(ra))
 	root.AddCommand(createNSLookupCmd(ra))
 	return root

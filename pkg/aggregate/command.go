@@ -88,9 +88,10 @@ func (r *results) incr(bucket int, ok bool, duration time.Duration) {
 func CreateAggregateCmd() *cobra.Command {
 	ac := &aggrCommand{}
 	cmd := &cobra.Command{
-		Use:   "aggr",
-		Short: "aggregate observations",
-		RunE:  ac.aggr,
+		Use:     "aggr",
+		Aliases: []string{"aggregate"},
+		Short:   "aggregate observations",
+		RunE:    ac.aggr,
 	}
 	cmd.Flags().StringVar(&ac.directory, "input", "collected-observations", "database directory to load the collected observations.")
 	cmd.Flags().IntVar(&ac.minutes, "minutes", 60, "restrict aggregation to given last minutes.")
@@ -99,9 +100,9 @@ func CreateAggregateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&ac.svgOutput, "svg-output", "", "optional file name for SVG output")
 	cmd.Flags().StringVar(&ac.start, "start", "", "start timestamp (e.g. format '2022-01-23T23:49:11' or '23:49:11')")
 	cmd.Flags().StringVar(&ac.end, "end", "", "end timestamp (e.g. format '2022-01-23T23:49:11' or '23:49:11')")
-	cmd.Flags().StringVar(&ac.jobFilter, "filter-job", "", "filter observations by job name (use '*' for globbing)")
-	cmd.Flags().StringVar(&ac.srcFilter, "filter-src", "", "filter observations by source (use '*' for globbing)")
-	cmd.Flags().StringVar(&ac.destFilter, "filter-dest", "", "filter observations by destination (use '*' for globbing)")
+	cmd.Flags().StringVar(&ac.jobFilter, "job", "", "filter observations by job id (use '*' for globbing)")
+	cmd.Flags().StringVar(&ac.srcFilter, "src", "", "filter observations by source (use '*' for globbing)")
+	cmd.Flags().StringVar(&ac.destFilter, "dest", "", "filter observations by destination (use '*' for globbing)")
 	return cmd
 }
 

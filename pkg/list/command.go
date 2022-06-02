@@ -27,15 +27,15 @@ import (
 )
 
 type listCommand struct {
-	kubeconfig   string
-	targetPort   int
-	since        time.Duration
-	limit        int
-	jobIDs       []string
-	srcHosts     []string
-	destHosts    []string
-	failuresOnly bool
-	window       time.Duration
+	kubeconfig string
+	targetPort int
+	since      time.Duration
+	limit      int
+	jobIDs     []string
+	srcHosts   []string
+	destHosts  []string
+	failedOnly bool
+	window     time.Duration
 
 	clientset *kubernetes.Clientset
 }
@@ -52,10 +52,10 @@ func CreateListCmd() *cobra.Command {
 	cmd.Flags().IntVar(&lc.targetPort, "targetPort", 0, "target pod port")
 	cmd.Flags().DurationVar(&lc.since, "since", 10*time.Minute, "list observations since given time period.")
 	cmd.Flags().IntVar(&lc.limit, "limit", 10000, "maximum number of observations to retrieve.")
-	cmd.Flags().StringArrayVar(&lc.jobIDs, "jobid", nil, "jobID(s) to filter")
+	cmd.Flags().StringArrayVar(&lc.jobIDs, "job", nil, "jobID(s) to filter")
 	cmd.Flags().StringArrayVar(&lc.srcHosts, "src", nil, "sourc host(s) to filter")
 	cmd.Flags().StringArrayVar(&lc.destHosts, "dest", nil, "destination host(s) to filter")
-	cmd.Flags().BoolVar(&lc.failuresOnly, "failures", false, "only failures")
+	cmd.Flags().BoolVar(&lc.failedOnly, "failed-only", false, "only failures")
 	cmd.Flags().DurationVar(&lc.window, "window", 1*time.Minute, "aggregation window (only for aggregated observations)")
 	return cmd
 }
@@ -127,7 +127,7 @@ func (lc *listCommand) list(ccmd *cobra.Command, args []string) error {
 		RestrictToJobIDs:    lc.jobIDs,
 		RestrictToSrcHosts:  lc.srcHosts,
 		RestrictToDestHosts: lc.destHosts,
-		FailuresOnly:        lc.failuresOnly,
+		FailuresOnly:        lc.failedOnly,
 		AggregationWindow:   durationpb.New(lc.window),
 	}
 

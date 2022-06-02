@@ -10,13 +10,9 @@ import (
 	"time"
 
 	"github.com/gardener/network-problem-detector/pkg/common/config"
-	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
-
 	"github.com/go-ping/ping"
 	"github.com/spf13/cobra"
 	"go.uber.org/atomic"
-	"google.golang.org/protobuf/types/known/durationpb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type pingHostArgs struct {
@@ -64,54 +60,25 @@ func NewPingHost(nodes []config.Node, rconfig RunnerConfig) *pingHost {
 		return nil
 	}
 	return &pingHost{
-		nodes:  config.CloneAndShuffle(nodes),
-		config: rconfig,
+		robinRound[config.Node]{
+			itemsName: "nodes",
+			items:     config.CloneAndShuffle(nodes),
+			runFunc:   pingFunc,
+			config:    rconfig,
+		},
 	}
 }
 
 type pingHost struct {
-	nodes  []config.Node
-	next   int
-	config RunnerConfig
+	robinRound[config.Node]
 }
 
 var _ Runner = &pingHost{}
 
-func (r *pingHost) Config() RunnerConfig {
-	return r.config
-}
-
-func (r *pingHost) Description() string {
-	return fmt.Sprintf("%d hosts", len(r.nodes))
-}
-
-func (r *pingHost) Run(ch chan<- *nwpd.Observation) {
-	node := r.nodes[r.next]
-	r.next = (r.next + 1) % len(r.nodes)
-
-	nodeName := GetNodeName()
-	obs := &nwpd.Observation{
-		SrcHost:   nodeName,
-		DestHost:  node.Hostname,
-		Timestamp: timestamppb.Now(),
-		JobID:     r.config.JobID,
-	}
-
-	result, d, err := r.ping(node)
-	obs.Duration = durationpb.New(d)
-	obs.Ok = err == nil
-	if err != nil {
-		obs.Result = fmt.Sprintf("error: %s", err)
-	} else {
-		obs.Result = result
-	}
-	ch <- obs
-}
-
-func (r *pingHost) ping(node config.Node) (string, time.Duration, error) {
+func pingFunc(node config.Node) (string, error) {
 	pinger, err := ping.NewPinger(node.InternalIP)
 	if err != nil {
-		return "", 0, err
+		return "", err
 	}
 	pinger.SetPrivileged(true)
 	pinger.Count = 1
@@ -130,11 +97,11 @@ func (r *pingHost) ping(node config.Node) (string, time.Duration, error) {
 
 	err = pinger.Run()
 	if err != nil {
-		return "", 0, err
+		return "", err
 	}
 	stats := pinger.Statistics()
 	if stats.PacketsRecv == 1 {
-		return result.Load(), stats.AvgRtt, nil
+		return result.Load(), nil
 	}
-	return "", stats.AvgRtt, fmt.Errorf("ping lost after %d ms", pinger.Timeout.Milliseconds())
+	return "", fmt.Errorf("ping lost after %d ms", pinger.Timeout.Milliseconds())
 }

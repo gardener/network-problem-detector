@@ -6,7 +6,8 @@ package config
 
 import (
 	"encoding/json"
-	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type AgentConfig struct {
@@ -50,7 +51,7 @@ type NetworkConfig struct {
 	// StartMDNSServer specifies if the MDNS server should be started.
 	StartMDNSServer bool `json:"startMDNSServer,omitempty"`
 	// DefaultPeriod is the period used for a new job if it doesn't specify the period.
-	DefaultPeriod time.Duration `json:"defaultPeriod,omitempty"`
+	DefaultPeriod metav1.Duration `json:"defaultPeriod,omitempty"`
 }
 
 type Job struct {

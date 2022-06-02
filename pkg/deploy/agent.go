@@ -587,7 +587,7 @@ func (ac *AgentDeployConfig) BuildAgentConfig() (*config.AgentConfig, error) {
 			GRPCPort:        common.HostNetPodGRPCPort,
 			HttpPort:        common.HostNetPodHttpPort,
 			StartMDNSServer: true,
-			DefaultPeriod:   ac.DefaultPeriod,
+			DefaultPeriod:   metav1.Duration{Duration: ac.DefaultPeriod},
 			Jobs: []config.Job{
 				{
 					JobID: "tcp-n2api-int",
@@ -613,13 +613,17 @@ func (ac *AgentDeployConfig) BuildAgentConfig() (*config.AgentConfig, error) {
 		},
 		PodNetwork: &config.NetworkConfig{
 			DataFilePrefix: common.NameDaemonSetAgentPodNet,
-			DefaultPeriod:  ac.DefaultPeriod,
+			DefaultPeriod:  metav1.Duration{Duration: ac.DefaultPeriod},
 			GRPCPort:       common.PodNetPodGRPCPort,
 			HttpPort:       common.PodNetPodHttpPort,
 			Jobs: []config.Job{
 				{
 					JobID: "tcp-p2api-int",
 					Args:  []string{"checkTCPPort", "--endpoint-internal-kube-apiserver", "--scale-period"},
+				},
+				{
+					JobID: "https-p2api-int",
+					Args:  []string{"checkHTTPSGet", "--endpoint-internal-kube-apiserver", "--period", "1m", "--scale-period"},
 				},
 				{
 					JobID: "tcp-p2n",
@@ -656,11 +660,19 @@ func (ac *AgentDeployConfig) BuildAgentConfig() (*config.AgentConfig, error) {
 			config.Job{
 				JobID: "tcp-n2api-ext",
 				Args:  []string{"checkTCPPort", "--endpoint-external-kube-apiserver", "--scale-period"},
+			},
+			config.Job{
+				JobID: "https-n2api-ext",
+				Args:  []string{"checkHTTPSGet", "--endpoint-external-kube-apiserver", "--period", "1m", "--scale-period"},
 			})
 		cfg.PodNetwork.Jobs = append(cfg.PodNetwork.Jobs,
 			config.Job{
 				JobID: "tcp-p2api-ext",
 				Args:  []string{"checkTCPPort", "--endpoint-external-kube-apiserver", "--scale-period"},
+			},
+			config.Job{
+				JobID: "https-p2api-ext",
+				Args:  []string{"checkHTTPSGet", "--endpoint-external-kube-apiserver", "--period", "1m", "--scale-period"},
 			})
 	}
 	if ac.PingEnabled {

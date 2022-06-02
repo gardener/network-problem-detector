@@ -4,9 +4,17 @@
 
 package config
 
+type WithDestHost interface {
+	DestHost() string
+}
+
 type Node struct {
 	Hostname   string `json:"hostname"`
 	InternalIP string `json:"internalIP"`
+}
+
+func (n Node) DestHost() string {
+	return n.Hostname
 }
 
 type PodEndpoint struct {
@@ -20,6 +28,10 @@ type Endpoint struct {
 	Hostname string `json:"hostname"`
 	IP       string `json:"ip"`
 	Port     int    `json:"port"`
+}
+
+func (e Endpoint) DestHost() string {
+	return e.Hostname
 }
 
 type ClusterConfig struct {

@@ -80,43 +80,67 @@ To examine the current default configuration, run the command
 
 ### Job types
 
-1. `checkTCPPort [--period <duration>] [--scale-period] [--endpoints <host1:ip1:port1>,<host2:ip2:port2>,... | --endpoints-of-pod-ds | --node-port <port> ]`
+1. `checkTCPPort [--period <duration>] [--scale-period] [--endpoints <host1:ip1:port1>,<host2:ip2:port2>,...] [--endpoints-of-pod-ds] [--node-port <port>] [--endpoint-internal-kube-apiserver] [--endpoint-external-kube-apiserver]`
 
-   Tries to open a connection to the given `IP:port`. There are three variants:
+   Tries to open a connection to the given `IP:port`. There are multipe variants:
    - using an explicit list of endpoints with `--endpoints`
    - using the known pod endpoints of the pod network daemon set
    - using a node port on all known nodes
+   - the cluster internal address of the kube-apiserver
+   - the external address of the kube-apiserver
 
    The checks run in a robin round fashion after an inital random shuffle. The global default period between two checks can overwritten with the `--period` option.
+   With `--scale-period` the period length is increased with the number of nodes.
 
-   Note that known nodes and pod endpoints are only updated if the
-   daemon sets are deployed with `nwpdcli deploy all` or watched with `nwpdcli deploy watch`. Changes are applied only every 30 seconds and may need some more time to be discovered by the kubelets.
+   Note that known nodes and pod endpoints are only updated by the controller. Changes are applied as soon as the changed config maps are discovered by the kubelets.
 
-2. `pingHost [--period <duration>] [--scale-period] [--hosts <host1:ip1>,<host2:ip2>,...]`
+2. `checkHTTPSGet [--period <duration>] [--scale-period] [--endpoints <host1[:port1]>,<host2[:port2]>,...] [--endpoint-internal-kube-apiserver] [--endpoint-external-kube-apiserver]`
+
+   Tries to open a connection to the given `IP:port`. There are multipe variants:
+   - using an explicit list of endpoints with `--endpoints`
+   - the cluster internal address of the kube-apiserver
+   - the external address of the kube-apiserver
+
+   The checks run in a robin round fashion after an inital random shuffle. The global default period between two checks can overwritten with the `--period` option.
+   With `--scale-period` the period length is increased with the number of nodes.
+
+3. `nslookup [--period <duration>] [--scale-period] [--names host1,host2,...] [--name-internal-kube-apiserver"] [--name-external-kube-apiserver]`
+
+   Looks up hosts using the local resolver. 
+
+4. `pingHost [--period <duration>] [--scale-period] [--hosts <host1:ip1>,<host2:ip2>,...]`
 
    Robin round ping to all nodes or the provided host list. The  node or host list is shuffled randomly on start.
    The global default period between two pings can overwritten with the `--period` option.
 
    The pod needs `NET_ADMIN` capabilities to be allowed to perform pings.
 
-3. `nslookup [--period <duration>] [--scale-period] [--names host1,host2,...] [--name-internal-kube-apiserver"] [--name-external-kube-apiserver]`
-
-   Looks up hosts using the local resolver. 
-   
-4. `discoverMDNS [--period <duration>] [--scale-period]`
+5. `discoverMDNS [--period <duration>] [--scale-period]`
 
    Runs a mDNS service discovery. As a precondition the daemon set for the host network must be configured with `startMDNSServer: true`. In this case, a mDNS server is running on node port `5353` and is provided a service for its GRPC server. These services can be discovered with mDNS (UDP broadcast) if there are no network components like routers or firewalls between zones.
 
 
 ### Jobs as defined in the default configuration for the **host network**
 
-#### Job ID `ping-n2n`
+#### Job ID `https-n2api-ext`
 
-Ping from all pods of the daemon set of the host network to all known nodes.
+HTTPS Get check from all pods of the daemon set of the host network to the external address of the Kube API server.
+
+#### Job ID `mdns-n2n`
+
+mDNS UDP broadcast discovery of the other nodes from all pods of the daemon set of the node.
+
+#### Job ID `nslookup-n`
+
+Lookup of IP addresses for external DNS name `eu.gcr.io`, and external name of Kube API server.
 
 #### Job ID `ping-n2api-ext`
 
 Ping from all pods of the daemon set of the host network to the external address of the Kube API server.
+
+#### Job ID `ping-n2n`
+
+Ping from all pods of the daemon set of the host network to all known nodes.
 
 #### Job ID `tcp-n2api-ext`
 
@@ -126,27 +150,31 @@ TCP connection check from all pods of the daemon set of the host network to the 
 
 TCP connection check from all pods of the daemon set of the host network to the node port used by the NWPD agent on the host network.
 
-#### Job ID `mdns-n2n`
-
-mDNS UDP broadcast discovery of the other nodes from all pods of the daemon set of the node.
-
 #### Job ID `tcp-n2p`
 
 TCP connection check from all pods of the daemon set of the host network to pod endpoints (pod IP, port of GRPC server) of the daemon set running in the pod network.
 
-#### Job ID `nslookup-n`
-
-Lookup of IP addresses for external DNS name `eu.gcr.io`, and external name of Kube API server.
-
 ### Jobs as defined in the default configuration for the **pod network**
 
-#### Job ID `ping-p2n`
+#### Job ID `https-p2api-ext`
 
-Ping from all pods of the daemon set on the pod network to all known nodes.
+HTTPS Get check from all pods of the daemon set on the pod network to the external address of the Kube API server.
+
+#### Job ID `https-p2api-int`
+
+HTTPS Get check from all pods of the daemon set on the pod network to the internal address of the Kube API server (i.e.. `kubernetes.default.svc.cluster.local.:443`).
+
+#### Job ID `nslookup-p`
+
+Lookup of IP addresses for external DNS name `eu.gcr.io`, and internal and external names of Kube API server.
 
 #### Job ID `ping-p2api-ext`
 
 Ping from all pods of the daemon set on the pod network to the external address of the Kube API server.
+
+#### Job ID `ping-p2n`
+
+Ping from all pods of the daemon set on the pod network to all known nodes.
 
 #### Job ID `tcp-p2api-ext`
 
@@ -164,6 +192,3 @@ TCP connection check from all pods of the daemon set of the pod network to the n
 
 TCP connection check from all pods of the daemon set on the pod network to pod endpoints (pod IP, port of GRPC server) of the daemon set running in the pod network.
 
-#### Job ID `nslookup-p`
-
-Lookup of IP addresses for external DNS name `eu.gcr.io`, and internal and external names of Kube API server.

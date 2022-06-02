@@ -56,6 +56,10 @@ func (r *discoverMDNS) Description() string {
 	return ""
 }
 
+func (r *discoverMDNS) TestData() any {
+	return struct{}{}
+}
+
 func (r *discoverMDNS) Run(ch chan<- *nwpd.Observation) {
 	nodeName := GetNodeName()
 

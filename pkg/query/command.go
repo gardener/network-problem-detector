@@ -34,9 +34,9 @@ func CreateQueryCmd() *cobra.Command {
 		RunE:  qc.query,
 	}
 	cmd.Flags().StringVar(&qc.directory, "input", "collected-observations", "database directory to load the collected observations.")
-	cmd.Flags().StringVar(&qc.src, "src", "", "filter by source node.")
-	cmd.Flags().StringVar(&qc.dest, "dest", "", "filter by dest node.")
-	cmd.Flags().StringVar(&qc.jobID, "jobID", "", "filter by jobID.")
+	cmd.Flags().StringVar(&qc.src, "src", "", "filter by source.")
+	cmd.Flags().StringVar(&qc.dest, "dest", "", "filter by dest.")
+	cmd.Flags().StringVar(&qc.jobID, "job", "", "filter by job ID.")
 	cmd.Flags().BoolVar(&qc.failedOnly, "failed-only", false, "if only failed checks should be printed.")
 	cmd.Flags().BoolVar(&qc.exactMatch, "match-exact", false, "if filter expressions must match full names.")
 	cmd.Flags().IntVar(&qc.minutes, "minutes", 0, "restrict to given last minutes.")

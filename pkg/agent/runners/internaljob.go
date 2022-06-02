@@ -7,11 +7,9 @@
 package runners
 
 import (
-	"fmt"
-	"os"
-	"os/signal"
-	"sync"
 	"time"
+
+	"go.uber.org/atomic"
 
 	"github.com/gardener/network-problem-detector/pkg/common/config"
 	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
@@ -26,14 +24,13 @@ type Runner interface {
 	Run(ch chan<- *nwpd.Observation)
 	Config() RunnerConfig
 	Description() string
+	TestData() any
 }
 
 type InternalJob struct {
-	runner   Runner
-	ticker   *time.Ticker
-	done     chan struct{}
-	wg       sync.WaitGroup
-	lastTick time.Time
+	runner  Runner
+	active  atomic.Bool
+	lastRun atomic.Value
 }
 
 func NewInternalJob(runner Runner) *InternalJob {
@@ -58,47 +55,38 @@ func (j *InternalJob) Description() string {
 	return j.runner.Description()
 }
 
-func (j *InternalJob) Start(ch chan<- *nwpd.Observation, initialWait time.Duration) error {
-	if j.ticker != nil {
-		return fmt.Errorf("already started")
-	}
-	if j.runner == nil {
+func (j *InternalJob) SetLastRun(lastRun *time.Time) {
+	j.lastRun.Store(lastRun)
+}
+
+func (j *InternalJob) Tick(ch chan<- *nwpd.Observation) error {
+	if j.runner == nil || j.active.Load() {
 		return nil
 	}
-	j.ticker = time.NewTicker(j.runner.Config().Period)
-	j.done = make(chan struct{})
-	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt, os.Kill)
 
-	j.wg.Add(1)
-	go func() {
-		time.Sleep(initialWait)
-	loop:
-		for {
-			j.lastTick = time.Now()
+	now := time.Now()
+	if now.After(j.getNextRun()) && j.active.CAS(false, true) {
+		j.lastRun.Store(&now)
+		go func() {
+			defer j.active.Store(false)
 			j.runner.Run(ch)
-			select {
-			case <-j.done:
-				break loop
-			case <-interrupt:
-				break loop
-			case <-j.ticker.C:
-				continue
-			}
-		}
-		j.ticker.Stop()
-		j.wg.Done()
-	}()
+		}()
+	}
 	return nil
 }
 
-func (j *InternalJob) Stop() (time.Duration, error) {
-	if j.ticker == nil || j.runner == nil {
-		return 0, nil
+func (j *InternalJob) GetLastRun() *time.Time {
+	v := j.lastRun.Load()
+	if v == nil {
+		return nil
 	}
-	j.ticker.Stop()
-	j.done <- struct{}{}
-	j.wg.Wait()
-	j.ticker = nil
-	return time.Now().Sub(j.lastTick), nil
+	return v.(*time.Time)
+}
+
+func (j *InternalJob) getNextRun() time.Time {
+	last := j.GetLastRun()
+	if last == nil {
+		return time.Time{}
+	}
+	return last.Add(j.Period())
 }

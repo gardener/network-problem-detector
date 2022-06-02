@@ -65,6 +65,10 @@ var _ = Describe("parser", func() {
 		endpointsKubeApiServer = []config.Endpoint{
 			{Hostname: "api.shoot.domain.com", IP: "1.2.3.4", Port: 443},
 		}
+		httpsEndpoints1 = []config.Endpoint{
+			{Hostname: "server", IP: "", Port: 55555},
+			{Hostname: "server2", IP: "", Port: 443},
+		}
 		dnsnames = []string{
 			"eu.gcr.io.", "foo.bar.", "kubernetes.default.svc.cluster.local.", "api.shoot.domain.com.",
 		}
@@ -76,7 +80,8 @@ var _ = Describe("parser", func() {
 			switch v := expected.(type) {
 			case Runner:
 				Expect(err).To(BeNil())
-				Expect(actual).To(Equal(v))
+				Expect(actual.Config()).To(Equal(v.Config()))
+				Expect(actual.TestData()).To(Equal(v.TestData()))
 			case string:
 				Expect(err).NotTo(BeNil())
 				Expect(err.Error()).To(ContainSubstring(v))
@@ -107,6 +112,16 @@ var _ = Describe("parser", func() {
 			[]string{"checkTCPPort", "--endpoint-internal-kube-apiserver"}, NewCheckTCPPort(endpointsInternalKubeApiServer, config1)),
 		Entry("checkTCPPort with external kube-apiserver endpoints", clusterCfg1, config1,
 			[]string{"checkTCPPort", "--endpoint-external-kube-apiserver"}, NewCheckTCPPort(endpointsKubeApiServer, config1)),
+		Entry("checkHTTPSGet", clusterCfg1, config1,
+			[]string{"checkHTTPSGet", "--period", "10s", "--endpoints", "server:55555,server2"}, NewCheckTCPPort(httpsEndpoints1, config2)),
+		Entry("checkHTTPSGet - missing endpoints", clusterCfg1, config1,
+			[]string{"checkHTTPSGet"}, "no endpoints"),
+		Entry("checkHTTPSGet - invalid endpoint", clusterCfg1, config1,
+			[]string{"checkHTTPSGet", "--endpoints", "server:x"}, "invalid endpoint port x"),
+		Entry("checkHTTPSGet with internal kube-apiserver endpoints", clusterCfg1, config1,
+			[]string{"checkHTTPSGet", "--endpoint-internal-kube-apiserver"}, NewCheckHTTPSGet(endpointsInternalKubeApiServer, config1)),
+		Entry("checkHTTPSGet with external kube-apiserver endpoints", clusterCfg1, config1,
+			[]string{"checkHTTPSGet", "--endpoint-external-kube-apiserver"}, NewCheckHTTPSGet(endpointsKubeApiServer, config1)),
 		Entry("discoverMDNS", clusterCfg1, config1,
 			[]string{"discoverMDNS"}, NewDiscoverMDNS(config1)),
 		Entry("nslookup with host names", clusterCfg1, config1,

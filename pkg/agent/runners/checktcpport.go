@@ -9,14 +9,9 @@ import (
 	"net"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gardener/network-problem-detector/pkg/common/config"
-	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
-
 	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/types/known/durationpb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type checkTCPPortArgs struct {
@@ -95,7 +90,7 @@ func createCheckTCPPortCmd(ra *runnerArgs) *cobra.Command {
 		Short: "checks connection to TCP port",
 		RunE:  a.createRunner,
 	}
-	cmd.Flags().StringSliceVar(&a.endpoints, "endpoints", nil, "endpoints in format <hostname>:<ip>.:<port>.")
+	cmd.Flags().StringSliceVar(&a.endpoints, "endpoints", nil, "endpoints in format <hostname>:<ip>:<port>.")
 	cmd.Flags().IntVar(&a.nodePort, "node-port", 0, "port on nodes as alternative to specifying endpoints.")
 	cmd.Flags().BoolVar(&a.podDS, "endpoints-of-pod-ds", false, "uses known pod endpoints of the 'nwpd-agent-pod-net' service.")
 	cmd.Flags().BoolVar(&a.internalKAPI, "endpoint-internal-kube-apiserver", false, "uses known internal endpoint of kube-apiserver.")
@@ -108,58 +103,27 @@ func NewCheckTCPPort(endpoints []config.Endpoint, rconfig RunnerConfig) *checkTC
 		return nil
 	}
 	return &checkTCPPort{
-		endpoints: config.CloneAndShuffle(endpoints),
-		config:    rconfig,
+		robinRound[config.Endpoint]{
+			itemsName: "endpoints",
+			items:     config.CloneAndShuffle(endpoints),
+			runFunc:   checkTCPPortFunc,
+			config:    rconfig,
+		},
 	}
 }
 
 type checkTCPPort struct {
-	endpoints []config.Endpoint
-	next      int
-	config    RunnerConfig
+	robinRound[config.Endpoint]
 }
 
 var _ Runner = &checkTCPPort{}
 
-func (r *checkTCPPort) Config() RunnerConfig {
-	return r.config
-}
-
-func (r *checkTCPPort) Description() string {
-	return fmt.Sprintf("%d endpoints", len(r.endpoints))
-}
-
-func (r *checkTCPPort) Run(ch chan<- *nwpd.Observation) {
-	endpoint := r.endpoints[r.next]
-	r.next = (r.next + 1) % len(r.endpoints)
-
-	nodeName := GetNodeName()
-	obs := &nwpd.Observation{
-		SrcHost:   nodeName,
-		DestHost:  endpoint.Hostname,
-		Timestamp: timestamppb.Now(),
-		JobID:     r.config.JobID,
-	}
-
-	result, d, err := r.checkTCPPort(endpoint)
-	obs.Duration = durationpb.New(d)
-	obs.Ok = err == nil
-	if err != nil {
-		obs.Result = fmt.Sprintf("error: %s", err)
-	} else {
-		obs.Result = result
-	}
-	ch <- obs
-}
-
-func (r *checkTCPPort) checkTCPPort(endpoint config.Endpoint) (string, time.Duration, error) {
-	start := time.Now()
+func checkTCPPortFunc(endpoint config.Endpoint) (string, error) {
 	addr := fmt.Sprintf("%s:%d", endpoint.IP, endpoint.Port)
 	conn, err := net.Dial("tcp", addr)
 	if err != nil {
-		return "", 0, err
+		return "", err
 	}
 	conn.Close()
-	delta := time.Now().Sub(start)
-	return "connected", delta, nil
+	return "connected", nil
 }
