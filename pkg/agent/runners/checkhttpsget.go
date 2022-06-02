@@ -46,10 +46,11 @@ func (a *checkHTTPSGetArgs) createRunner(cmd *cobra.Command, args []string) erro
 			})
 		}
 	} else if a.internalKAPI {
-		allowEmpty = true
-		if pe := a.runnerArgs.clusterCfg.InternalKubeAPIServer; pe != nil {
-			endpoints = append(endpoints, *pe)
-		}
+		endpoints = append(endpoints, config.Endpoint{
+			Hostname: "kubernetes.default.svc",
+			IP:       "",
+			Port:     443,
+		})
 	} else if a.externalKAPI {
 		allowEmpty = true
 		if pe := a.runnerArgs.clusterCfg.KubeAPIServer; pe != nil {

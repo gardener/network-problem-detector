@@ -62,12 +62,16 @@ var _ = Describe("parser", func() {
 		endpointsInternalKubeApiServer = []config.Endpoint{
 			{Hostname: "kubernetes", IP: "100.64.0.1", Port: 443},
 		}
+
 		endpointsKubeApiServer = []config.Endpoint{
 			{Hostname: "api.shoot.domain.com", IP: "1.2.3.4", Port: 443},
 		}
 		httpsEndpoints1 = []config.Endpoint{
 			{Hostname: "server", IP: "", Port: 55555},
 			{Hostname: "server2", IP: "", Port: 443},
+		}
+		httpsEndpointsInternalKubeApiServer = []config.Endpoint{
+			{Hostname: "kubernetes.default.svc", IP: "", Port: 443},
 		}
 		dnsnames = []string{
 			"eu.gcr.io.", "foo.bar.", "kubernetes.default.svc.cluster.local.", "api.shoot.domain.com.",
@@ -119,7 +123,7 @@ var _ = Describe("parser", func() {
 		Entry("checkHTTPSGet - invalid endpoint", clusterCfg1, config1,
 			[]string{"checkHTTPSGet", "--endpoints", "server:x"}, "invalid endpoint port x"),
 		Entry("checkHTTPSGet with internal kube-apiserver endpoints", clusterCfg1, config1,
-			[]string{"checkHTTPSGet", "--endpoint-internal-kube-apiserver"}, NewCheckHTTPSGet(endpointsInternalKubeApiServer, config1)),
+			[]string{"checkHTTPSGet", "--endpoint-internal-kube-apiserver"}, NewCheckHTTPSGet(httpsEndpointsInternalKubeApiServer, config1)),
 		Entry("checkHTTPSGet with external kube-apiserver endpoints", clusterCfg1, config1,
 			[]string{"checkHTTPSGet", "--endpoint-external-kube-apiserver"}, NewCheckHTTPSGet(endpointsKubeApiServer, config1)),
 		Entry("discoverMDNS", clusterCfg1, config1,
