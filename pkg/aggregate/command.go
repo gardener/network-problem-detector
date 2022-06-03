@@ -309,13 +309,13 @@ func (ac *aggrCommand) writeOpenMetricsFile(jobs, srcNodes, destNodes []string, 
 		jobs, srcNodes, destNodes, data, startUnixSecs, bucketMillis,
 		func(w io.StringWriter, name, src, dest, jobID string, bd *bucketData, t int64) error {
 			if bd.okCount > 0 {
-				if _, err := w.WriteString(fmt.Sprintf("%s{src=%q,dest=%q,job=%q,ok=\"true\"} %d %d\n",
+				if _, err := w.WriteString(fmt.Sprintf("%s{src=%q,dest=%q,job=%q,status=\"ok\"} %d %d\n",
 					name, src, dest, jobID, bd.okCount, t)); err != nil {
 					return err
 				}
 			}
 			if bd.failedCount > 0 {
-				if _, err := w.WriteString(fmt.Sprintf("%s{src=%q,dest=%q,job=%q,ok=\"false\"} %d %d\n",
+				if _, err := w.WriteString(fmt.Sprintf("%s{src=%q,dest=%q,job=%q,status=\"failed\"} %d %d\n",
 					name, src, dest, jobID, bd.failedCount, t)); err != nil {
 					return err
 				}

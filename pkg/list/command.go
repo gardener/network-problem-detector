@@ -156,8 +156,12 @@ func (cc *listCommand) listObservations(log logrus.FieldLogger, client nwpd.Agen
 		if obs.Duration != nil {
 			dur = fmt.Sprintf(" duration=%dms", obs.Duration.AsDuration().Milliseconds())
 		}
-		fmt.Printf("%s src=%s dest=%s jobid=%s%s ok=%t\n", obs.Timestamp.AsTime().UTC().Format("2006-01-02T15:04:05.000Z"),
-			obs.SrcHost, obs.DestHost, obs.JobID, dur, obs.Ok)
+		status := "ok"
+		if !obs.Ok {
+			status = "failed"
+		}
+		fmt.Printf("%s src=%s dest=%s jobid=%s%s status=%s\n", obs.Timestamp.AsTime().UTC().Format("2006-01-02T15:04:05.000Z"),
+			obs.SrcHost, obs.DestHost, obs.JobID, dur, status)
 	}
 	log.Infof("%d observations", len(response.Observations))
 
