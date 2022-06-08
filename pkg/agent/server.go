@@ -22,6 +22,7 @@ import (
 	"github.com/gardener/network-problem-detector/pkg/agent/aggregation"
 	"github.com/gardener/network-problem-detector/pkg/agent/db"
 	"github.com/gardener/network-problem-detector/pkg/agent/runners"
+	"github.com/gardener/network-problem-detector/pkg/common"
 	"github.com/gardener/network-problem-detector/pkg/common/config"
 	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
 
@@ -101,7 +102,10 @@ func (s *server) setup() error {
 	if cfg.AggregationTimeWindowSeconds != nil {
 		timeWindow = time.Duration(*cfg.AggregationTimeWindowSeconds) * time.Second
 	}
-	s.aggregator = aggregation.NewObsAggregator(s.log.WithField("sub", "aggr"), reportPeriod, timeWindow)
+	s.aggregator, err = aggregation.NewObsAggregator(s.log.WithField("sub", "aggr"), reportPeriod, timeWindow, common.PathLogDir, s.hostNetwork)
+	if err != nil {
+		return err
+	}
 
 	return s.applyAgentConfig(cfg)
 }

@@ -6,11 +6,14 @@ package aggregation
 
 import (
 	"fmt"
+	"os"
+	"path"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/gardener/network-problem-detector/pkg/common"
 	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
 
 	"github.com/sirupsen/logrus"
@@ -22,6 +25,8 @@ type obsAggr struct {
 	aggregations map[jobEdge]*jobEdgeAggregation
 	reportPeriod time.Duration
 	timeWindow   time.Duration
+	logDirectory string
+	hostNetwork  bool
 	lastReport   time.Time
 }
 
@@ -142,14 +147,23 @@ func (c *groupCounter) summary() string {
 
 var _ nwpd.ObservationListener = &obsAggr{}
 
-func NewObsAggregator(log logrus.FieldLogger, reportPeriod, timeWindow time.Duration) *obsAggr {
+func NewObsAggregator(log logrus.FieldLogger, reportPeriod, timeWindow time.Duration, logDirectory string, hostNetwork bool) (*obsAggr, error) {
+	if logDirectory != "" {
+		err := os.MkdirAll(logDirectory, 0777)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return &obsAggr{
 		log:          log,
 		aggregations: map[jobEdge]*jobEdgeAggregation{},
 		lastReport:   time.Now(),
 		reportPeriod: reportPeriod,
 		timeWindow:   timeWindow,
-	}
+		logDirectory: logDirectory,
+		hostNetwork:  hostNetwork,
+	}, nil
 }
 
 func (a *obsAggr) Add(obs *nwpd.Observation) {
@@ -237,6 +251,50 @@ func (a *obsAggr) reportToLog() {
 	}
 	for _, s := range report.summary() {
 		a.log.Info(prefix + s)
+	}
+	a.logToFilesystem(report)
+}
+
+func (a *obsAggr) logToFilesystem(report *reportData) {
+	if a.logDirectory == "" {
+		return
+	}
+
+	name := common.NameDaemonSetAgentPodNet
+	if a.hostNetwork {
+		name = common.NameDaemonSetAgentHostNet
+	}
+	filename := path.Join(a.logDirectory, name+".log")
+	info, err := os.Stat(filename)
+	if err != nil && !os.IsNotExist(err) {
+		a.log.Warnf("cannot write log to %s: %s", filename, err)
+		return
+	}
+	if err == nil && info.Size() > common.MaxLogfileSize {
+		old := filename + ".old"
+		_ = os.Remove(old)
+		err := os.Rename(filename, old)
+		if err != nil {
+			a.log.Warnf("cannot rename %s to %s: %s", filename, old, err)
+		}
+	}
+	f, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		a.log.Warnf("cannot open %s: %s", filename, err)
+		return
+	}
+	defer f.Close()
+
+	prefix := time.Now().UTC().Format("2006-01-02T15:04:05Z ")
+	for _, s := range report.issues {
+		f.WriteString(prefix)
+		f.WriteString(s)
+		f.WriteString("\n")
+	}
+	for _, s := range report.summary() {
+		f.WriteString(prefix)
+		f.WriteString(s)
+		f.WriteString("\n")
 	}
 }
 

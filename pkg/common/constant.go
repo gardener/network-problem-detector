@@ -39,10 +39,12 @@ const (
 	NameDaemonSetAgentPodNet = ApplicationName + "-pod"
 	// NameDeploymentAgentController name of the deployment running the agent controller
 	NameDeploymentAgentController = ApplicationName + "-controller"
-	// PathOutputBaseDir parente directory path of output directory with observations in pods
-	PathOutputBaseDir = "/var/lib/gardener"
+	// PathLogDir directory for logs on host file system
+	PathLogDir = "/var/log/nwpd"
 	// PathOutputDir path of output directory with observations in pods
-	PathOutputDir = PathOutputBaseDir + "/" + ApplicationName
+	PathOutputDir = PathLogDir + "/records"
+	// MaxLogfileSize is the maximum size of a log file written to the host file system
+	MaxLogfileSize = 10 * 1000 * 1000
 	// PodNetPodGRPCPort is the port used for the GRPC server of the pods running in the pod network
 	PodNetPodGRPCPort = 8880
 	// PodNetPodHttpPort is the port used for the metrics http server of the pods running in the pod network

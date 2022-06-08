@@ -261,6 +261,11 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 								MountPath: common.PathOutputDir,
 							},
 							{
+								Name:      "log",
+								ReadOnly:  false,
+								MountPath: common.PathLogDir,
+							},
+							{
 								Name:      "agent-config",
 								ReadOnly:  true,
 								MountPath: "/config/agent",
@@ -278,6 +283,15 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 							VolumeSource: corev1.VolumeSource{
 								HostPath: &corev1.HostPathVolumeSource{
 									Path: common.PathOutputDir,
+									Type: &typ,
+								},
+							},
+						},
+						{
+							Name: "log",
+							VolumeSource: corev1.VolumeSource{
+								HostPath: &corev1.HostPathVolumeSource{
+									Path: common.PathLogDir,
 									Type: &typ,
 								},
 							},
@@ -569,7 +583,7 @@ func (ac *AgentDeployConfig) buildPodSecurityPolicy(serviceAccountName string) (
 			DefaultAllowPrivilegeEscalation: nil,
 			AllowPrivilegeEscalation:        pointer.Bool(true),
 			AllowedHostPaths: []policyv1beta1.AllowedHostPath{
-				{PathPrefix: common.PathOutputBaseDir, ReadOnly: false},
+				{PathPrefix: common.PathLogDir, ReadOnly: false},
 			},
 		},
 	}
