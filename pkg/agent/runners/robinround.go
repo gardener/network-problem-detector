@@ -37,6 +37,14 @@ func (r *robinRound[T]) TestData() any {
 	return r.items
 }
 
+func (r *robinRound[T]) DestHosts() []string {
+	hosts := make([]string, len(r.items))
+	for i := range r.items {
+		hosts[i] = r.items[i].DestHost()
+	}
+	return hosts
+}
+
 func (r *robinRound[T]) Run(ch chan<- *nwpd.Observation) {
 	item := r.items[r.next]
 	r.next = (r.next + 1) % len(r.items)

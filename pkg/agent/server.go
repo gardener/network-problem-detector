@@ -94,7 +94,7 @@ func (s *server) setup() error {
 		return err
 	}
 
-	reportPeriod := 2 * time.Minute
+	reportPeriod := 1 * time.Minute
 	timeWindow := 30 * time.Minute
 	if cfg.AggregationReportPeriodSeconds != nil {
 		reportPeriod = time.Duration(*cfg.AggregationReportPeriodSeconds) * time.Second
@@ -131,6 +131,7 @@ func (s *server) applyAgentConfig(cfg *config.AgentConfig) error {
 		}
 	}
 
+	validDestHosts := map[string]struct{}{}
 	applied := map[string]struct{}{}
 	for _, j := range networkCfg.Jobs {
 		job, err := s.parseJob(&j)
@@ -139,17 +140,24 @@ func (s *server) applyAgentConfig(cfg *config.AgentConfig) error {
 		}
 		if job != nil {
 			s.addOrReplaceJob(job)
+			for _, s := range job.DestHosts() {
+				validDestHosts[s] = struct{}{}
+			}
 		}
 		applied[j.JobID] = struct{}{}
 	}
 
+	var obsoleteJobIDs []string
 	for _, j := range oldJobs {
 		if _, ok := applied[j.JobID]; !ok {
+			obsoleteJobIDs = append(obsoleteJobIDs, j.JobID)
 			if err := s.deleteJob(j.JobID); err != nil {
 				return err
 			}
 		}
 	}
+	deleteOutdatedMetricByObsoleteJobIDs(obsoleteJobIDs)
+	deleteOutdatedMetricByValidDestHosts(validDestHosts)
 
 	return nil
 }

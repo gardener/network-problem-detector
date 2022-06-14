@@ -60,6 +60,10 @@ func (r *discoverMDNS) TestData() any {
 	return struct{}{}
 }
 
+func (r *discoverMDNS) DestHosts() []string {
+	return []string{GetNodeName()}
+}
+
 func (r *discoverMDNS) Run(ch chan<- *nwpd.Observation) {
 	nodeName := GetNodeName()
 

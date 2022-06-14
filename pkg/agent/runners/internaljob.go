@@ -25,6 +25,7 @@ type Runner interface {
 	Config() RunnerConfig
 	Description() string
 	TestData() any
+	DestHosts() []string
 }
 
 type InternalJob struct {
@@ -53,6 +54,10 @@ func (j *InternalJob) Config() RunnerConfig {
 
 func (j *InternalJob) Description() string {
 	return j.runner.Description()
+}
+
+func (j *InternalJob) DestHosts() []string {
+	return j.runner.DestHosts()
 }
 
 func (j *InternalJob) SetLastRun(lastRun *time.Time) {
