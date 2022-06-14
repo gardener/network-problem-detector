@@ -13,6 +13,7 @@ Files:
   CODEOWNERS
   go.mod
   go.sum
+  pkg/common/nwpd/nwpd_grpc.pb.go
   pkg/deploy/DEFAULT_IMAGE
   vendor/modules.txt
   VERSION

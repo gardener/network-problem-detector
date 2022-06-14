@@ -34,6 +34,7 @@ func ToIntObservation(obs *nwpd.Observation, idMap *StringIdMap, persistor IntSt
 		Ok:             obs.Ok,
 		TimeMillis:     obs.Timestamp.AsTime().UnixMilli(),
 		DurationMillis: int32(obs.Duration.AsDuration().Milliseconds()),
+		PeriodMillis:   int32(obs.Period.AsDuration().Milliseconds()),
 	}, nil
 }
 
@@ -50,9 +51,12 @@ func IntObsToObservation(o *nwpd.IntObservation, idMap *StringIdMap) (*nwpd.Obse
 	if err != nil {
 		return nil, err
 	}
-	var duration *durationpb.Duration
+	var duration, period *durationpb.Duration
 	if o.DurationMillis > 0 {
 		duration = durationpb.New(time.Millisecond * time.Duration(o.DurationMillis))
+	}
+	if o.PeriodMillis > 0 {
+		period = durationpb.New(time.Millisecond * time.Duration(o.PeriodMillis))
 	}
 	return &nwpd.Observation{
 		JobID:     sj,
@@ -61,6 +65,7 @@ func IntObsToObservation(o *nwpd.IntObservation, idMap *StringIdMap) (*nwpd.Obse
 		Timestamp: timestamppb.New(time.UnixMilli(o.TimeMillis)),
 		Duration:  duration,
 		Ok:        o.Ok,
+		Period:    period,
 	}, nil
 }
 

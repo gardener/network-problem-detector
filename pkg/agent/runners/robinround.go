@@ -15,7 +15,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-type runFunc[T config.WithDestHost] func(item T) (string, error)
+type runFunc[T config.WithDestHost] func(item T) (result string, err error)
 
 type robinRound[T config.WithDestHost] struct {
 	itemsName string
@@ -60,6 +60,7 @@ func (r *robinRound[T]) Run(ch chan<- *nwpd.Observation) {
 	start := time.Now()
 	result, err := r.runFunc(item)
 	obs.Duration = durationpb.New(time.Since(start))
+	obs.Period = durationpb.New(r.config.Period * time.Duration(len(r.items)))
 	obs.Ok = err == nil
 	if err != nil {
 		obs.Result = fmt.Sprintf("error: %s", err)

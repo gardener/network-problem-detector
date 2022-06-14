@@ -56,6 +56,7 @@ message Observation {
   google.protobuf.Duration duration = 5;
   string result = 6; // not persisted
   bool ok = 7;
+  google.protobuf.Duration period = 8;
 }
 
 message IntObservation {
@@ -65,6 +66,7 @@ message IntObservation {
   int64 timeMillis = 4;
   int32 durationMillis = 5;
   bool ok = 6;
+  int32 periodMillis = 7;
 }
 
 message Int64Arrays {

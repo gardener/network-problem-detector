@@ -10,6 +10,7 @@ import (
 
 	"github.com/gardener/network-problem-detector/pkg/common"
 	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/hashicorp/mdns"
 	"github.com/spf13/cobra"
@@ -79,6 +80,7 @@ func (r *discoverMDNS) Run(ch chan<- *nwpd.Observation) {
 					Timestamp: timestamppb.Now(),
 					JobID:     r.config.JobID,
 					Ok:        true,
+					Period:    durationpb.New(r.config.Period),
 				}
 				ch <- obs
 			}

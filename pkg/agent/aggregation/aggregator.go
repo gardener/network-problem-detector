@@ -27,6 +27,7 @@ type obsAggr struct {
 	timeWindow   time.Duration
 	logDirectory string
 	hostNetwork  bool
+	validEdges   ValidEdges
 	lastReport   time.Time
 }
 
@@ -34,6 +35,18 @@ type jobEdge struct {
 	jobID    string
 	srcHost  string
 	destHost string
+}
+
+type ValidEdges struct {
+	JobIDs    map[string]struct{}
+	SrcHosts  map[string]struct{}
+	DestHosts map[string]struct{}
+}
+
+type ObservationListenerExtended interface {
+	nwpd.ObservationListener
+
+	UpdateValidEdges(edges ValidEdges)
 }
 
 func (je jobEdge) String() string {
@@ -59,6 +72,14 @@ func (jea *jobEdgeAggregation) IsOKSinceLastReport() bool {
 
 func (jea *jobEdgeAggregation) IsLastOK() bool {
 	return jea.okStrike > 0
+}
+
+func (jea *jobEdgeAggregation) IsOverdue() bool {
+	if jea.IsOKSinceLastReport() && jea.lastObs != nil {
+		expectedAt := jea.lastObs.Timestamp.AsTime().Add(jea.lastObs.Period.AsDuration()).Add(10 * time.Second)
+		return expectedAt.Before(time.Now())
+	}
+	return true
 }
 
 func (jea *jobEdgeAggregation) Report(je jobEdge, start time.Time) string {
@@ -145,9 +166,10 @@ func (c *groupCounter) summary() string {
 	return fmt.Sprintf("ok/unknown/failed: %d/%d/%d%s", len(c.ok), len(c.unknown), len(c.failed), suffix)
 }
 
-var _ nwpd.ObservationListener = &obsAggr{}
+var _ ObservationListenerExtended = &obsAggr{}
 
-func NewObsAggregator(log logrus.FieldLogger, reportPeriod, timeWindow time.Duration, logDirectory string, hostNetwork bool) (*obsAggr, error) {
+func NewObsAggregator(log logrus.FieldLogger, reportPeriod, timeWindow time.Duration, logDirectory string,
+	hostNetwork bool) (*obsAggr, error) {
 	if logDirectory != "" {
 		err := os.MkdirAll(logDirectory, 0777)
 		if err != nil {
@@ -164,6 +186,13 @@ func NewObsAggregator(log logrus.FieldLogger, reportPeriod, timeWindow time.Dura
 		logDirectory: logDirectory,
 		hostNetwork:  hostNetwork,
 	}, nil
+}
+
+func (a *obsAggr) UpdateValidEdges(edges ValidEdges) {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+
+	a.validEdges = edges
 }
 
 func (a *obsAggr) Add(obs *nwpd.Observation) {
@@ -222,7 +251,9 @@ func (r *reportData) add(je jobEdge, aggr *jobEdgeAggregation) {
 	if ok != nil && !*ok {
 		r.issues = append(r.issues, aggr.Report(je, r.start))
 	} else if r.fullReport || ok == nil {
-		r.noissues = append(r.noissues, aggr.Report(je, r.start))
+		if r.fullReport || aggr.IsOverdue() {
+			r.noissues = append(r.noissues, aggr.Report(je, r.start))
+		}
 	}
 }
 
@@ -307,6 +338,10 @@ func (a *obsAggr) calcReport(fullReport, resetCount bool) *reportData {
 	outdated := end.Add(-1 * a.timeWindow)
 	report := newReportData(start, end, fullReport)
 	for je, aggr := range a.aggregations {
+		if !a.isValidEdge(je) {
+			delete(a.aggregations, je)
+			continue
+		}
 		if aggr.lastTimestamp().Before(outdated) {
 			delete(a.aggregations, je)
 		}
@@ -317,6 +352,25 @@ func (a *obsAggr) calcReport(fullReport, resetCount bool) *reportData {
 		}
 	}
 	return report
+}
+
+func (a *obsAggr) isValidEdge(je jobEdge) bool {
+	if len(a.validEdges.JobIDs) == 0 &&
+		len(a.validEdges.SrcHosts) == 0 &&
+		len(a.validEdges.DestHosts) == 0 {
+		return true
+	}
+
+	if _, ok := a.validEdges.JobIDs[je.jobID]; !ok {
+		return false
+	}
+	if _, ok := a.validEdges.SrcHosts[je.srcHost]; !ok {
+		return false
+	}
+	if _, ok := a.validEdges.DestHosts[je.destHost]; !ok {
+		return false
+	}
+	return true
 }
 
 func utctime(t time.Time) string {

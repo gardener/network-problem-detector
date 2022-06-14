@@ -48,7 +48,7 @@ type server struct {
 	currentClusterConfig *config.ClusterConfig
 	obsChan              chan *nwpd.Observation
 	writer               nwpd.ObservationWriter
-	aggregator           nwpd.ObservationListener
+	aggregator           aggregation.ObservationListenerExtended
 	tickPeriod           time.Duration
 	done                 chan struct{}
 
@@ -102,7 +102,8 @@ func (s *server) setup() error {
 	if cfg.AggregationTimeWindowSeconds != nil {
 		timeWindow = time.Duration(*cfg.AggregationTimeWindowSeconds) * time.Second
 	}
-	s.aggregator, err = aggregation.NewObsAggregator(s.log.WithField("sub", "aggr"), reportPeriod, timeWindow, common.PathLogDir, s.hostNetwork)
+	s.aggregator, err = aggregation.NewObsAggregator(s.log.WithField("sub", "aggr"), reportPeriod, timeWindow,
+		common.PathLogDir, s.hostNetwork)
 	if err != nil {
 		return err
 	}
@@ -158,6 +159,20 @@ func (s *server) applyAgentConfig(cfg *config.AgentConfig) error {
 	}
 	deleteOutdatedMetricByObsoleteJobIDs(obsoleteJobIDs)
 	deleteOutdatedMetricByValidDestHosts(validDestHosts)
+	if s.aggregator != nil {
+		s.aggregator.UpdateValidEdges(aggregation.ValidEdges{
+			JobIDs:    applied,
+			SrcHosts:  validDestHosts,
+			DestHosts: validDestHosts,
+		})
+	}
+	go func() {
+		// second cleanup later to deal with potential blocked requests
+		// wait for request timeout
+		time.Sleep(1 * time.Minute)
+		deleteOutdatedMetricByObsoleteJobIDs(obsoleteJobIDs)
+		deleteOutdatedMetricByValidDestHosts(validDestHosts)
+	}()
 
 	return nil
 }
