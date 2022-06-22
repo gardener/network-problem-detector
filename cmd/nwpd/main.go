@@ -28,6 +28,7 @@ func main() {
 	rootCmd.AddCommand(controller.CreateRunControllerCmd())
 	rootCmd.AddCommand(deploy.CreateDeployCmd())
 	rootCmd.AddCommand(collect.CreateCollectCmd())
+	rootCmd.AddCommand(collect.CreateRunCollectCmd())
 	rootCmd.AddCommand(aggregate.CreateAggregateCmd())
 	rootCmd.AddCommand(query.CreateQueryCmd())
 	rootCmd.AddCommand(list.CreateListCmd())
