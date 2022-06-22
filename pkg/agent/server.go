@@ -63,7 +63,7 @@ func newServer(log logrus.FieldLogger, agentConfigFile, clusterConfigFile string
 		hostNetwork:       hostNetwork,
 		jobs:              map[jobid]*runners.InternalJob{},
 		obsChan:           make(chan *nwpd.Observation, 100),
-		tickPeriod:        50 * time.Millisecond,
+		tickPeriod:        200 * time.Millisecond,
 		done:              make(chan struct{}),
 	}, nil
 }

@@ -13,9 +13,14 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"sync"
+
+	"golang.org/x/sync/semaphore"
 
 	"github.com/gardener/network-problem-detector/pkg/agent/db"
 	"github.com/gardener/network-problem-detector/pkg/common"
+	"go.uber.org/atomic"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -25,6 +30,12 @@ import (
 type collectCommand struct {
 	common.ClientsetBase
 	directory string
+	workers   int
+
+	totalBytes  atomic.Int64
+	totalFiles  atomic.Int32
+	totalNodes  atomic.Int32
+	failedNodes atomic.Int32
 }
 
 func CreateCollectCmd() *cobra.Command {
@@ -37,7 +48,7 @@ func CreateCollectCmd() *cobra.Command {
 	}
 	cc.AddKubeConfigFlag(cmd.Flags())
 	cmd.Flags().StringVar(&cc.directory, "output", "collected-observations", "database directory to store the collected observations.")
-
+	cmd.Flags().IntVar(&cc.workers, "workers", 10, "number of parallel workers to fetch observations")
 	return cmd
 }
 
@@ -66,61 +77,97 @@ func (cc *collectCommand) collect(cmd *cobra.Command, args []string) error {
 	}
 	defer os.RemoveAll(dir)
 
+	log.Infof("Collecting from %d nodes...", len(list.Items))
+	cc.totalBytes.Store(0)
+	cc.totalFiles.Store(0)
+	cc.totalNodes.Store(0)
+	cc.failedNodes.Store(0)
+	var wg sync.WaitGroup
+	sem := semaphore.NewWeighted(int64(cc.workers))
+	wg.Add(len(list.Items))
+	for _, item := range list.Items {
+		pod := item
+		go func() {
+			defer wg.Done()
+			tasklog := log.WithField("node", pod.Spec.NodeName)
+			if err := sem.Acquire(ctx, 1); err != nil {
+				tasklog.Errorf("acquire failed")
+				return
+			}
+			defer sem.Release(1)
+			cc.loadFrom(tasklog, dir, &pod)
+		}()
+	}
+	wg.Wait()
+	log.Infof("Written %d bytes form %d files to directory %s from %d nodes",
+		cc.totalBytes.Load(), cc.totalFiles.Load(), cc.directory, cc.totalNodes.Load())
+	if cc.failedNodes.Load() > 0 {
+		log.Warnf("%d nodes not completed (see log messages above)", cc.failedNodes.Load())
+	}
+
+	return nil
+}
+
+func (cc *collectCommand) loadFrom(log logrus.FieldLogger, dir string, pod *corev1.Pod) {
+	log.Infof("Loading observations")
 	kubeconfigOpt := ""
 	if cc.Kubeconfig != "" {
 		kubeconfigOpt = " --kubeconfig=" + cc.Kubeconfig
 	}
-	totalBytes := 0
-	totalFiles := 0
-	for _, item := range list.Items {
-		log.Infof("Loading observations from %s", item.Name)
-		cmdline := fmt.Sprintf("kubectl %s -n %s exec %s -- tar cfz - -C %s . | tar xfz - -C %s", kubeconfigOpt, item.Namespace, item.Name, common.PathOutputDir, dir)
-		var stderr bytes.Buffer
-		cmd := exec.Command("sh", "-c", cmdline)
-		cmd.Stderr = &stderr
-		cmd.Env = os.Environ()
-		err = cmd.Run()
-		if err != nil {
-			log.Errorf("kubectl exec failed for %s/%s: %s (stderr: %s)", item.Namespace, item.Name, err, stderr.String())
-			continue
-			//return fmt.Errorf("kubectl exec failed for %s/%s: %s (stderr: %s)", item.Namespace, item.Name, err, stderr.String())
-		}
-		filenames, err := db.GetAnyRecordFiles(dir, false)
-		if err != nil {
-			return fmt.Errorf("listing temp dir %s failed: %s", dir, err)
-		}
-		if len(filenames) == 0 && stderr.Len() != 0 {
-			return fmt.Errorf("execution with unexpected result: %s", stderr.String())
-		}
-
-		outdir := path.Join(cc.directory, item.Spec.NodeName)
-		if err := os.MkdirAll(outdir, 0755); err != nil {
-			return err
-		}
-		countBytes := 0
-		countFiles := 0
-		for _, filename := range filenames {
-			_, name := path.Split(filename)
-			destFilename := path.Join(outdir, name)
-			n, err := copyFile(filename, destFilename)
-			if err != nil {
-				return err
-			}
-			err = copyFileDates(filename, destFilename)
-			if err != nil {
-				return err
-			}
-			countBytes += int(n)
-			countFiles++
-
-		}
-		log.Infof("Loaded %d bytes from %d files", countBytes, countFiles)
-		totalBytes += countBytes
-		totalFiles += countFiles
+	cmdline := fmt.Sprintf("kubectl %s -n %s exec %s -- /nwpdcli run-collect | tar xfz - -C %s", kubeconfigOpt, pod.Namespace, pod.Name, dir)
+	var stderr bytes.Buffer
+	cmd := exec.Command("sh", "-c", cmdline)
+	cmd.Stderr = &stderr
+	cmd.Env = os.Environ()
+	err := cmd.Run()
+	if err != nil {
+		log.Errorf("kubectl exec failed for %s/%s: %s (stderr: %s)", pod.Namespace, pod.Name, err, stderr.String())
+		cc.failedNodes.Inc()
+		return
 	}
-	log.Infof("Written %d bytes form %d files to directory %s", totalBytes, totalFiles, cc.directory)
+	filenames, err := db.GetAnyRecordFiles(dir, false)
+	if err != nil {
+		log.Errorf("listing temp dir %s failed: %s", dir, err)
+		cc.failedNodes.Inc()
+		return
+	}
+	if len(filenames) == 0 && stderr.Len() != 0 {
+		log.Errorf("execution with unexpected result: %s", stderr.String())
+		cc.failedNodes.Inc()
+		return
+	}
 
-	return nil
+	outdir := path.Join(cc.directory, pod.Spec.NodeName)
+	if err := os.MkdirAll(outdir, 0755); err != nil {
+		log.Errorf("mkdir failed: %s", err)
+		cc.failedNodes.Inc()
+		return
+	}
+	countBytes := 0
+	countFiles := 0
+	for _, filename := range filenames {
+		_, name := path.Split(filename)
+		destFilename := path.Join(outdir, name)
+		n, err := copyFile(filename, destFilename)
+		if err != nil {
+			log.Errorf("copyFile failed: %s", err)
+			cc.failedNodes.Inc()
+			return
+		}
+		err = copyFileDates(filename, destFilename)
+		if err != nil {
+			log.Errorf("copyFileDates failed: %s", err)
+			cc.failedNodes.Inc()
+			return
+		}
+		countBytes += int(n)
+		countFiles++
+
+	}
+	log.Infof("Loaded %d bytes from %d files", countBytes, countFiles)
+	cc.totalBytes.Add(int64(countBytes))
+	cc.totalFiles.Add(int32(countFiles))
+	cc.totalNodes.Inc()
 }
 
 func copyFile(srcFilename, destFilename string) (int64, error) {
