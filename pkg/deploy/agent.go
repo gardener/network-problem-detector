@@ -5,6 +5,7 @@
 package deploy
 
 import (
+	_ "embed"
 	"fmt"
 	"strings"
 	"time"
@@ -23,6 +24,10 @@ import (
 	"github.com/gardener/network-problem-detector/pkg/common"
 	"github.com/gardener/network-problem-detector/pkg/common/config"
 )
+
+// defaultRepository is the default repository of the image used for deployment
+//go:embed DEFAULT_REPOSITORY
+var defaultRepository string
 
 // AgentDeployConfig contains configuration for deploying the nwpd agent daemonset
 type AgentDeployConfig struct {
@@ -66,7 +71,8 @@ func DeployNetworkProblemDetectorAgent(config *AgentDeployConfig) ([]Object, err
 	return objects, nil
 }
 
-func (ac *AgentDeployConfig) AddImageFlag(flags *pflag.FlagSet) {
+func (ac *AgentDeployConfig) AddImageFlag(imageTag string, flags *pflag.FlagSet) {
+	defaultImage := defaultRepository + ":" + imageTag
 	flags.StringVar(&ac.Image, "image", strings.TrimSpace(defaultImage), "the nwpd container image to use.")
 }
 
@@ -195,7 +201,7 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 					Containers: []corev1.Container{{
 						Name:            name,
 						Image:           ac.Image,
-						ImagePullPolicy: corev1.PullIfNotPresent,
+						ImagePullPolicy: imagePullPolicyByImage(ac.Image),
 						Command: []string{
 							"/nwpdcli",
 							"run-agent",
@@ -388,7 +394,7 @@ func (ac *AgentDeployConfig) buildControllerDeployment() (*appsv1.Deployment, *r
 					Containers: []corev1.Container{{
 						Name:            name,
 						Image:           ac.Image,
-						ImagePullPolicy: corev1.PullIfNotPresent,
+						ImagePullPolicy: imagePullPolicyByImage(ac.Image),
 						Command:         []string{"/nwpdcli", "run-controller", "--in-cluster"},
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
@@ -737,4 +743,11 @@ func BuildClusterConfigMap(clusterConfig *config.ClusterConfig) (*corev1.ConfigM
 		},
 	}
 	return cm, nil
+}
+
+func imagePullPolicyByImage(image string) corev1.PullPolicy {
+	if strings.HasSuffix(image, "-dev") || strings.HasSuffix(image, ":latest") {
+		return corev1.PullAlways
+	}
+	return corev1.PullIfNotPresent
 }

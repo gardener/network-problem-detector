@@ -17,16 +17,21 @@ import (
 )
 
 var (
+	// Version is injected by build
+	Version string
+	// ImageTag is injected by build
+	ImageTag string
+
 	rootCmd = &cobra.Command{
 		Use:   "nwpdcli",
-		Short: "Network problem detector client and agent",
+		Short: "Network problem detector client and agent (" + Version + ")",
 	}
 )
 
 func main() {
 	rootCmd.AddCommand(agent.CreateRunAgentCmd())
 	rootCmd.AddCommand(controller.CreateRunControllerCmd())
-	rootCmd.AddCommand(deploy.CreateDeployCmd())
+	rootCmd.AddCommand(deploy.CreateDeployCmd(ImageTag))
 	rootCmd.AddCommand(collect.CreateCollectCmd())
 	rootCmd.AddCommand(collect.CreateRunCollectCmd())
 	rootCmd.AddCommand(aggregate.CreateAggregateCmd())

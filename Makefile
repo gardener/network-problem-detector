@@ -29,7 +29,7 @@ format:
 build:
 	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -o $(EXECUTABLE) \
         -mod=vendor \
-	    -ldflags "-X main.Version=$(VERSION)-$(shell git rev-parse HEAD)"\
+	    -ldflags "-X 'main.Version=$(EFFECTIVE_VERSION)' -X 'main.ImageTag=$(IMAGE_TAG)'"\
 	    ./cmd/nwpd
 
 .PHONY: build-local
@@ -38,7 +38,7 @@ build-local:
 	    -race \
         -mod=vendor \
 	    -gcflags="all=-N -l" \
-	    -ldflags "-X main.Version=$(VERSION)-$(shell git rev-parse HEAD)"\
+	    -ldflags "-X 'main.Version=$(EFFECTIVE_VERSION)' -X 'main.ImageTag=$(IMAGE_TAG)'"\
 	    ./cmd/nwpd
 
 
@@ -46,7 +46,7 @@ build-local:
 release:
 	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -o $(EXECUTABLE) \
         -mod=vendor \
-        -ldflags "-w -X main.Version=$(VERSION)" \
+        -ldflags "-w -X 'main.Version=$(EFFECTIVE_VERSION)' -X 'main.ImageTag=$(IMAGE_TAG)'"\
 	    ./cmd/nwpd
 
 .PHONY: test

@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"sync"
 
 	"golang.org/x/sync/semaphore"
@@ -95,7 +96,7 @@ func (cc *collectCommand) collect(cmd *cobra.Command, args []string) error {
 				return
 			}
 			defer sem.Release(1)
-			cc.loadFrom(tasklog, dir, &pod)
+			cc.loadFrom(tasklog, filepath.Join(dir, pod.Name), &pod)
 		}()
 	}
 	wg.Wait()
@@ -113,6 +114,11 @@ func (cc *collectCommand) loadFrom(log logrus.FieldLogger, dir string, pod *core
 	kubeconfigOpt := ""
 	if cc.Kubeconfig != "" {
 		kubeconfigOpt = " --kubeconfig=" + cc.Kubeconfig
+	}
+	if err := os.Mkdir(dir, 0755); err != nil {
+		log.Errorf("mkdir tmpsubdir failed: %s", err)
+		cc.failedNodes.Inc()
+		return
 	}
 	cmdline := fmt.Sprintf("kubectl %s -n %s exec %s -- /nwpdcli run-collect | tar xfz - -C %s", kubeconfigOpt, pod.Namespace, pod.Name, dir)
 	var stderr bytes.Buffer

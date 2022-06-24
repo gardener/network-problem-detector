@@ -6,7 +6,6 @@ package deploy
 
 import (
 	"context"
-	_ "embed"
 	"encoding/json"
 	"fmt"
 
@@ -20,17 +19,13 @@ import (
 	"github.com/gardener/network-problem-detector/pkg/common/config"
 )
 
-// DefaultImage is the default image used for deployment
-//go:embed DEFAULT_IMAGE
-var defaultImage string
-
 type deployCommand struct {
 	common.ClientsetBase
 	delete            bool
 	agentDeployConfig AgentDeployConfig
 }
 
-func CreateDeployCmd() *cobra.Command {
+func CreateDeployCmd(imageTag string) *cobra.Command {
 	dc := &deployCommand{}
 	cmd := &cobra.Command{
 		Use:   "deploy",
@@ -38,7 +33,7 @@ func CreateDeployCmd() *cobra.Command {
 		Long:  `deploy agent daemon sets and controller deployment`,
 	}
 	dc.AddKubeConfigFlag(cmd.PersistentFlags())
-	dc.agentDeployConfig.AddImageFlag(cmd.PersistentFlags())
+	dc.agentDeployConfig.AddImageFlag(imageTag, cmd.PersistentFlags())
 	dc.agentDeployConfig.AddOptionFlags(cmd.PersistentFlags())
 
 	agentCmd := &cobra.Command{

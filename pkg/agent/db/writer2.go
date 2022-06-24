@@ -158,7 +158,7 @@ func readRecord(r io.Reader) (byte, []byte, error) {
 	} else if err != nil {
 		return 0, nil, err
 	} else if n != 1 {
-		return 0, nil, fmt.Errorf("incomplete block")
+		return 0, nil, fmt.Errorf("missing marker")
 	}
 
 	var len uint16
@@ -169,7 +169,7 @@ func readRecord(r io.Reader) (byte, []byte, error) {
 	if n, err := r.Read(value); err != nil {
 		return 0, nil, err
 	} else if n != int(len) {
-		return 0, nil, fmt.Errorf("incomplete block")
+		return 0, nil, fmt.Errorf("incomplete block: %d != %d", n, int(len))
 	}
 	return marker[0], value, nil
 }
@@ -437,7 +437,9 @@ func IterateRecordFile(filename string, visitor ObservationVisitor) error {
 				return fmt.Errorf("error on reading StringIdMap: %s", err)
 			}
 			obj := NewVarint2String(raw.Key, raw.Value)
-			idMap.Append(obj)
+			if err := idMap.Append(obj); err != nil {
+				return fmt.Errorf("error on appending to StringIdMap: %s", err)
+			}
 		case markerObservation:
 			intobs, err := IntObsFromBytes(value)
 			if err != nil {

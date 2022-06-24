@@ -112,7 +112,9 @@ func (ac *aggrCommand) aggr(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	ac.prepareFilterExpressions()
+	if err := ac.prepareFilterExpressions(); err != nil {
+		return err
+	}
 
 	endMillis := time.Now().UnixMilli()
 	startMillis := endMillis - int64(ac.minutes*60000)
@@ -147,7 +149,7 @@ func (ac *aggrCommand) aggr(cmd *cobra.Command, args []string) error {
 	var dataStartMillis, dataEndMillis int64
 
 	for _, filename := range filenames {
-		db.IterateRecordFile(filename, func(obs *nwpd.Observation) error {
+		err := db.IterateRecordFile(filename, func(obs *nwpd.Observation) error {
 			timeMillis := obs.Timestamp.AsTime().UnixMilli()
 
 			if dataStartMillis == 0 || dataStartMillis > timeMillis {
@@ -210,6 +212,9 @@ func (ac *aggrCommand) aggr(cmd *cobra.Command, args []string) error {
 			}
 			return nil
 		})
+		if err != nil {
+			return err
+		}
 	}
 	jobs := map[string]struct{}{}
 	srcNodes := map[string]struct{}{}
