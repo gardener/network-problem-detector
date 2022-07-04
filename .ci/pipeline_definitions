@@ -7,6 +7,10 @@ network-problem-detector:
         preprocess:
           'inject-commit-hash'
       publish:
+        oci-builder: docker-buildx
+        platforms:
+        - linux/amd64
+        - linux/arm64
         dockerimages:
           network-problem-detector:
             inputs:

@@ -10,6 +10,7 @@ REPO_ROOT             := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))
 VERSION               := $(shell cat VERSION)
 IMAGE_TAG             := $(VERSION)
 EFFECTIVE_VERSION     := $(VERSION)-$(shell git rev-parse HEAD)
+GOARCH                := amd64
 
 .PHONY: revendor
 revendor:
@@ -27,7 +28,7 @@ format:
 
 .PHONY: build
 build:
-	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -o $(EXECUTABLE) \
+	@CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) GO111MODULE=on go build -o $(EXECUTABLE) \
         -mod=vendor \
 	    -ldflags "-X 'main.Version=$(EFFECTIVE_VERSION)' -X 'main.ImageTag=$(IMAGE_TAG)'"\
 	    ./cmd/nwpd
@@ -44,7 +45,7 @@ build-local:
 
 .PHONY: release
 release:
-	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -o $(EXECUTABLE) \
+	@CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) GO111MODULE=on go build -o $(EXECUTABLE) \
         -mod=vendor \
         -ldflags "-w -X 'main.Version=$(EFFECTIVE_VERSION)' -X 'main.ImageTag=$(IMAGE_TAG)'"\
 	    ./cmd/nwpd
