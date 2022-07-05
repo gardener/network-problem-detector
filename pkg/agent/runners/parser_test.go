@@ -126,8 +126,6 @@ var _ = Describe("parser", func() {
 			[]string{"checkHTTPSGet", "--endpoint-internal-kube-apiserver"}, NewCheckHTTPSGet(httpsEndpointsInternalKubeApiServer, config1)),
 		Entry("checkHTTPSGet with external kube-apiserver endpoints", clusterCfg1, config1,
 			[]string{"checkHTTPSGet", "--endpoint-external-kube-apiserver"}, NewCheckHTTPSGet(endpointsKubeApiServer, config1)),
-		Entry("discoverMDNS", clusterCfg1, config1,
-			[]string{"discoverMDNS"}, NewDiscoverMDNS(config1)),
 		Entry("nslookup with host names", clusterCfg1, config1,
 			[]string{"nslookup", "--names", "eu.gcr.io,foo.bar.", "--name-internal-kube-apiserver", "--name-external-kube-apiserver"},
 			NewNSLookup(dnsnames, config1)),

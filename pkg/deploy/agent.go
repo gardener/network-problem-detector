@@ -603,11 +603,10 @@ func (ac *AgentDeployConfig) BuildAgentConfig() (*config.AgentConfig, error) {
 		RetentionHours:  4,
 		LogObservations: false,
 		HostNetwork: &config.NetworkConfig{
-			DataFilePrefix:  common.NameDaemonSetAgentHostNet,
-			GRPCPort:        common.HostNetPodGRPCPort,
-			HttpPort:        common.HostNetPodHttpPort,
-			StartMDNSServer: true,
-			DefaultPeriod:   metav1.Duration{Duration: ac.DefaultPeriod},
+			DataFilePrefix: common.NameDaemonSetAgentHostNet,
+			GRPCPort:       common.HostNetPodGRPCPort,
+			HttpPort:       common.HostNetPodHttpPort,
+			DefaultPeriod:  metav1.Duration{Duration: ac.DefaultPeriod},
 			Jobs: []config.Job{
 				{
 					JobID: "tcp-n2api-int",
@@ -616,10 +615,6 @@ func (ac *AgentDeployConfig) BuildAgentConfig() (*config.AgentConfig, error) {
 				{
 					JobID: "tcp-n2n",
 					Args:  []string{"checkTCPPort", "--node-port", fmt.Sprintf("%d", common.HostNetPodGRPCPort)},
-				},
-				{
-					JobID: "mdns-n2n",
-					Args:  []string{"discoverMDNS", "--period", "1m"},
 				},
 				{
 					JobID: "tcp-n2p",

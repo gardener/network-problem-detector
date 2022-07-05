@@ -49,9 +49,6 @@ github.com/googleapis/gnostic/compiler
 github.com/googleapis/gnostic/extensions
 github.com/googleapis/gnostic/jsonschema
 github.com/googleapis/gnostic/openapiv2
-# github.com/hashicorp/mdns v1.0.5 => github.com/MartinWeindel/mdns v1.0.6-0.20220317174616-072a08fe159e
-## explicit; go 1.13
-github.com/hashicorp/mdns
 # github.com/imdario/mergo v0.3.5
 ## explicit
 github.com/imdario/mergo
@@ -67,9 +64,6 @@ github.com/json-iterator/go
 # github.com/matttproud/golang_protobuf_extensions v1.0.1
 ## explicit
 github.com/matttproud/golang_protobuf_extensions/pbutil
-# github.com/miekg/dns v1.1.41
-## explicit; go 1.13
-github.com/miekg/dns
 # github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
 ## explicit
 github.com/modern-go/concurrent
@@ -649,4 +643,3 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.3.0
 ## explicit; go 1.12
 sigs.k8s.io/yaml
-# github.com/hashicorp/mdns => github.com/MartinWeindel/mdns v1.0.6-0.20220317174616-072a08fe159e

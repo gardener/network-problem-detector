@@ -7,7 +7,6 @@ require (
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/go-ping/ping v0.0.0-20211130115550-779d1e919534
 	github.com/golang/protobuf v1.5.2
-	github.com/hashicorp/mdns v1.0.5
 	github.com/jamiealquiza/tachymeter v2.0.0+incompatible
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.15.0
@@ -27,8 +26,6 @@ require (
 	sigs.k8s.io/yaml v1.3.0
 )
 
-replace github.com/hashicorp/mdns => github.com/MartinWeindel/mdns v1.0.6-0.20220317174616-072a08fe159e
-
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
@@ -43,7 +40,6 @@ require (
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.11 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
-	github.com/miekg/dns v1.1.41 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/nxadm/tail v1.4.8 // indirect

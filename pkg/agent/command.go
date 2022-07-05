@@ -7,13 +7,8 @@ package agent
 import (
 	"fmt"
 	"net"
-	"os"
 
-	"github.com/gardener/network-problem-detector/pkg/agent/runners"
-	"github.com/gardener/network-problem-detector/pkg/common"
 	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
-
-	"github.com/hashicorp/mdns"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
@@ -49,51 +44,25 @@ func runAgent(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Missing --cluster-config option")
 	}
 
-	srv, realPort, err := startAgentServer(log, agentConfigFile, clusterConfigFile, hostNetwork)
+	srv, err := startAgentServer(log, agentConfigFile, clusterConfigFile, hostNetwork)
 	if err != nil {
 		return fmt.Errorf("cannot start server: %w", err)
 	}
 
-	if hostNetwork && srv.getNetworkCfg().StartMDNSServer {
-		nodeName := runners.GetNodeName()
-		ipstr := os.Getenv(common.EnvNodeIP)
-
-		var ips []net.IP
-		if ipstr != "" {
-			ip := net.ParseIP(ipstr)
-			if ip == nil {
-				return fmt.Errorf("cannot parse IP %s", ipstr)
-			}
-			ips = append(ips, ip)
-		}
-		info := []string{"network problem detector agent server"}
-		service, err := mdns.NewMDNSService(nodeName, common.MDNSServiceHostNetAgent, "", "", realPort, ips, info)
-		if err != nil {
-			return fmt.Errorf("NewMDNSService failed: %w", err)
-		}
-
-		// Create the mDNS server, defer shutdown
-		server, err := mdns.NewServer(&mdns.Config{Zone: service})
-		if err != nil {
-			return fmt.Errorf("create MDNS server failed: %w", err)
-		}
-		defer server.Shutdown()
-		log.Info("mDNS server started")
-	}
 	log.Info("running...")
 	srv.run()
 	return nil
 }
 
-func startAgentServer(log logrus.FieldLogger, agentConfigFile, clusterConfigFile string, hostNetwork bool) (*server, int, error) {
+func startAgentServer(log logrus.FieldLogger, agentConfigFile, clusterConfigFile string, hostNetwork bool) (*server, error) {
 	agentServer, err := newServer(log, agentConfigFile, clusterConfigFile, hostNetwork)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
 	err = agentServer.setup()
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
 	/*
@@ -104,7 +73,7 @@ func startAgentServer(log logrus.FieldLogger, agentConfigFile, clusterConfigFile
 	*/
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", agentServer.getNetworkCfg().GRPCPort))
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	//	s := grpc.NewServer(grpc.Creds(creds))
 	grpcServer = grpc.NewServer()
@@ -115,5 +84,5 @@ func startAgentServer(log logrus.FieldLogger, agentConfigFile, clusterConfigFile
 			log.Fatalf("failed to serve: %v", err)
 		}
 	}()
-	return agentServer, listener.Addr().(*net.TCPAddr).Port, nil
+	return agentServer, nil
 }
