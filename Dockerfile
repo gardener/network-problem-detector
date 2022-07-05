@@ -7,7 +7,8 @@ FROM golang:1.18.3 AS builder
 
 WORKDIR /build
 COPY . .
-RUN make release
+ARG TARGETARCH
+RUN make release GOARCH=$TARGETARCH
 
 ############# network-problem-detector
 FROM gcr.io/distroless/static-debian11 AS network-problem-detector
