@@ -5,8 +5,6 @@
 package common
 
 const (
-	// 	MDNSServiceHostNetAgent is the mDNS service name of the agent running on the host network.
-	MDNSServiceHostNetAgent = "network-problem-detector-host-node._tcp"
 	// NamespaceDefault is the default namespace
 	NamespaceDefault = "default"
 	// NamespaceKubeSystem is the kube-system namespace

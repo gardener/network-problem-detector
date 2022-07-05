@@ -2,7 +2,8 @@
 
 [![reuse compliant](https://reuse.software/badge/reuse-compliant.svg)](https://reuse.software/)
 
-The Network Problem Detector performs and collects various checks between all nodes of a Kubernetes cluster, to its Kube API server and/or external endpoints. Checks are performed using TCP connections, PING (ICMP) or mDNS (UDP).
+The Network Problem Detector performs and collects various checks between all nodes of a Kubernetes cluster,
+to its Kube API server and/or external endpoints. Checks are performed using TCP connections, PING (ICMP) or DNS lookups (UDP).
 
 ## Summary
 
@@ -115,20 +116,12 @@ To examine the current default configuration, run the command
 
    The pod needs `NET_ADMIN` capabilities to be allowed to perform pings.
 
-5. `discoverMDNS [--period <duration>] [--scale-period]`
-
-   Runs a mDNS service discovery. As a precondition the daemon set for the host network must be configured with `startMDNSServer: true`. In this case, a mDNS server is running on node port `5353` and is provided a service for its GRPC server. These services can be discovered with mDNS (UDP broadcast) if there are no network components like routers or firewalls between zones.
-
 
 ### Jobs as defined in the default configuration for the **host network**
 
 #### Job ID `https-n2api-ext`
 
 HTTPS Get check from all pods of the daemon set of the host network to the external address of the Kube API server.
-
-#### Job ID `mdns-n2n`
-
-mDNS UDP broadcast discovery of the other nodes from all pods of the daemon set of the node.
 
 #### Job ID `nslookup-n`
 

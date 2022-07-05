@@ -48,8 +48,6 @@ type NetworkConfig struct {
 	HttpPort int `json:"httpPort,omitempty"`
 	// Jobs are the jobs to execute.
 	Jobs []Job `json:"jobs,omitempty"`
-	// StartMDNSServer specifies if the MDNS server should be started.
-	StartMDNSServer bool `json:"startMDNSServer,omitempty"`
 	// DefaultPeriod is the period used for a new job if it doesn't specify the period.
 	DefaultPeriod metav1.Duration `json:"defaultPeriod,omitempty"`
 }
