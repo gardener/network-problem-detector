@@ -41,6 +41,8 @@ type AgentDeployConfig struct {
 	PodSecurityPolicyEnabled bool
 	// IgnoreAPIServerEndpoint if the check of the API server endpoint should be ignored
 	IgnoreAPIServerEndpoint bool
+	// PriorityClassName is the priority class name used for the daemon sets
+	PriorityClassName string
 }
 
 // DeployNetworkProblemDetectorAgent returns K8s resources to be created.
@@ -81,6 +83,7 @@ func (ac *AgentDeployConfig) AddOptionFlags(flags *pflag.FlagSet) {
 	flags.BoolVar(&ac.PingEnabled, "enable-ping", false, "if ICMP pings should be used in addition to TCP connection checks")
 	flags.BoolVar(&ac.PodSecurityPolicyEnabled, "enable-psp", true, "if pod security policy should be deployed")
 	flags.BoolVar(&ac.IgnoreAPIServerEndpoint, "ignore-gardener-kube-api-server", false, "if true, does not try to lookup kube api-server of Gardener control plane")
+	flags.StringVar(&ac.PriorityClassName, "priority-class", "", "priority class name")
 }
 
 func (ac *AgentDeployConfig) buildService(hostnetwork bool) (*corev1.Service, error) {
@@ -177,8 +180,8 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
-					HostNetwork: hostNetwork,
-					//PriorityClassName:             "system-node-critical",
+					HostNetwork:                   hostNetwork,
+					PriorityClassName:             ac.PriorityClassName,
 					TerminationGracePeriodSeconds: pointer.Int64(0),
 					Tolerations: []corev1.Toleration{
 						{
@@ -371,7 +374,7 @@ func (ac *AgentDeployConfig) buildControllerDeployment() (*appsv1.Deployment, *r
 					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
-					//PriorityClassName:             "system-node-critical",
+					PriorityClassName:             ac.PriorityClassName,
 					TerminationGracePeriodSeconds: pointer.Int64(0),
 					/*
 						Tolerations: []corev1.Toleration{
