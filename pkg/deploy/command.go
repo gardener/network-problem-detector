@@ -51,6 +51,7 @@ func CreateDeployCmd(imageTag string) *cobra.Command {
 		RunE:    dc.deployAgentControllerDeployment,
 	}
 	controllerCmd.Flags().BoolVar(&dc.delete, "delete", false, "if true, the deployment is deleted.")
+	controllerCmd.Flags().StringVar(&dc.agentDeployConfig.PriorityClassName, "priority-class", "", "priority class name")
 
 	printConfigCmd := &cobra.Command{
 		Use:     "print-default-config",
