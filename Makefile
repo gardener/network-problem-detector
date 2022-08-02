@@ -38,7 +38,6 @@ build-local:
 	@CGO_ENABLED=1 GO111MODULE=on go build -o $(EXECUTABLE) \
 	    -race \
         -mod=vendor \
-	    -gcflags="all=-N -l" \
 	    -ldflags "-X 'main.Version=$(EFFECTIVE_VERSION)' -X 'main.ImageTag=$(IMAGE_TAG)'"\
 	    ./cmd/nwpd
 
