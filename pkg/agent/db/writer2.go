@@ -18,8 +18,8 @@ import (
 
 	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/proto"
 )
 
 type obsWriter struct {
