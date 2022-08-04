@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/ajstarks/svgo v0.0.0-20211024235047-1546f124cd8b
 	github.com/fsnotify/fsnotify v1.5.4
-	github.com/go-ping/ping v0.0.0-20211130115550-779d1e919534
+	github.com/go-ping/ping v1.1.0
 	github.com/jamiealquiza/tachymeter v2.0.0+incompatible
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.20.0
@@ -15,7 +15,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	go.uber.org/atomic v1.9.0
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
-	golang.org/x/tools v0.1.5
+	golang.org/x/tools v0.1.12
 	google.golang.org/grpc v1.48.0
 	google.golang.org/protobuf v1.28.1
 	k8s.io/api v0.24.3
@@ -55,14 +55,13 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
-	golang.org/x/mod v0.4.2 // indirect
-	golang.org/x/net v0.0.0-20220425223048-2871e0cb64e4 // indirect
+	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
+	golang.org/x/net v0.0.0-20220722155237-a158d28d115b // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
-	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8 // indirect
+	golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20220210224613-90d013bbcef8 // indirect
-	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20210602131652-f16073e35f0c // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
