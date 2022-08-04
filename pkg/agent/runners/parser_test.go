@@ -7,6 +7,7 @@ package runners
 import (
 	"time"
 
+	"github.com/gardener/network-problem-detector/pkg/common"
 	"github.com/gardener/network-problem-detector/pkg/common/config"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
@@ -31,7 +32,7 @@ var _ = Describe("parser", func() {
 				{Nodename: "node2", Podname: "pod2", PodIP: "10.128.0.12", Port: 1234},
 			},
 			InternalKubeAPIServer: &config.Endpoint{
-				Hostname: "kubernetes",
+				Hostname: common.DomainNameKubernetesService,
 				IP:       "100.64.0.1",
 				Port:     443,
 			},
@@ -60,7 +61,7 @@ var _ = Describe("parser", func() {
 			{Hostname: "node2", IP: "10.128.0.12", Port: 1234},
 		}
 		endpointsInternalKubeApiServer = []config.Endpoint{
-			{Hostname: "kubernetes", IP: "100.64.0.1", Port: 443},
+			{Hostname: common.DomainNameKubernetesService, IP: "100.64.0.1", Port: 443},
 		}
 
 		endpointsKubeApiServer = []config.Endpoint{
@@ -71,10 +72,10 @@ var _ = Describe("parser", func() {
 			{Hostname: "server2", IP: "", Port: 443},
 		}
 		httpsEndpointsInternalKubeApiServer = []config.Endpoint{
-			{Hostname: "kubernetes.default.svc", IP: "", Port: 443},
+			{Hostname: common.DomainNameKubernetesService, IP: "", Port: 443},
 		}
 		dnsnames = []string{
-			"eu.gcr.io.", "foo.bar.", "kubernetes.default.svc.cluster.local.", "api.shoot.domain.com.",
+			"eu.gcr.io.", "foo.bar.", common.DomainNameKubernetesService, "api.shoot.domain.com.",
 		}
 	)
 

@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gardener/network-problem-detector/pkg/common"
 	"github.com/gardener/network-problem-detector/pkg/common/config"
 	"github.com/spf13/cobra"
 )
@@ -47,7 +48,7 @@ func (a *checkHTTPSGetArgs) createRunner(cmd *cobra.Command, args []string) erro
 		}
 	} else if a.internalKAPI {
 		endpoints = append(endpoints, config.Endpoint{
-			Hostname: "kubernetes.default.svc",
+			Hostname: common.DomainNameKubernetesService,
 			IP:       "",
 			Port:     443,
 		})
