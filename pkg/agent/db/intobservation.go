@@ -9,7 +9,7 @@ import (
 
 	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
