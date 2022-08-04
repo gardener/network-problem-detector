@@ -52,7 +52,7 @@ func (r *robinRound[T]) Run(ch chan<- *nwpd.Observation) {
 	nodeName := GetNodeName()
 	obs := &nwpd.Observation{
 		SrcHost:   nodeName,
-		DestHost:  item.DestHost(),
+		DestHost:  normalise(item.DestHost()),
 		Timestamp: timestamppb.Now(),
 		JobID:     r.config.JobID,
 	}

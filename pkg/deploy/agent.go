@@ -434,7 +434,7 @@ func (ac *AgentDeployConfig) buildControllerDeployment() (*appsv1.Deployment, *r
 				APIGroups:     []string{""},
 				Verbs:         []string{"get"},
 				Resources:     []string{"services"},
-				ResourceNames: []string{common.NameKubernetes},
+				ResourceNames: []string{common.NameKubernetesService},
 			},
 		},
 	}

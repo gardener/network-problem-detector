@@ -9,8 +9,10 @@ const (
 	NamespaceDefault = "default"
 	// NamespaceKubeSystem is the kube-system namespace
 	NamespaceKubeSystem = "kube-system"
-	// NameKubernetes is the kubernetes service name
-	NameKubernetes = "kubernetes"
+	// NameKubernetesService is the kubernetes service name
+	NameKubernetesService = "kubernetes"
+	// DomainNameKubernetesService is the Kubernetes service domain name
+	DomainNameKubernetesService = "kubernetes.default.svc.cluster.local."
 	// NameGardenerShootInfo is the name of the shoot info config map from Gardener
 	NameGardenerShootInfo = "shoot-info"
 	// AgentConfigFilename is the name of the config file

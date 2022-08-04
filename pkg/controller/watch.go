@@ -150,13 +150,13 @@ func (cc *controllerCommand) watch(log logrus.FieldLogger) error {
 			continue
 		}
 
-		svc, err := cc.Clientset.CoreV1().Services(common.NamespaceDefault).Get(ctx, common.NameKubernetes, metav1.GetOptions{})
+		svc, err := cc.Clientset.CoreV1().Services(common.NamespaceDefault).Get(ctx, common.NameKubernetesService, metav1.GetOptions{})
 		if err != nil {
-			log.Errorf("loading service %s/%s failed: %s", common.NamespaceDefault, common.NameKubernetes, err)
+			log.Errorf("loading service %s/%s failed: %s", common.NamespaceDefault, common.NameKubernetesService, err)
 			continue
 		}
 		internalApiServer := &config.Endpoint{
-			Hostname: common.NameKubernetes,
+			Hostname: common.DomainNameKubernetesService,
 			IP:       svc.Spec.ClusterIP,
 			Port:     int(svc.Spec.Ports[0].Port),
 		}

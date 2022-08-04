@@ -259,12 +259,12 @@ func (dc *deployCommand) buildAgentConfigMap() (*corev1.ConfigMap, error) {
 
 func (dc *deployCommand) buildClusterConfigMap() (*corev1.ConfigMap, error) {
 	ctx := context.Background()
-	svc, err := dc.Clientset.CoreV1().Services(common.NamespaceDefault).Get(ctx, common.NameKubernetes, metav1.GetOptions{})
+	svc, err := dc.Clientset.CoreV1().Services(common.NamespaceDefault).Get(ctx, common.NameKubernetesService, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
 	internalApiServer := &config.Endpoint{
-		Hostname: common.NameKubernetes,
+		Hostname: common.DomainNameKubernetesService,
 		IP:       svc.Spec.ClusterIP,
 		Port:     int(svc.Spec.Ports[0].Port),
 	}
