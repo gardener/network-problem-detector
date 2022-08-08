@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/gardener/network-problem-detector/pkg/agent/version"
 	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -21,7 +22,8 @@ var (
 	grpcServer        *grpc.Server
 )
 
-func CreateRunAgentCmd() *cobra.Command {
+func CreateRunAgentCmd(injectedVersion string) *cobra.Command {
+	version.Version = injectedVersion
 	cmd := &cobra.Command{
 		Use:   "run-agent",
 		Short: "runs agent server",

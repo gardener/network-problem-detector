@@ -7,6 +7,7 @@ package agent
 import (
 	"sync"
 
+	"github.com/gardener/network-problem-detector/pkg/common"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -101,11 +102,9 @@ func deleteOutdatedMetricByObsoleteJobIDs(jobIDs []string) {
 	}
 }
 
-func deleteOutdatedMetricByValidDestHosts(validDestHosts map[string]struct{}) {
+func deleteOutdatedMetricByValidDestHosts(validDestHosts common.StringSet) {
 	keys := metricKeys.remove(func(key observationKey) bool {
-		_, oksrc := validDestHosts[key.src]
-		_, okdest := validDestHosts[key.dest]
-		return !oksrc || !okdest
+		return !validDestHosts.Contains(key.src) || !validDestHosts.Contains(key.dest)
 	})
 	deleteOutdatedMetricsByKeys(keys)
 }

@@ -10,11 +10,11 @@ import (
 	"io"
 	"os"
 	"regexp"
-	"sort"
 	"strings"
 	"time"
 
 	"github.com/gardener/network-problem-detector/pkg/agent/db"
+	"github.com/gardener/network-problem-detector/pkg/common"
 	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
 
 	svg "github.com/ajstarks/svgo"
@@ -216,19 +216,19 @@ func (ac *aggrCommand) aggr(cmd *cobra.Command, args []string) error {
 			return err
 		}
 	}
-	jobs := map[string]struct{}{}
-	srcNodes := map[string]struct{}{}
-	destNodes := map[string]struct{}{}
+	jobs := common.StringSet{}
+	srcNodes := common.StringSet{}
+	destNodes := common.StringSet{}
 	for e, ed := range data {
-		srcNodes[e.src] = struct{}{}
-		destNodes[e.dest] = struct{}{}
+		srcNodes.Add(e.src)
+		destNodes.Add(e.dest)
 		for jobID := range ed.jobResults {
-			jobs[jobID] = struct{}{}
+			jobs.Add(jobID)
 		}
 	}
-	sortedJobs := toSortedArray(jobs)
-	sortedSrcNodes := toSortedArray(srcNodes)
-	sortedDestNodes := toSortedArray(destNodes)
+	sortedJobs := jobs.ToSortedArray()
+	sortedSrcNodes := srcNodes.ToSortedArray()
+	sortedDestNodes := destNodes.ToSortedArray()
 	for _, jobID := range sortedJobs {
 		fmt.Printf("Job: %s\n", jobID)
 		for _, src := range sortedSrcNodes {
@@ -448,7 +448,7 @@ func (ac *aggrCommand) writeSVGFile(jobs, srcNodes, destNodes []string, startUni
 			}
 			for i := 0; i < ac.buckets; i++ {
 				x := left + id*bucketWidth + i + 1
-				badJobs := map[string]struct{}{}
+				badJobs := common.StringSet{}
 				var okCount, failedCount int
 				for _, jobID := range jobs {
 					jr := ed.jobResults[jobID]
@@ -458,7 +458,7 @@ func (ac *aggrCommand) writeSVGFile(jobs, srcNodes, destNodes []string, startUni
 							okCount += int(bd.okCount)
 							failedCount += int(bd.failedCount)
 							if bd.failedCount > 0 {
-								badJobs[jobID] = struct{}{}
+								badJobs.Add(jobID)
 							}
 						}
 					}
@@ -469,7 +469,7 @@ func (ac *aggrCommand) writeSVGFile(jobs, srcNodes, destNodes []string, startUni
 				if failedCount > 0 {
 					canvas.Group()
 					canvas.Rect(x, y0+5, 1, 4, "fill: red; fill-opacity: .85;")
-					label := strings.Join(toSortedArray(badJobs), ", ")
+					label := strings.Join(badJobs.ToSortedArray(), ", ")
 					text := fmt.Sprintf(`<text class="hover" x="%d" y="%d">`, x, y0+8)
 					canvas.Writer.(io.StringWriter).WriteString(text)
 					xml.Escape(canvas.Writer, []byte(label))
@@ -483,15 +483,6 @@ func (ac *aggrCommand) writeSVGFile(jobs, srcNodes, destNodes []string, startUni
 
 	_, err = f.WriteString("</body>\n</html>\n")
 	return err
-}
-
-func toSortedArray(m map[string]struct{}) []string {
-	var list []string
-	for s := range m {
-		list = append(list, s)
-	}
-	sort.Strings(list)
-	return list
 }
 
 // parseTimestamp parses a timestamp and returns time in Unix mills

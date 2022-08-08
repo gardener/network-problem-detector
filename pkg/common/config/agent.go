@@ -17,10 +17,12 @@ type AgentConfig struct {
 	RetentionHours int `json:"retentionHours,omitempty"`
 	// LogObservations defines if observations should be logged additionally (for debug purposes)
 	LogObservations bool `json:"logObservations"`
-	// AggregationReportPeriodSeconds defines how often aggregated report is logged. Default is 60s if not set
-	AggregationReportPeriodSeconds *int `json:"aggregationReportPeriodSeconds,omitempty"`
-	// AggregationTimeWindowSeconds defines when a aggregation edge outdates if no new observations arrive
-	AggregationTimeWindowSeconds *int `json:"aggregationTimeWindowSeconds,omitempty"`
+	// K8sExporter defines configuration of the K8s exporter for writing node conditions and events
+	K8sExporter *K8sExporterConfig `json:"k8sExporter,omitempty"`
+	// AggregationReportPeriod defines how often aggregated report is logged.
+	AggregationReportPeriod *metav1.Duration `json:"aggregationReportPeriod,omitempty"`
+	// AggregationTimeWindow defines when a aggregation edge outdates if no new observations arrive
+	AggregationTimeWindow *metav1.Duration `json:"aggregationTimeWindow,omitempty"`
 	// HostNetwork is the configuration specific for daemon set in node network
 	HostNetwork *NetworkConfig `json:"hostNetwork,omitempty"`
 	// PodNetwork is the configuration specific for daemon set in node network
@@ -55,4 +57,11 @@ type NetworkConfig struct {
 type Job struct {
 	JobID string   `json:"jobID"`
 	Args  []string `json:"args,omitempty"`
+}
+
+type K8sExporterConfig struct {
+	// Enabled if true, the K8s exporter is active and patches the node conditions periodically.
+	Enabled bool `json:"enabled"`
+	// HeartbeatPeriod defines the update frequency of the node conditions.
+	HeartbeatPeriod *metav1.Duration `json:"heartbeatPeriod,omitempty"`
 }

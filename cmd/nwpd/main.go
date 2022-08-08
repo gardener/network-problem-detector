@@ -29,7 +29,7 @@ var (
 )
 
 func main() {
-	rootCmd.AddCommand(agent.CreateRunAgentCmd())
+	rootCmd.AddCommand(agent.CreateRunAgentCmd(Version))
 	rootCmd.AddCommand(controller.CreateRunControllerCmd())
 	rootCmd.AddCommand(deploy.CreateDeployCmd(ImageTag))
 	rootCmd.AddCommand(collect.CreateCollectCmd())

@@ -175,12 +175,12 @@ func (cc *listCommand) listAggregatedObservations(log logrus.FieldLogger, client
 		return err
 	}
 	for _, ao := range response.AggregatedObservations {
-		jobIDs := map[string]struct{}{}
+		jobIDs := common.StringSet{}
 		for k := range ao.JobsOkCount {
-			jobIDs[k] = struct{}{}
+			jobIDs.Add(k)
 		}
 		for k := range ao.JobsNotOkCount {
-			jobIDs[k] = struct{}{}
+			jobIDs.Add(k)
 		}
 		for jobID := range jobIDs {
 			okCount := ao.JobsOkCount[jobID]

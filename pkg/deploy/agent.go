@@ -43,19 +43,21 @@ type AgentDeployConfig struct {
 	IgnoreAPIServerEndpoint bool
 	// PriorityClassName is the priority class name used for the daemon sets
 	PriorityClassName string
+	// K8sExporterEnabled if node conditions and events should be updated/created
+	K8sExporterEnabled bool
+	// K8sExporterHeartbeat if K8sExporterEnabled sets the period of updating the node condition `ClusterNetworkProblems` or `HostNetworkProblems`
+	K8sExporterHeartbeat time.Duration
 }
 
 // DeployNetworkProblemDetectorAgent returns K8s resources to be created.
 func DeployNetworkProblemDetectorAgent(config *AgentDeployConfig) ([]Object, error) {
 	var objects []Object
-	serviceAccountName := ""
-	if config.PodSecurityPolicyEnabled {
-		serviceAccountName = common.ApplicationName
-		cr, crb, sa, psp, err := config.buildPodSecurityPolicy(serviceAccountName)
-		if err != nil {
-			return nil, err
-		}
-		objects = append(objects, cr, crb, sa, psp)
+	serviceAccountName, secObjects, err := config.buildSecurityObjects()
+	if err != nil {
+		return nil, err
+	}
+	if secObjects != nil {
+		objects = append(objects, secObjects...)
 	}
 	for _, hostnetwork := range []bool{false, true} {
 		svc, err := config.buildService(hostnetwork)
@@ -79,9 +81,11 @@ func (ac *AgentDeployConfig) AddImageFlag(imageTag string, flags *pflag.FlagSet)
 }
 
 func (ac *AgentDeployConfig) AddOptionFlags(flags *pflag.FlagSet) {
-	flags.DurationVar(&ac.DefaultPeriod, "default-period", 10*time.Second, "default period for jobs.")
+	flags.DurationVar(&ac.DefaultPeriod, "default-period", 10*time.Second, "default period for jobs")
 	flags.BoolVar(&ac.PingEnabled, "enable-ping", false, "if ICMP pings should be used in addition to TCP connection checks")
 	flags.BoolVar(&ac.PodSecurityPolicyEnabled, "enable-psp", true, "if pod security policy should be deployed")
+	flags.BoolVar(&ac.K8sExporterEnabled, "enable-k8s-exporter", false, "if node conditions and events should be updated/created")
+	flags.DurationVar(&ac.K8sExporterHeartbeat, "k8s-exporter-heartbeat", 3*time.Minute, "period for updating the node conditions by the K8s exporter")
 	flags.BoolVar(&ac.IgnoreAPIServerEndpoint, "ignore-gardener-kube-api-server", false, "if true, does not try to lookup kube api-server of Gardener control plane")
 	flags.StringVar(&ac.PriorityClassName, "priority-class", "", "priority class name")
 }
@@ -167,7 +171,7 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 			Namespace: common.NamespaceKubeSystem,
 		},
 		Spec: appsv1.DaemonSetSpec{
-			RevisionHistoryLimit: pointer.Int32Ptr(5),
+			RevisionHistoryLimit: pointer.Int32(5),
 			Selector:             &metav1.LabelSelector{MatchLabels: labels},
 			UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
 				Type: appsv1.RollingUpdateDaemonSetStrategyType,
@@ -199,7 +203,7 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 							Operator: corev1.TolerationOpExists,
 						},
 					},
-					AutomountServiceAccountToken: pointer.Bool(false),
+					AutomountServiceAccountToken: pointer.Bool(ac.K8sExporterEnabled),
 					ServiceAccountName:           serviceAccountName,
 					Containers: []corev1.Container{{
 						Name:            name,
@@ -363,7 +367,7 @@ func (ac *AgentDeployConfig) buildControllerDeployment() (*appsv1.Deployment, *r
 			Namespace: common.NamespaceKubeSystem,
 		},
 		Spec: appsv1.DeploymentSpec{
-			RevisionHistoryLimit: pointer.Int32Ptr(5),
+			RevisionHistoryLimit: pointer.Int32(5),
 			Selector:             &metav1.LabelSelector{MatchLabels: labels},
 			Replicas:             pointer.Int32(1),
 			Strategy: appsv1.DeploymentStrategy{
@@ -376,24 +380,8 @@ func (ac *AgentDeployConfig) buildControllerDeployment() (*appsv1.Deployment, *r
 				Spec: corev1.PodSpec{
 					PriorityClassName:             ac.PriorityClassName,
 					TerminationGracePeriodSeconds: pointer.Int64(0),
-					/*
-						Tolerations: []corev1.Toleration{
-							{
-								Effect:   corev1.TaintEffectNoSchedule,
-								Operator: corev1.TolerationOpExists,
-							},
-								{
-									Key:      "CriticalAddonsOnly",
-									Operator: corev1.TolerationOpExists,
-								},
-							{
-								Effect:   corev1.TaintEffectNoExecute,
-								Operator: corev1.TolerationOpExists,
-							},
-						},
-					*/
-					AutomountServiceAccountToken: pointer.Bool(true),
-					ServiceAccountName:           serviceAccountName,
+					AutomountServiceAccountToken:  pointer.Bool(true),
+					ServiceAccountName:            serviceAccountName,
 					Containers: []corev1.Container{{
 						Name:            name,
 						Image:           ac.Image,
@@ -514,22 +502,53 @@ func (ac *AgentDeployConfig) buildControllerDeployment() (*appsv1.Deployment, *r
 	return deployment, clusterRole, clusterRoleBinding, role, roleBinding, serviceAccount, nil
 }
 
-func (ac *AgentDeployConfig) buildPodSecurityPolicy(serviceAccountName string) (*rbacv1.ClusterRole, *rbacv1.ClusterRoleBinding, *corev1.ServiceAccount, *policyv1beta1.PodSecurityPolicy, error) {
-	roleName := "gardener.cloud:psp:kube-system:" + common.ApplicationName
-	resourceName := "gardener.kube-system." + common.ApplicationName
+func (ac *AgentDeployConfig) buildK8sExporterClusterRoleRules() []rbacv1.PolicyRule {
+	return []rbacv1.PolicyRule{
+		{
+			APIGroups: []string{""},
+			Resources: []string{"nodes"},
+			Verbs:     []string{"get"},
+		},
+		{
+			APIGroups: []string{""},
+			Resources: []string{"nodes/status"},
+			Verbs:     []string{"patch"},
+		},
+		{
+			APIGroups: []string{""},
+			Resources: []string{"events"},
+			Verbs:     []string{"create", "patch", "update"},
+		},
+	}
+}
+
+func (ac *AgentDeployConfig) buildSecurityObjects() (serviceAccountName string, objects []Object, retErr error) {
+	if ac.PodSecurityPolicyEnabled {
+		serviceAccountName = common.ApplicationName
+		cr, crb, sa, psp, err := ac.buildPodSecurityPolicy(serviceAccountName)
+		retErr = err
+		objects = append(objects, cr, crb, sa, psp)
+	} else if ac.K8sExporterEnabled {
+		serviceAccountName = common.ApplicationName
+		cr, crb, sa, err := ac.buildK8sExporterClusterRole(serviceAccountName)
+		retErr = err
+		objects = append(objects, cr, crb, sa)
+	}
+	return
+}
+
+func (ac *AgentDeployConfig) buildK8sExporterClusterRole(serviceAccountName string) (*rbacv1.ClusterRole, *rbacv1.ClusterRoleBinding, *corev1.ServiceAccount, error) {
+	roleName := "gardener.cloud:kube-system:" + common.ApplicationName
+	rules := ac.buildK8sExporterClusterRoleRules()
+	return ac.createClusterRuleAndServiceAccount(serviceAccountName, roleName, rules)
+}
+
+func (ac *AgentDeployConfig) createClusterRuleAndServiceAccount(serviceAccountName, roleName string, rules []rbacv1.PolicyRule) (*rbacv1.ClusterRole, *rbacv1.ClusterRoleBinding, *corev1.ServiceAccount, error) {
 	clusterRole := &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: roleName,
 		},
-		Rules: []rbacv1.PolicyRule{
-			{
-				APIGroups:       []string{"policy"},
-				Verbs:           []string{"use"},
-				Resources:       []string{"podsecuritypolicies"},
-				ResourceNames:   []string{resourceName},
-				NonResourceURLs: nil,
-			},
-		},
+		Rules: rules,
 	}
 	clusterRoleBinding := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -553,7 +572,32 @@ func (ac *AgentDeployConfig) buildPodSecurityPolicy(serviceAccountName string) (
 			Name:      serviceAccountName,
 			Namespace: common.NamespaceKubeSystem,
 		},
+		AutomountServiceAccountToken: pointer.Bool(false),
 	}
+
+	return clusterRole, clusterRoleBinding, serviceAccount, nil
+}
+
+func (ac *AgentDeployConfig) buildPodSecurityPolicy(serviceAccountName string) (*rbacv1.ClusterRole, *rbacv1.ClusterRoleBinding, *corev1.ServiceAccount, *policyv1beta1.PodSecurityPolicy, error) {
+	roleName := "gardener.cloud:psp:kube-system:" + common.ApplicationName
+	resourceName := "gardener.kube-system." + common.ApplicationName
+	rules := []rbacv1.PolicyRule{
+		{
+			APIGroups:       []string{"policy"},
+			Verbs:           []string{"use"},
+			Resources:       []string{"podsecuritypolicies"},
+			ResourceNames:   []string{resourceName},
+			NonResourceURLs: nil,
+		},
+	}
+	if ac.K8sExporterEnabled {
+		rules = append(rules, ac.buildK8sExporterClusterRoleRules()...)
+	}
+	cr, crb, sa, err := ac.createClusterRuleAndServiceAccount(serviceAccountName, roleName, rules)
+	if err != nil {
+		return cr, crb, sa, nil, err
+	}
+
 	var allowedCapabilities []corev1.Capability
 	if ac.PingEnabled {
 		allowedCapabilities = []corev1.Capability{"NET_ADMIN"}
@@ -597,7 +641,7 @@ func (ac *AgentDeployConfig) buildPodSecurityPolicy(serviceAccountName string) (
 		},
 	}
 
-	return clusterRole, clusterRoleBinding, serviceAccount, psp, nil
+	return cr, crb, sa, psp, nil
 }
 
 func (ac *AgentDeployConfig) BuildAgentConfig() (*config.AgentConfig, error) {
@@ -657,6 +701,13 @@ func (ac *AgentDeployConfig) BuildAgentConfig() (*config.AgentConfig, error) {
 				},
 			},
 		},
+	}
+
+	if ac.K8sExporterEnabled {
+		cfg.K8sExporter = &config.K8sExporterConfig{
+			Enabled:         true,
+			HeartbeatPeriod: &metav1.Duration{Duration: ac.K8sExporterHeartbeat},
+		}
 	}
 
 	if !ac.IgnoreAPIServerEndpoint {
