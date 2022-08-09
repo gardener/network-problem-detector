@@ -168,28 +168,20 @@ func (dc *deployCommand) deployAgent(log logrus.FieldLogger, hostnetwork bool,
 		return fmt.Errorf("error building config map: %s", err)
 	}
 
-	ctx := context.Background()
-
 	serviceAccountName := ""
-	if ac.PodSecurityPolicyEnabled {
-		serviceAccountName = common.ApplicationName
-		cr, crb, sa, psp, err := ac.buildPodSecurityPolicy(serviceAccountName)
-		if err != nil {
-			return err
-		}
-		for _, obj := range []Object{cr, crb, sa, psp} {
-			_, err = genericCreateOrUpdate(ctx, dc.Clientset, obj)
-			if err != nil {
-				return err
-			}
-		}
+	var objects []Object
+	serviceAccountName, objects, err = dc.agentDeployConfig.buildSecurityObjects()
+	if err != nil {
+		return err
 	}
 
 	ds, err := ac.buildDaemonSet(serviceAccountName, hostnetwork)
 	if err != nil {
 		return fmt.Errorf("error building daemon set: %s", err)
 	}
-	for _, obj := range []Object{svc, acm, ccm, ds} {
+	objects = append(objects, svc, acm, ccm, ds)
+	ctx := context.Background()
+	for _, obj := range objects {
 		_, err = genericCreateOrUpdate(ctx, dc.Clientset, obj)
 		if err != nil {
 			return err
@@ -236,12 +228,11 @@ func (dc *deployCommand) deleteDaemonSet(log logrus.FieldLogger, name string) er
 
 func (dc *deployCommand) deletePodSecurityPolicy(log logrus.FieldLogger) error {
 	ctx := context.Background()
-	serviceAccountName := common.ApplicationName
-	cr, crb, sa, psp, err := dc.agentDeployConfig.buildPodSecurityPolicy(serviceAccountName)
+	_, objects, err := dc.agentDeployConfig.buildSecurityObjects()
 	if err != nil {
 		return err
 	}
-	for _, obj := range []Object{cr, crb, sa, psp} {
+	for _, obj := range objects {
 		if err := genericDeleteWithLog(ctx, log, dc.Clientset, obj); err != nil {
 			return err
 		}

@@ -16,6 +16,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/gardener/network-problem-detector/pkg/common"
 	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
 
 	"github.com/sirupsen/logrus"
@@ -32,6 +33,8 @@ type obsWriter struct {
 	done           chan struct{}
 	ticker         *time.Ticker
 }
+
+var _ nwpd.ObservationWriter = &obsWriter{}
 
 const (
 	markerStringID    = 1
@@ -290,14 +293,9 @@ func createFilter(keys []string) filterFunc {
 	if keys == nil {
 		return all
 	}
-	m := map[string]struct{}{}
-	for _, k := range keys {
-		m[k] = struct{}{}
-	}
-	return func(key string) bool {
-		_, ok := m[key]
-		return ok
-	}
+	m := common.StringSet{}
+	m.AddAll(keys...)
+	return m.Contains
 }
 
 func (w *obsWriter) ListObservations(options nwpd.ListObservationsOptions) (nwpd.Observations, error) {

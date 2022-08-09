@@ -94,16 +94,34 @@ func (s *server) setup() error {
 		return err
 	}
 
-	reportPeriod := 1 * time.Minute
-	timeWindow := 30 * time.Minute
-	if cfg.AggregationReportPeriodSeconds != nil {
-		reportPeriod = time.Duration(*cfg.AggregationReportPeriodSeconds) * time.Second
+	options := &aggregation.ObsAggregationOptions{
+		Log:                        s.log.WithField("sub", "aggr"),
+		ReportPeriod:               1 * time.Minute,
+		TimeWindow:                 30 * time.Minute,
+		LogDirectory:               common.PathLogDir,
+		HostNetwork:                s.hostNetwork,
+		K8sExporterEnabled:         cfg.K8sExporter != nil && cfg.K8sExporter.Enabled,
+		K8sExporterHeartbeatPeriod: 3 * time.Minute,
 	}
-	if cfg.AggregationTimeWindowSeconds != nil {
-		timeWindow = time.Duration(*cfg.AggregationTimeWindowSeconds) * time.Second
+	if cfg.AggregationReportPeriod != nil {
+		options.ReportPeriod = cfg.AggregationReportPeriod.Duration
+		if options.ReportPeriod < 30*time.Second {
+			return fmt.Errorf("Invalid AggregationReportPeriod, must be >= 30s")
+		}
 	}
-	s.aggregator, err = aggregation.NewObsAggregator(s.log.WithField("sub", "aggr"), reportPeriod, timeWindow,
-		common.PathLogDir, s.hostNetwork)
+	if cfg.AggregationTimeWindow != nil {
+		options.TimeWindow = cfg.AggregationTimeWindow.Duration
+		if options.TimeWindow < 5*time.Minute {
+			return fmt.Errorf("Invalid AggregationTimeWindow, must be >= 5m")
+		}
+	}
+	if cfg.K8sExporter != nil && cfg.K8sExporter.HeartbeatPeriod != nil {
+		options.K8sExporterHeartbeatPeriod = cfg.K8sExporter.HeartbeatPeriod.Duration
+		if options.TimeWindow < 1*time.Minute {
+			return fmt.Errorf("Invalid K8sExporter heartbeatPeriod, must be >= 1m")
+		}
+	}
+	s.aggregator, err = aggregation.NewObsAggregator(options)
 	if err != nil {
 		return err
 	}
@@ -132,8 +150,8 @@ func (s *server) applyAgentConfig(cfg *config.AgentConfig) error {
 		}
 	}
 
-	validDestHosts := map[string]struct{}{}
-	applied := map[string]struct{}{}
+	validDestHosts := common.StringSet{}
+	applied := common.StringSet{}
 	for _, j := range networkCfg.Jobs {
 		job, err := s.parseJob(&j)
 		if err != nil {
@@ -142,15 +160,15 @@ func (s *server) applyAgentConfig(cfg *config.AgentConfig) error {
 		if job != nil {
 			s.addOrReplaceJob(job)
 			for _, s := range job.DestHosts() {
-				validDestHosts[s] = struct{}{}
+				validDestHosts.Add(s)
 			}
 		}
-		applied[j.JobID] = struct{}{}
+		applied.Add(j.JobID)
 	}
 
 	var obsoleteJobIDs []string
 	for _, j := range oldJobs {
-		if _, ok := applied[j.JobID]; !ok {
+		if !applied.Contains(j.JobID) {
 			obsoleteJobIDs = append(obsoleteJobIDs, j.JobID)
 			if err := s.deleteJob(j.JobID); err != nil {
 				return err
