@@ -11,10 +11,11 @@ Files:
   .github/*
   .gitignore
   CODEOWNERS
+  docs/*
   go.mod
   go.sum
   pkg/common/nwpd/nwpd_grpc.pb.go
-  pkg/deploy/DEFAULT_IMAGE
+  pkg/deploy/DEFAULT_REPOSITORY
   vendor/modules.txt
   VERSION
 Copyright: 2020 SAP SE or an SAP affiliate company and Gardener contributors
@@ -51,6 +52,10 @@ Files: vendor/github.com/davecgh/go-spew/*
 Copyright: Copyright (c) 2015-2016 Dave Collins
 License: ISC
 
+Files: vendor/github.com/emicklei/go-restful/*
+Copyright: Copyright 2013 Ernest Micklei
+License: MIT
+
 Files: vendor/github.com/fsnotify/fsnotify/*
 Copyright: Copyright (c) 2012 The Go Authors
 Copyright: Copyright (c) 2012-2019 fsnotify Authors
@@ -58,6 +63,18 @@ License: BSD-3-Clause
 
 Files: vendor/github.com/go-logr/logr/*
 Copyright: Copyright 2020 The logr
+License: Apache-2.0
+
+Files: vendor/github.com/go-openapi/jsonpointer/*
+Copyright: Copyright 2013 sigu-399 ( https://github.com/sigu-399 )
+License: Apache-2.0
+
+Files: vendor/github.com/go-openapi/jsonreference/*
+Copyright: Copyright 2013 sigu-399 ( https://github.com/sigu-399 )
+License: Apache-2.0
+
+Files: vendor/github.com/go-openapi/swag/*
+Copyright: Copyright 2015 go-swagger maintainers
 License: Apache-2.0
 
 Files: vendor/github.com/go-ping/ping/*
@@ -71,6 +88,14 @@ License: BSD-3-Clause
 Files: vendor/github.com/golang/protobuf/*
 Copyright: Copyright 2010 The Go Authors
 License: BSD-3-Clause
+
+Files: vendor/github.com/golang/groupcache/*
+Copyright: Copyright 2013 Google Inc.
+License: Apache-2.0
+
+Files: vendor/github.com/google/gnostic/*
+Copyright: Copyright 2017 Google LLC.
+License: Apache-2.0
 
 Files: vendor/github.com/google/go-cmp/*
 Copyright: Copyright 2017, The Go Authors
@@ -105,8 +130,16 @@ Files: vendor/github.com/jamiealquiza/tachymeter/*
 Copyright: Copyright (c) 2016 Jamie Alquiza
 License: MIT
 
+Files: vendor/github.com/josharian/intern/*
+Copyright: n/a
+License: MIT
+
 Files: vendor/github.com/json-iterator/go/*
 Copyright: Copyright (c) 2016 json-iterator
+License: MIT
+
+Files: vendor/github.com/mailru/easyjson/*
+Copyright: 2016 Mail.Ru Group
 License: MIT
 
 Files: vendor/github.com/matttproud/golang_protobuf_extensions/*
@@ -127,11 +160,19 @@ Files: vendor/github.com/modern-go/reflect2/*
 Copyright: n/a
 License: Apache-2.0
 
+Files: vendor/github.com/munnerz/goautoneg/*
+Copyright: Copyright (c) 2011, Open Knowledge Foundation Ltd.
+License: BSD-3-Clause
+
 Files: vendor/github.com/nxadm/tail/*
 Copyright: Copyright (c) 2019 FOSS contributors
 Copyright: Copyright (c) 2015 HPE Software Inc.
 Copyright: Copyright (c) 2013 ActiveState Software Inc.
 License: MIT
+
+Files: vendor/github.com/pmezard/go-difflib/*
+Copyright: Copyright (c) 2013, Patrick Mezard
+License: BSD-3-Clause
 
 Files: vendor/github.com/prometheus/client_golang/*
 Copyright: Copyright 2012-2015 The Prometheus Authors
@@ -151,6 +192,15 @@ License: Apache-2.0
 Files: vendor/github.com/prometheus/procfs/*
 Copyright: Copyright 2014 Prometheus Team
 License: Apache-2.0
+
+Files: vendor/github.com/PuerkitoBio/purell/*
+Copyright: Copyright (c) 2012-2022, The Go Authors
+Copyright: Copyright (c) 2012-2022, Martin Angers, Yuki Okushi & Contributors
+License: BSD-3-Clause
+
+Files: vendor/github.com/PuerkitoBio/urlesc/*
+Copyright: Copyright 2009 The Go Authors.
+License: BSD-3-Clause
 
 Files: vendor/github.com/onsi/ginkgo/*
 Copyright: Copyright (c) 2013-2014 Onsi Fakhouri
@@ -172,6 +222,10 @@ Files: vendor/github.com/spf13/pflag/*
 Copyright: Copyright (c) 2012 Alex Ogier
 Copyright: Copyright (c) 2012 The Go Authors
 License: BSD-3-Clause
+
+Files: vendor/github.com/stretchr/testify/*
+Copyright: Copyright (c) 2012-2020 Mat Ryer, Tyler Bunnell and contributors.
+License: MIT
 
 Files: vendor/go.uber.org/atomic/*
 Copyright: Copyright (c) 2016 Uber Technologies, Inc.
@@ -277,6 +331,14 @@ License: Apache-2.0
 
 Files: vendor/sigs.k8s.io/structured-merge-diff/v4/*
 Copyright: Copyright 2018 The Kubernetes Authors
+License: Apache-2.0
+
+Files: vendor/k8s.io/kube-openapi/*
+Copyright: Copyright 2016 The Kubernetes Authors.
+License: Apache-2.0
+
+Files: vendor/sigs.k8s.io/json/*
+Copyright: Copyright 2021 The Kubernetes Authors.
 License: Apache-2.0
 
 Files: vendor/sigs.k8s.io/yaml/*
