@@ -47,6 +47,10 @@ type AgentDeployConfig struct {
 	K8sExporterEnabled bool
 	// K8sExporterHeartbeat if K8sExporterEnabled sets the period of updating the node condition `ClusterNetworkProblems` or `HostNetworkProblems`
 	K8sExporterHeartbeat time.Duration
+	// AdditionalAnnotations adds annotations to the daemonset spec template
+	AdditionalAnnotations map[string]string `json:"additionalAnnotations,omitempty"`
+	// AdditionalLabels adds labels to the daemonset spec template
+	AdditionalLabels map[string]string `json:"additionalLabels,omitempty"`
 }
 
 // DeployNetworkProblemDetectorAgent returns K8s resources to be created.
@@ -156,6 +160,13 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 	name, portGRPC, portMetrics := ac.getNetworkConfig(hostNetwork)
 
 	labels := ac.getLabels(name)
+	labelsPlusAdditionalLabels := map[string]string{}
+	for k, v := range ac.AdditionalLabels {
+		labelsPlusAdditionalLabels[k] = v
+	}
+	for k, v := range labels {
+		labelsPlusAdditionalLabels[k] = v
+	}
 
 	var capabilities *corev1.Capabilities
 	if ac.PingEnabled {
@@ -181,7 +192,8 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
+					Labels:      labelsPlusAdditionalLabels,
+					Annotations: ac.AdditionalAnnotations,
 				},
 				Spec: corev1.PodSpec{
 					HostNetwork:                   hostNetwork,
