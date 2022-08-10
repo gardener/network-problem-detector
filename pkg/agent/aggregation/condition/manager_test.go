@@ -19,12 +19,11 @@ import (
 	"github.com/gardener/network-problem-detector/pkg/agent/aggregation/types"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/clock"
 )
 
 const heartbeatPeriod = 1 * time.Minute
 
-func newTestManager() (*conditionManager, *problemclient.FakeProblemClient, *clock.FakeClock) {
+func newTestManager() (*conditionManager, *problemclient.FakeProblemClient, *clocktesting.FakeClock) {
 	fakeClient := problemclient.NewFakeProblemClient()
 	fakeClock := clocktesting.NewFakeClock(time.Now())
 	log := logrus.New()
