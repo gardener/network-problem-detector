@@ -51,7 +51,7 @@ results for the last several hours before they are garbage collected.
 
 Follow these steps to deploy NWPD to a Kubernetes cluster:
 
-1. Build the `nwpdcli` with
+1. Checkout the latest release and build the `nwpdcli` with
 
    ```bash
    make build-local
