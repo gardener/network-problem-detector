@@ -9,6 +9,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gardener/network-problem-detector/pkg/common/config"
 	"github.com/spf13/cobra"
@@ -120,7 +121,7 @@ var _ Runner = &checkTCPPort{}
 
 func checkTCPPortFunc(endpoint config.Endpoint) (string, error) {
 	addr := fmt.Sprintf("%s:%d", endpoint.IP, endpoint.Port)
-	conn, err := net.Dial("tcp", addr)
+	conn, err := net.DialTimeout("tcp", addr, 30*time.Second)
 	if err != nil {
 		return "", err
 	}
