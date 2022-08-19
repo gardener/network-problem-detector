@@ -7,6 +7,7 @@ package deploy
 import (
 	_ "embed"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -48,9 +49,12 @@ type AgentDeployConfig struct {
 	// K8sExporterHeartbeat if K8sExporterEnabled sets the period of updating the node condition `ClusterNetworkProblems` or `HostNetworkProblems`
 	K8sExporterHeartbeat time.Duration
 	// AdditionalAnnotations adds annotations to the daemonset spec template
-	AdditionalAnnotations map[string]string `json:"additionalAnnotations,omitempty"`
+	AdditionalAnnotations map[string]string
 	// AdditionalLabels adds labels to the daemonset spec template
-	AdditionalLabels map[string]string `json:"additionalLabels,omitempty"`
+	AdditionalLabels map[string]string
+	// DisableAutomountServiceAccountTokenForAgents controls if automountServiceAccountToken should always be false for agents as it is provided
+	// by other means (e.g. https://github.com/gardener/gardener/blob/eb8400a2961400a8b984252a76eb546ea44432fd/docs/concepts/resource-manager.md#auto-mounting-projected-serviceaccount-tokens)
+	DisableAutomountServiceAccountTokenForAgents bool
 }
 
 // DeployNetworkProblemDetectorAgent returns K8s resources to be created.
@@ -160,19 +164,18 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 	name, portGRPC, portMetrics := ac.getNetworkConfig(hostNetwork)
 
 	labels := ac.getLabels(name)
-	labelsPlusAdditionalLabels := map[string]string{}
-	for k, v := range ac.AdditionalLabels {
-		labelsPlusAdditionalLabels[k] = v
-	}
-	for k, v := range labels {
-		labelsPlusAdditionalLabels[k] = v
-	}
+	labelsPlusAdditionalLabels := common.MergeMaps(ac.AdditionalLabels, labels)
+	annotations := common.MergeMaps(ac.AdditionalAnnotations, map[string]string{"check-sum/k8s-exporter": strconv.FormatBool(ac.K8sExporterEnabled)})
 
 	var capabilities *corev1.Capabilities
 	if ac.PingEnabled {
 		capabilities = &corev1.Capabilities{
 			Add: []corev1.Capability{"NET_ADMIN"},
 		}
+	}
+	var automountServiceAccountToken *bool
+	if !ac.DisableAutomountServiceAccountTokenForAgents {
+		automountServiceAccountToken = pointer.Bool(ac.K8sExporterEnabled)
 	}
 
 	typ := corev1.HostPathDirectoryOrCreate
@@ -193,7 +196,7 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:      labelsPlusAdditionalLabels,
-					Annotations: ac.AdditionalAnnotations,
+					Annotations: annotations,
 				},
 				Spec: corev1.PodSpec{
 					HostNetwork:                   hostNetwork,
@@ -215,7 +218,7 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 							Operator: corev1.TolerationOpExists,
 						},
 					},
-					AutomountServiceAccountToken: pointer.Bool(ac.K8sExporterEnabled),
+					AutomountServiceAccountToken: automountServiceAccountToken,
 					ServiceAccountName:           serviceAccountName,
 					Containers: []corev1.Container{{
 						Name:            name,

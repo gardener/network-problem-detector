@@ -48,3 +48,17 @@ func (s StringSet) ToSortedArray() []string {
 func FormatAsUTC(t time.Time) string {
 	return t.UTC().Format("2006-01-02T15:04:05Z")
 }
+
+// MergeMaps merges two maps. If key is contained in both maps, the value of the second map is used.
+func MergeMaps(map1, map2 map[string]string) map[string]string {
+	result := map[string]string{}
+
+	for k, v := range map1 {
+		result[k] = v
+	}
+
+	for k, v := range map2 {
+		result[k] = v
+	}
+	return result
+}
