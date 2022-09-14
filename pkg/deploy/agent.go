@@ -27,6 +27,7 @@ import (
 )
 
 // defaultRepository is the default repository of the image used for deployment
+//
 //go:embed DEFAULT_REPOSITORY
 var defaultRepository string
 
@@ -36,6 +37,8 @@ type AgentDeployConfig struct {
 	Image string
 	// DefaultPeriod is the default period for jobs
 	DefaultPeriod time.Duration
+	// DefaultSeccompProfileEnabled if seccomp profile should be defaulted to RuntimeDefault for the daemonsets
+	DefaultSeccompProfileEnabled bool
 	// PingEnabled if ping checks are enabled (needs NET_ADMIN capabilities)
 	PingEnabled bool
 	// PodSecurityPolicyEnabled if psp should be deployed
@@ -90,6 +93,7 @@ func (ac *AgentDeployConfig) AddImageFlag(imageTag string, flags *pflag.FlagSet)
 
 func (ac *AgentDeployConfig) AddOptionFlags(flags *pflag.FlagSet) {
 	flags.DurationVar(&ac.DefaultPeriod, "default-period", 10*time.Second, "default period for jobs")
+	flags.BoolVar(&ac.DefaultSeccompProfileEnabled, "default-seccomp-profile", false, "if seccomp profile should be defaulted to RuntimeDefault for network-problem-detector pods")
 	flags.BoolVar(&ac.PingEnabled, "enable-ping", false, "if ICMP pings should be used in addition to TCP connection checks")
 	flags.BoolVar(&ac.PodSecurityPolicyEnabled, "enable-psp", true, "if pod security policy should be deployed")
 	flags.BoolVar(&ac.K8sExporterEnabled, "enable-k8s-exporter", false, "if node conditions and events should be updated/created")
@@ -360,6 +364,16 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 		},
 	}
 
+	if ac.DefaultSeccompProfileEnabled {
+		if ds.Spec.Template.Spec.SecurityContext == nil {
+			ds.Spec.Template.Spec.SecurityContext = &corev1.PodSecurityContext{}
+		}
+
+		ds.Spec.Template.Spec.SecurityContext.SeccompProfile = &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		}
+	}
+
 	return ds, nil
 }
 
@@ -619,6 +633,10 @@ func (ac *AgentDeployConfig) buildPodSecurityPolicy(serviceAccountName string) (
 	}
 	psp := &policyv1beta1.PodSecurityPolicy{
 		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				"seccomp.security.alpha.kubernetes.io/defaultProfileName":  "runtime/default",
+				"seccomp.security.alpha.kubernetes.io/allowedProfileNames": "runtime/default",
+			},
 			Name: resourceName,
 		},
 		Spec: policyv1beta1.PodSecurityPolicySpec{
