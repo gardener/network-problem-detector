@@ -1,6 +1,6 @@
 module github.com/gardener/network-problem-detector
 
-go 1.18
+go 1.19
 
 require (
 	github.com/ajstarks/svgo v0.0.0-20211024235047-1546f124cd8b
@@ -8,7 +8,7 @@ require (
 	github.com/go-ping/ping v1.1.0
 	github.com/jamiealquiza/tachymeter v2.0.0+incompatible
 	github.com/onsi/ginkgo v1.16.5
-	github.com/onsi/gomega v1.20.0
+	github.com/onsi/gomega v1.20.2
 	github.com/prometheus/client_golang v1.13.0
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.5.0
@@ -17,7 +17,7 @@ require (
 	go.uber.org/atomic v1.9.0
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
 	golang.org/x/tools v0.1.12
-	google.golang.org/grpc v1.48.0
+	google.golang.org/grpc v1.49.0
 	google.golang.org/protobuf v1.28.1
 	k8s.io/api v0.24.3
 	k8s.io/apimachinery v0.24.3
