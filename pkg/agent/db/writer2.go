@@ -236,6 +236,9 @@ func (w *obsWriter) getFile() (*writeFile, error) {
 		nextUTC := startOfHourUTC(next)
 		filename := fmt.Sprintf("%s/%s-%s.records", w.directory, w.prefix, currentUTC.Format("2006-01-02-15"))
 		idMap, err := w.loadStringIdMap(filename)
+		if err != nil {
+			return nil, err
+		}
 		f, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 		if err != nil {
 			return nil, err
