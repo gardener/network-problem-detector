@@ -33,12 +33,24 @@ func (b *ClientsetBase) AddInClusterFlag(flags *pflag.FlagSet) {
 }
 
 func (b *ClientsetBase) SetupClientSet() error {
+	config, err := b.RestConfig()
+	if err != nil {
+		return err
+	}
+	b.Clientset, err = kubernetes.NewForConfig(config)
+	if err != nil {
+		return fmt.Errorf("error creating clientset: %s", err)
+	}
+	return nil
+}
+
+func (b *ClientsetBase) RestConfig() (*rest.Config, error) {
 	var err error
 	var config *rest.Config
 	if b.InCluster {
 		config, err = rest.InClusterConfig()
 		if err != nil {
-			return fmt.Errorf("error on InClusterConfig: %s", err)
+			return nil, fmt.Errorf("error on InClusterConfig: %s", err)
 		}
 	} else {
 		if b.Kubeconfig == "" {
@@ -50,16 +62,12 @@ func (b *ClientsetBase) SetupClientSet() error {
 			}
 		}
 		if b.Kubeconfig == "" {
-			return fmt.Errorf("cannot find kubeconfig: neither '--kubeconfig' option, env var 'KUBECONFIG', or file '$HOME/.kube/config' available")
+			return nil, fmt.Errorf("cannot find kubeconfig: neither '--kubeconfig' option, env var 'KUBECONFIG', or file '$HOME/.kube/config' available")
 		}
 		config, err = clientcmd.BuildConfigFromFlags("", b.Kubeconfig)
 		if err != nil {
-			return fmt.Errorf("error on config from kubeconfig file %s: %s", b.Kubeconfig, err)
+			return nil, fmt.Errorf("error on config from kubeconfig file %s: %s", b.Kubeconfig, err)
 		}
 	}
-	b.Clientset, err = kubernetes.NewForConfig(config)
-	if err != nil {
-		return fmt.Errorf("error creating clientset: %s", err)
-	}
-	return nil
+	return config, nil
 }

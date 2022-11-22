@@ -15,6 +15,7 @@ import (
 	"github.com/gardener/network-problem-detector/pkg/common/config"
 	"github.com/gardener/network-problem-detector/pkg/deploy"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/sirupsen/logrus"
 	"go.uber.org/atomic"
@@ -114,45 +115,63 @@ func (c *nodePodController) isRelevant(obj interface{}) bool {
 	return false
 }
 
-func (cc *controllerCommand) watch(log logrus.FieldLogger) error {
-	if err := cc.SetupClientSet(); err != nil {
+type watch struct {
+	cc  *controllerCommand
+	log logrus.FieldLogger
+}
+
+var _ manager.Runnable = &watch{}
+var _ manager.LeaderElectionRunnable = &watch{}
+
+func (w *watch) NeedLeaderElection() bool {
+	return true
+}
+
+func (w *watch) Start(ctx context.Context) error {
+	if err := w.cc.SetupClientSet(); err != nil {
 		return err
 	}
 
-	controller := newNodePodController(cc.Clientset, 24*time.Hour)
+	controller := newNodePodController(w.cc.Clientset, 24*time.Hour)
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 	if err := controller.Start(stopCh); err != nil {
 		return err
 	}
 
-	ctx := context.Background()
 	var last time.Time
 	for {
-		now := time.Now()
-		if delta := now.Sub(last); delta < 10*time.Second {
-			time.Sleep(delta)
-			continue
+		select {
+		case <-ctx.Done():
+			stopCh <- struct{}{}
+			return fmt.Errorf("stopped")
+		default:
+			now := time.Now()
+			if delta := now.Sub(last); delta < 10*time.Second {
+				time.Sleep(delta)
+				continue
+			}
+			last = now
 		}
-		last = now
+
 		if !controller.HasUpdates() {
-			cc.lastLoop.Store(last.UnixMilli())
+			w.cc.lastLoop.Store(last.UnixMilli())
 			continue
 		}
 		nodes, err := controller.ListNodes()
 		if err != nil {
-			log.Errorf("listing nodes failed: %s", err)
+			w.log.Errorf("listing nodes failed: %s", err)
 			continue
 		}
 		pods, err := controller.ListAgentPods()
 		if err != nil {
-			log.Errorf("listing pods ins namespace %s failed: %s", common.NamespaceKubeSystem, err)
+			w.log.Errorf("listing pods ins namespace %s failed: %s", common.NamespaceKubeSystem, err)
 			continue
 		}
 
-		svc, err := cc.Clientset.CoreV1().Services(common.NamespaceDefault).Get(ctx, common.NameKubernetesService, metav1.GetOptions{})
+		svc, err := w.cc.Clientset.CoreV1().Services(common.NamespaceDefault).Get(ctx, common.NameKubernetesService, metav1.GetOptions{})
 		if err != nil {
-			log.Errorf("loading service %s/%s failed: %s", common.NamespaceDefault, common.NameKubernetesService, err)
+			w.log.Errorf("loading service %s/%s failed: %s", common.NamespaceDefault, common.NameKubernetesService, err)
 			continue
 		}
 		internalApiServer := &config.Endpoint{
@@ -161,51 +180,51 @@ func (cc *controllerCommand) watch(log logrus.FieldLogger) error {
 			Port:     int(svc.Spec.Ports[0].Port),
 		}
 		var apiServer *config.Endpoint
-		configmaps := cc.Clientset.CoreV1().ConfigMaps(common.NamespaceKubeSystem)
+		configmaps := w.cc.Clientset.CoreV1().ConfigMaps(common.NamespaceKubeSystem)
 		shootInfo, err := configmaps.Get(ctx, common.NameGardenerShootInfo, metav1.GetOptions{})
 		if err != nil {
 			if !errors.IsNotFound(err) {
-				log.Errorf("loading configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameGardenerShootInfo, err)
+				w.log.Errorf("loading configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameGardenerShootInfo, err)
 				continue
 			}
 		}
 		if err == nil {
 			apiServer, err = deploy.GetAPIServerEndpointFromShootInfo(shootInfo)
 			if err != nil {
-				log.Errorf("fetching kube-apiserver external endpoint failed: %s", err)
+				w.log.Errorf("fetching kube-apiserver external endpoint failed: %s", err)
 				continue
 			}
 		}
 
 		cm, err := configmaps.Get(ctx, common.NameClusterConfigMap, metav1.GetOptions{})
 		if err != nil {
-			log.Errorf("loading configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameClusterConfigMap, err)
+			w.log.Errorf("loading configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameClusterConfigMap, err)
 			continue
 		}
 		content := cm.Data[common.ClusterConfigFilename]
 		cfg := &config.ClusterConfig{}
 		if err := yaml.Unmarshal([]byte(content), cfg); err != nil {
-			log.Errorf("unmarshal configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameClusterConfigMap, err)
+			w.log.Errorf("unmarshal configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameClusterConfigMap, err)
 			continue
 		}
 		cfg, err = deploy.BuildClusterConfig(nodes, pods, internalApiServer, apiServer)
 		cfgBytes, err := yaml.Marshal(cfg)
 		if err != nil {
-			log.Errorf("marshal configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameClusterConfigMap, err)
+			w.log.Errorf("marshal configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameClusterConfigMap, err)
 			continue
 		}
 		newContent := string(cfgBytes)
 		cm.Data[common.ClusterConfigFilename] = newContent
 		if newContent != content {
 			if _, err := configmaps.Update(ctx, cm, metav1.UpdateOptions{}); err != nil {
-				log.Errorf("updating configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameClusterConfigMap, err)
+				w.log.Errorf("updating configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameClusterConfigMap, err)
 				continue
 			}
-			log.Infof("updated configmap %s/%s", common.NamespaceKubeSystem, common.NameClusterConfigMap)
-			cc.lastLoop.Store(last.UnixMilli())
+			w.log.Infof("updated configmap %s/%s", common.NamespaceKubeSystem, common.NameClusterConfigMap)
+			w.cc.lastLoop.Store(last.UnixMilli())
 		} else {
-			log.Info("unchanged")
-			cc.lastLoop.Store(last.UnixMilli())
+			w.log.Info("unchanged")
+			w.cc.lastLoop.Store(last.UnixMilli())
 		}
 	}
 }
