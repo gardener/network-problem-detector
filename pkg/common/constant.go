@@ -50,7 +50,7 @@ const (
 	// PodNetPodHttpPort is the port used for the metrics http server of the pods running in the pod network
 	PodNetPodHttpPort = 8881
 	// HostNetPodGRPCPort is the port used for the GRPC server of the pods running in the host network
-	HostNetPodGRPCPort = 1011
+	HostNetPodGRPCPort = 12995
 	// HostNetPodHttpPort is the port used for the metrics http server of the pods running in the host network
-	HostNetPodHttpPort = 1012
+	HostNetPodHttpPort = 12996
 )
