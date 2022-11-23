@@ -6,13 +6,10 @@ package controller
 
 import (
 	"fmt"
-	"net/http"
-	"time"
 
 	"github.com/gardener/network-problem-detector/pkg/common"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"go.uber.org/atomic"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
@@ -31,8 +28,6 @@ type controllerCommand struct {
 
 	leaderElection          bool
 	leaderElectionNamespace string
-
-	lastLoop atomic.Int64
 }
 
 func CreateRunControllerCmd() *cobra.Command {
@@ -80,15 +75,13 @@ func (cc *controllerCommand) runController(cmd *cobra.Command, args []string) er
 		return err
 	}
 
-	mgr.AddHealthzCheck("nwpd-controller", cc.healthzCheck)
-	mgr.Add(&watch{log: log, cc: cc})
+	if err := cc.SetupClientSet(); err != nil {
+		return err
+	}
+
+	watcher := &watch{log: log, clientSet: cc.Clientset}
+	mgr.Add(watcher)
+	mgr.AddHealthzCheck("nwpd-controller", watcher.healthzCheck)
 	ctx := signals.SetupSignalHandler()
 	return mgr.Start(ctx)
-}
-
-func (cc *controllerCommand) healthzCheck(req *http.Request) error {
-	if time.Now().UnixMilli()-cc.lastLoop.Load() > 30000 {
-		return fmt.Errorf("no successful loop since %s", time.UnixMilli(cc.lastLoop.Load()))
-	}
-	return nil
 }
