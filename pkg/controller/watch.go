@@ -9,6 +9,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/gardener/network-problem-detector/pkg/common"
@@ -116,8 +117,11 @@ func (c *nodePodController) isRelevant(obj interface{}) bool {
 }
 
 type watch struct {
-	cc  *controllerCommand
-	log logrus.FieldLogger
+	log       logrus.FieldLogger
+	clientSet *kubernetes.Clientset
+
+	started  atomic.Bool
+	lastLoop atomic.Int64
 }
 
 var _ manager.Runnable = &watch{}
@@ -127,12 +131,18 @@ func (w *watch) NeedLeaderElection() bool {
 	return true
 }
 
-func (w *watch) Start(ctx context.Context) error {
-	if err := w.cc.SetupClientSet(); err != nil {
-		return err
+func (w *watch) healthzCheck(req *http.Request) error {
+	if w.started.Load() && time.Now().UnixMilli()-w.lastLoop.Load() > 30000 {
+		return fmt.Errorf("no successful loop since %s", time.UnixMilli(w.lastLoop.Load()))
 	}
+	return nil
+}
 
-	controller := newNodePodController(w.cc.Clientset, 24*time.Hour)
+func (w *watch) Start(ctx context.Context) error {
+	w.lastLoop.Store(time.Now().UnixMilli())
+	w.started.Store(true)
+
+	controller := newNodePodController(w.clientSet, 24*time.Hour)
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 	if err := controller.Start(stopCh); err != nil {
@@ -155,7 +165,7 @@ func (w *watch) Start(ctx context.Context) error {
 		}
 
 		if !controller.HasUpdates() {
-			w.cc.lastLoop.Store(last.UnixMilli())
+			w.lastLoop.Store(last.UnixMilli())
 			continue
 		}
 		nodes, err := controller.ListNodes()
@@ -169,7 +179,7 @@ func (w *watch) Start(ctx context.Context) error {
 			continue
 		}
 
-		svc, err := w.cc.Clientset.CoreV1().Services(common.NamespaceDefault).Get(ctx, common.NameKubernetesService, metav1.GetOptions{})
+		svc, err := w.clientSet.CoreV1().Services(common.NamespaceDefault).Get(ctx, common.NameKubernetesService, metav1.GetOptions{})
 		if err != nil {
 			w.log.Errorf("loading service %s/%s failed: %s", common.NamespaceDefault, common.NameKubernetesService, err)
 			continue
@@ -180,7 +190,7 @@ func (w *watch) Start(ctx context.Context) error {
 			Port:     int(svc.Spec.Ports[0].Port),
 		}
 		var apiServer *config.Endpoint
-		configmaps := w.cc.Clientset.CoreV1().ConfigMaps(common.NamespaceKubeSystem)
+		configmaps := w.clientSet.CoreV1().ConfigMaps(common.NamespaceKubeSystem)
 		shootInfo, err := configmaps.Get(ctx, common.NameGardenerShootInfo, metav1.GetOptions{})
 		if err != nil {
 			if !errors.IsNotFound(err) {
@@ -221,10 +231,10 @@ func (w *watch) Start(ctx context.Context) error {
 				continue
 			}
 			w.log.Infof("updated configmap %s/%s", common.NamespaceKubeSystem, common.NameClusterConfigMap)
-			w.cc.lastLoop.Store(last.UnixMilli())
+			w.lastLoop.Store(last.UnixMilli())
 		} else {
 			w.log.Info("unchanged")
-			w.cc.lastLoop.Store(last.UnixMilli())
+			w.lastLoop.Store(last.UnixMilli())
 		}
 	}
 }
