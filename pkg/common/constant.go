@@ -45,12 +45,8 @@ const (
 	PathOutputDir = PathLogDir + "/records"
 	// MaxLogfileSize is the maximum size of a log file written to the host file system
 	MaxLogfileSize = 10 * 1000 * 1000
-	// PodNetPodGRPCPort is the port used for the GRPC server of the pods running in the pod network
-	PodNetPodGRPCPort = 8880
 	// PodNetPodHttpPort is the port used for the metrics http server of the pods running in the pod network
 	PodNetPodHttpPort = 8881
-	// HostNetPodGRPCPort is the port used for the GRPC server of the pods running in the host network
-	HostNetPodGRPCPort = 12995
 	// HostNetPodHttpPort is the port used for the metrics http server of the pods running in the host network
 	HostNetPodHttpPort = 12996
 )

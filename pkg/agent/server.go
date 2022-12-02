@@ -51,9 +51,9 @@ type server struct {
 	aggregator           aggregation.ObservationListenerExtended
 	tickPeriod           time.Duration
 	done                 chan struct{}
-
-	nwpd.UnimplementedAgentServiceServer
 }
+
+var _ nwpd.AgentService = &server{}
 
 func newServer(log logrus.FieldLogger, agentConfigFile, clusterConfigFile string, hostNetwork bool) (*server, error) {
 	return &server{
@@ -405,6 +405,11 @@ func (s *server) run() {
 	if port := s.getNetworkCfg().HttpPort; port != 0 {
 		s.log.Infof("provide metrics at ':%d/metrics'", port)
 		http.Handle("/metrics", promhttp.Handler())
+
+		twirpServer := nwpd.NewAgentServiceServer(s)
+		s.log.Infof("provide agent service at ':%d%s'", port, twirpServer.PathPrefix())
+		http.Handle(twirpServer.PathPrefix(), twirpServer)
+
 		go func() {
 			http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 		}()

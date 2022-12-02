@@ -103,7 +103,7 @@ func (ac *AgentDeployConfig) AddOptionFlags(flags *pflag.FlagSet) {
 }
 
 func (ac *AgentDeployConfig) buildService(hostnetwork bool) (*corev1.Service, error) {
-	name, _, _ := ac.getNetworkConfig(hostnetwork)
+	name, _ := ac.getNetworkConfig(hostnetwork)
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -111,15 +111,6 @@ func (ac *AgentDeployConfig) buildService(hostnetwork bool) (*corev1.Service, er
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
-				{
-					Name:     "grpc",
-					Protocol: corev1.ProtocolTCP,
-					Port:     80,
-					TargetPort: intstr.IntOrString{
-						Type:   intstr.String,
-						StrVal: "grpc",
-					},
-				},
 				{
 					Name:     "metrics",
 					Protocol: corev1.ProtocolTCP,
@@ -144,15 +135,13 @@ func (ac *AgentDeployConfig) getLabels(name string) map[string]string {
 	}
 }
 
-func (ac *AgentDeployConfig) getNetworkConfig(hostnetwork bool) (name string, portGRPC, portMetrics int32) {
+func (ac *AgentDeployConfig) getNetworkConfig(hostnetwork bool) (name string, portHttp int32) {
 	if hostnetwork {
 		name = common.NameDaemonSetAgentHostNet
-		portGRPC = common.HostNetPodGRPCPort
-		portMetrics = common.HostNetPodHttpPort
+		portHttp = common.HostNetPodHttpPort
 	} else {
 		name = common.NameDaemonSetAgentPodNet
-		portGRPC = common.PodNetPodGRPCPort
-		portMetrics = common.PodNetPodHttpPort
+		portHttp = common.PodNetPodHttpPort
 	}
 	return
 }
@@ -165,7 +154,7 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 		limitMemory, _         = resource.ParseQuantity("64Mi")
 		defaultMode      int32 = 0444
 	)
-	name, portGRPC, portMetrics := ac.getNetworkConfig(hostNetwork)
+	name, portHttp := ac.getNetworkConfig(hostNetwork)
 
 	labels := ac.getLabels(name)
 	labelsPlusAdditionalLabels := common.MergeMaps(ac.AdditionalLabels, labels)
@@ -263,13 +252,8 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 						},
 						Ports: []corev1.ContainerPort{
 							{
-								Name:          "grpc",
-								ContainerPort: portGRPC,
-								Protocol:      "TCP",
-							},
-							{
 								Name:          "metrics",
-								ContainerPort: portMetrics,
+								ContainerPort: portHttp,
 								Protocol:      "TCP",
 							},
 						},
@@ -647,7 +631,6 @@ func (ac *AgentDeployConfig) buildPodSecurityPolicy(serviceAccountName string) (
 			Volumes:                  []policyv1beta1.FSType{policyv1beta1.Secret, policyv1beta1.ConfigMap, policyv1beta1.HostPath},
 			HostNetwork:              true,
 			HostPorts: []policyv1beta1.HostPortRange{
-				{Min: common.HostNetPodGRPCPort, Max: common.HostNetPodGRPCPort},
 				{Min: common.HostNetPodHttpPort, Max: common.HostNetPodHttpPort},
 			},
 			HostPID: false,
@@ -684,7 +667,6 @@ func (ac *AgentDeployConfig) BuildAgentConfig() (*config.AgentConfig, error) {
 		LogObservations: false,
 		HostNetwork: &config.NetworkConfig{
 			DataFilePrefix: common.NameDaemonSetAgentHostNet,
-			GRPCPort:       common.HostNetPodGRPCPort,
 			HttpPort:       common.HostNetPodHttpPort,
 			DefaultPeriod:  metav1.Duration{Duration: ac.DefaultPeriod},
 			Jobs: []config.Job{
@@ -694,7 +676,7 @@ func (ac *AgentDeployConfig) BuildAgentConfig() (*config.AgentConfig, error) {
 				},
 				{
 					JobID: "tcp-n2n",
-					Args:  []string{"checkTCPPort", "--node-port", fmt.Sprintf("%d", common.HostNetPodGRPCPort)},
+					Args:  []string{"checkTCPPort", "--node-port", fmt.Sprintf("%d", common.HostNetPodHttpPort)},
 				},
 				{
 					JobID: "tcp-n2p",
@@ -709,7 +691,6 @@ func (ac *AgentDeployConfig) BuildAgentConfig() (*config.AgentConfig, error) {
 		PodNetwork: &config.NetworkConfig{
 			DataFilePrefix: common.NameDaemonSetAgentPodNet,
 			DefaultPeriod:  metav1.Duration{Duration: ac.DefaultPeriod},
-			GRPCPort:       common.PodNetPodGRPCPort,
 			HttpPort:       common.PodNetPodHttpPort,
 			Jobs: []config.Job{
 				{
@@ -722,7 +703,7 @@ func (ac *AgentDeployConfig) BuildAgentConfig() (*config.AgentConfig, error) {
 				},
 				{
 					JobID: "tcp-p2n",
-					Args:  []string{"checkTCPPort", "--node-port", fmt.Sprintf("%d", common.HostNetPodGRPCPort)},
+					Args:  []string{"checkTCPPort", "--node-port", fmt.Sprintf("%d", common.HostNetPodHttpPort)},
 				},
 				{
 					JobID: "tcp-p2p",

@@ -47,7 +47,7 @@ func BuildClusterConfig(nodes []*corev1.Node, agentPods []*corev1.Pod,
 			Nodename: p.Spec.NodeName,
 			Podname:  p.Name,
 			PodIP:    p.Status.PodIP,
-			Port:     common.PodNetPodGRPCPort,
+			Port:     common.PodNetPodHttpPort,
 		})
 	}
 

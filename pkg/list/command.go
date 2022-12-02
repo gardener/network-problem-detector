@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"strings"
@@ -17,10 +18,8 @@ import (
 
 	"github.com/gardener/network-problem-detector/pkg/common"
 	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
-
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"k8s.io/client-go/kubernetes"
@@ -45,7 +44,7 @@ func CreateListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list (observation|obs|aggregated|aggr) <podname>",
 		Short: "collect observations or aggregations from an agent",
-		Long:  `collect observations from an agent using 'kubectl port-forward' and GRPC'`,
+		Long:  `collect observations from an agent using 'kubectl port-forward' and HTTP'`,
 		RunE:  lc.list,
 	}
 	cmd.Flags().StringVar(&lc.kubeconfig, "kubeconfig", "", "kubeconfig for shoot cluster, uses KUBECONFIG if not specified.")
@@ -89,9 +88,9 @@ func (lc *listCommand) list(ccmd *cobra.Command, args []string) error {
 	targetPort := lc.targetPort
 	if targetPort == 0 {
 		if strings.HasPrefix(podname, common.NameDaemonSetAgentHostNet) {
-			targetPort = common.HostNetPodGRPCPort
+			targetPort = common.HostNetPodHttpPort
 		} else {
-			targetPort = common.PodNetPodGRPCPort
+			targetPort = common.PodNetPodHttpPort
 		}
 	}
 
@@ -115,12 +114,7 @@ func (lc *listCommand) list(ccmd *cobra.Command, args []string) error {
 		syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 	}()
 
-	cc, err := grpc.Dial(fmt.Sprintf("localhost:%d", port), grpc.WithInsecure())
-	if err != nil {
-		return err
-	}
-
-	client := nwpd.NewAgentServiceClient(cc)
+	client := nwpd.NewAgentServiceProtobufClient(fmt.Sprintf("http://localhost:%d", port), &http.Client{})
 	request := &nwpd.GetObservationsRequest{
 		Start:               timestamppb.New(time.Now().Add(-lc.since)),
 		Limit:               int32(lc.limit),
@@ -145,7 +139,7 @@ func (lc *listCommand) list(ccmd *cobra.Command, args []string) error {
 	}
 }
 
-func (cc *listCommand) listObservations(log logrus.FieldLogger, client nwpd.AgentServiceClient, request *nwpd.GetObservationsRequest) error {
+func (cc *listCommand) listObservations(log logrus.FieldLogger, client nwpd.AgentService, request *nwpd.GetObservationsRequest) error {
 	ctx := context.Background()
 	response, err := client.GetObservations(ctx, request)
 	if err != nil {
@@ -168,7 +162,7 @@ func (cc *listCommand) listObservations(log logrus.FieldLogger, client nwpd.Agen
 	return nil
 }
 
-func (cc *listCommand) listAggregatedObservations(log logrus.FieldLogger, client nwpd.AgentServiceClient, request *nwpd.GetObservationsRequest) error {
+func (cc *listCommand) listAggregatedObservations(log logrus.FieldLogger, client nwpd.AgentService, request *nwpd.GetObservationsRequest) error {
 	ctx := context.Background()
 	response, err := client.GetAggregatedObservations(ctx, request)
 	if err != nil {
