@@ -6,20 +6,16 @@ package agent
 
 import (
 	"fmt"
-	"net"
 
 	"github.com/gardener/network-problem-detector/pkg/agent/version"
-	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"google.golang.org/grpc"
 )
 
 var (
 	agentConfigFile   string
 	clusterConfigFile string
 	hostNetwork       bool
-	grpcServer        *grpc.Server
 )
 
 func CreateRunAgentCmd(injectedVersion string) *cobra.Command {
@@ -67,24 +63,5 @@ func startAgentServer(log logrus.FieldLogger, agentConfigFile, clusterConfigFile
 		return nil, err
 	}
 
-	/*
-		creds, err := loadTLSCredentials(log, config)
-		if err != nil {
-			return nil, err
-		}
-	*/
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", agentServer.getNetworkCfg().GRPCPort))
-	if err != nil {
-		return nil, err
-	}
-	//	s := grpc.NewServer(grpc.Creds(creds))
-	grpcServer = grpc.NewServer()
-	nwpd.RegisterAgentServiceServer(grpcServer, agentServer)
-	log.Infof("server listening at %s", listener.Addr())
-	go func() {
-		if err := grpcServer.Serve(listener); err != nil {
-			log.Fatalf("failed to serve: %v", err)
-		}
-	}()
 	return agentServer, nil
 }

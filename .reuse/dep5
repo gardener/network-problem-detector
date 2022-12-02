@@ -14,7 +14,7 @@ Files:
   docs/*
   go.mod
   go.sum
-  pkg/common/nwpd/nwpd_grpc.pb.go
+  pkg/common/nwpd/nwpd.twirp.go
   pkg/deploy/DEFAULT_REPOSITORY
   vendor/modules.txt
   VERSION
@@ -221,6 +221,10 @@ Files: vendor/github.com/stretchr/testify/*
 Copyright: 2012-2020 Mat Ryer, Tyler Bunnell and contributors.
 License: MIT
 
+Files: vendor/github.com/twitchtv/twirp/*
+Copyright: 2018 Twitch Interactive, Inc.
+License: Apache-2.0
+
 Files: vendor/go.uber.org/atomic/*
 Copyright: 2016 Uber Technologies, Inc.
 License: MIT
@@ -276,10 +280,6 @@ License: Apache-2.0
 Files: vendor/google.golang.org/protobuf/*
 Copyright: 2008 Google Inc.
 License: BSD-3-Clause
-
-Files: vendor/google.golang.org/grpc/*
-Copyright: 2016 gRPC authors.
-License: Apache-2.0
 
 Files: vendor/google.golang.org/genproto/*
 Copyright: 2008 Google Inc.

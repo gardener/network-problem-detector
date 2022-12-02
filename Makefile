@@ -58,9 +58,11 @@ verify: check format test
 
 .PHONY: generate-proto
 generate-proto:
+	@go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28
+	@go install github.com/twitchtv/twirp/protoc-gen-twirp@v8.1.3
 	@protoc --go_out=. --go_opt=paths=source_relative \
-    --go-grpc_out=. --go-grpc_opt=paths=source_relative \
     --experimental_allow_proto3_optional \
+	--twirp_out=. --twirp_opt=paths=source_relative \
     pkg/common/nwpd/nwpd.proto
 
 .PHONY: install-requirements

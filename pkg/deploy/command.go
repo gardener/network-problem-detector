@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -126,6 +127,10 @@ func (dc *deployCommand) deployAgentControllerDeployment(cmd *cobra.Command, arg
 		}
 	}
 	if !dc.delete {
+		if strings.HasSuffix(dc.agentDeployConfig.Image, "-dev") {
+			log.Warnf("A dev image is used and may not be up-to-date or not existing. Consider to use the '--image' option to specify an image.")
+		}
+
 		log.Infof("deployed deployment %s/%s", deployment.Namespace, deployment.Name)
 	}
 	return nil
@@ -144,7 +149,7 @@ func (dc *deployCommand) deleteAgentControllerDeployment(log logrus.FieldLogger)
 func (dc *deployCommand) deployAgent(log logrus.FieldLogger, hostnetwork bool,
 	buildAgentConfigMap, buildClusterConfigMap buildObject[*corev1.ConfigMap]) error {
 	ac := dc.agentDeployConfig
-	name, _, _ := ac.getNetworkConfig(hostnetwork)
+	name, _ := ac.getNetworkConfig(hostnetwork)
 
 	err := dc.setup()
 	if err != nil {
@@ -188,6 +193,9 @@ func (dc *deployCommand) deployAgent(log logrus.FieldLogger, hostnetwork bool,
 		}
 	}
 
+	if strings.HasSuffix(dc.agentDeployConfig.Image, "-dev") {
+		log.Warnf("A dev image is used and may not be up-to-date or not existing. Consider to use the '--image' option to specify an image.")
+	}
 	log.Infof("deployed daemonset %s/%s", ds.Namespace, ds.Name)
 	return nil
 }
