@@ -1,4 +1,4 @@
-# Network Problem Detector POC
+# Network Problem Detector
 
 [![reuse compliant](https://reuse.software/badge/reuse-compliant.svg)](https://reuse.software/)
 
