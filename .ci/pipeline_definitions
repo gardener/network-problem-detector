@@ -21,7 +21,7 @@ network-problem-detector:
             dockerfile: 'Dockerfile'
     steps:
       verify:
-        image: golang:1.19.3
+        image: golang:1.19.4
   jobs:
     head-update:
       traits:
