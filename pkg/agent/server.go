@@ -411,7 +411,8 @@ func (s *server) run() {
 		http.Handle(twirpServer.PathPrefix(), twirpServer)
 
 		go func() {
-			http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
+			err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
+			s.log.Warnf(err.Error())
 		}()
 	}
 	if s.writer != nil {

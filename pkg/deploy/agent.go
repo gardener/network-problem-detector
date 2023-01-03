@@ -250,6 +250,13 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 								},
 							},
 						},
+						LivenessProbe: &corev1.Probe{
+							ProbeHandler: corev1.ProbeHandler{
+								TCPSocket: &corev1.TCPSocketAction{
+									Port: intstr.FromInt(int(portHttp)),
+								},
+							},
+						},
 						Ports: []corev1.ContainerPort{
 							{
 								Name:          "metrics",
