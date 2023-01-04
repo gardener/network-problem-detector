@@ -31,6 +31,7 @@ import (
 )
 
 type nodePodController struct {
+	log                       logrus.FieldLogger
 	hasUpdates                atomic.Bool
 	informerFactory           informers.SharedInformerFactory
 	informerFactoryKubeSystem informers.SharedInformerFactory
@@ -38,11 +39,12 @@ type nodePodController struct {
 	podsInformer              informerscorev1.PodInformer
 }
 
-func newNodePodController(clientset kubernetes.Interface, resyncPeriod time.Duration) *nodePodController {
+func newNodePodController(log logrus.FieldLogger, clientset kubernetes.Interface, resyncPeriod time.Duration) *nodePodController {
 	informerFactory := informers.NewSharedInformerFactory(clientset, resyncPeriod)
 	informerFactoryKubeSystem := informers.NewSharedInformerFactoryWithOptions(clientset,
 		resyncPeriod, informers.WithNamespace(common.NamespaceKubeSystem))
 	c := &nodePodController{
+		log:                       log,
 		informerFactory:           informerFactory,
 		informerFactoryKubeSystem: informerFactoryKubeSystem,
 		nodesInformer:             informerFactory.Core().V1().Nodes(),
@@ -83,6 +85,11 @@ func (c *nodePodController) Start(stopCh chan struct{}) error {
 
 func (c *nodePodController) OnAdd(obj interface{}) {
 	if c.isRelevant(obj) {
+		if node, ok := obj.(*corev1.Node); ok {
+			if node.CreationTimestamp.Add(1 * time.Minute).After(time.Now()) {
+				c.log.WithField("node", node.Name).Info("node created")
+			}
+		}
 		c.hasUpdates.Store(true)
 	}
 }
@@ -101,6 +108,9 @@ func (c *nodePodController) OnUpdate(oldObj, newObj interface{}) {
 
 func (c *nodePodController) OnDelete(obj interface{}) {
 	if c.isRelevant(obj) {
+		if node, ok := obj.(*corev1.Node); ok {
+			c.log.WithField("node", node.Name).Info("node deleted")
+		}
 		c.hasUpdates.Store(true)
 	}
 }
@@ -142,7 +152,7 @@ func (w *watch) Start(ctx context.Context) error {
 	w.lastLoop.Store(time.Now().UnixMilli())
 	w.started.Store(true)
 
-	controller := newNodePodController(w.clientSet, 24*time.Hour)
+	controller := newNodePodController(w.log, w.clientSet, 24*time.Hour)
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 	if err := controller.Start(stopCh); err != nil {
