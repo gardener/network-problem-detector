@@ -22,14 +22,14 @@ type runnerArgs struct {
 }
 
 func (ra *runnerArgs) prepareConfig() RunnerConfig {
-	config := ra.config
+	cfg := ra.config
 	if ra.period != 0 {
-		config.Period = ra.period
+		cfg.Period = ra.period
 	}
 	if ra.scalePeriod && len(ra.clusterCfg.Nodes) > 1 {
-		config.Period = time.Duration(math.Sqrt(float64(len(ra.clusterCfg.Nodes))) * float64(config.Period))
+		cfg.Period = time.Duration(math.Pow(float64(ra.clusterCfg.NodeCount), float64(0.6)) * float64(cfg.Period))
 	}
-	return config
+	return cfg
 }
 
 func GetNewRoot(ra *runnerArgs) *cobra.Command {
@@ -46,7 +46,7 @@ func GetNewRoot(ra *runnerArgs) *cobra.Command {
 	return root
 }
 
-func Parse(clusterCfg config.ClusterConfig, config RunnerConfig, args []string, shuffle bool) (Runner, error) {
+func Parse(clusterCfg config.ClusterConfig, config RunnerConfig, args []string, sampleCfg *config.SampleConfig) (Runner, error) {
 	ra := &runnerArgs{}
 	root := GetNewRoot(ra)
 
@@ -61,10 +61,7 @@ func Parse(clusterCfg config.ClusterConfig, config RunnerConfig, args []string, 
 	}
 
 	ra.args = args
-	ra.clusterCfg = clusterCfg
-	if shuffle {
-		ra.clusterCfg = clusterCfg.Shuffled()
-	}
+	ra.clusterCfg = sampleCfg.ShuffledSample(clusterCfg)
 	ra.config = config
 	ra.runner = nil
 	err = cmd.RunE(cmd, flags)

@@ -21,6 +21,7 @@ var _ = Describe("parser", func() {
 	var (
 		config1     = RunnerConfig{Job: config.Job{JobID: "test"}, Period: 15 * time.Second}
 		clusterCfg1 = config.ClusterConfig{
+			NodeCount: 2,
 			Nodes: []config.Node{
 				{Hostname: "node1", InternalIP: "10.0.0.11"},
 				{Hostname: "node2", InternalIP: "10.0.0.12"},
@@ -42,6 +43,7 @@ var _ = Describe("parser", func() {
 		}
 		config2     = RunnerConfig{Job: config.Job{JobID: "test"}, Period: 10 * time.Second}
 		clusterCfg2 = config.ClusterConfig{
+			NodeCount: 2,
 			Nodes: []config.Node{
 				{Hostname: "node3", InternalIP: "10.0.0.13"},
 				{Hostname: "node4", InternalIP: "10.0.0.14"},
@@ -78,8 +80,8 @@ var _ = Describe("parser", func() {
 	)
 
 	DescribeTable("should parse runner commands",
-		func(clusterCfg config.ClusterConfig, config RunnerConfig, args []string, expected interface{}) {
-			actual, err := Parse(clusterCfg, config, args, false)
+		func(clusterCfg config.ClusterConfig, runnerConfig RunnerConfig, args []string, expected interface{}) {
+			actual, err := Parse(clusterCfg, runnerConfig, args, &config.SampleConfig{})
 			switch v := expected.(type) {
 			case Runner:
 				Expect(err).To(BeNil())

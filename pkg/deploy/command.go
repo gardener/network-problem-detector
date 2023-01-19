@@ -271,7 +271,7 @@ func (dc *deployCommand) buildClusterConfigMap() (*corev1.ConfigMap, error) {
 	if !dc.agentDeployConfig.IgnoreAPIServerEndpoint {
 		shootInfo, err := dc.Clientset.CoreV1().ConfigMaps(common.NamespaceKubeSystem).Get(ctx, common.NameGardenerShootInfo, metav1.GetOptions{})
 		if err != nil {
-			return nil, fmt.Errorf("error getting configmap %s/%s", common.NamespaceKubeSystem, common.NameGardenerShootInfo)
+			return nil, fmt.Errorf("error getting configmap %s/%s. If this is no Gardener shoot cluster, please add option '--ignore-gardener-kube-api-server' to deploy command.", common.NamespaceKubeSystem, common.NameGardenerShootInfo)
 		}
 		apiServer, err = GetAPIServerEndpointFromShootInfo(shootInfo)
 		if err != nil {

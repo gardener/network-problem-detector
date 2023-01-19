@@ -24,6 +24,10 @@ type PodEndpoint struct {
 	Port     int32  `json:"port"`
 }
 
+func (e PodEndpoint) DestHost() string {
+	return e.Nodename
+}
+
 type Endpoint struct {
 	Hostname string `json:"hostname"`
 	IP       string `json:"ip"`
@@ -35,21 +39,14 @@ func (e Endpoint) DestHost() string {
 }
 
 type ClusterConfig struct {
-	// Nodes are the known nodes.
+	// NodeCount is the number known nodes (not anly the subset used as destinations)
+	NodeCount int
+	// Nodes is the subset of the known nodes used as destinations.
 	Nodes []Node `json:"nodes,omitempty"`
-	// PodEndpoints are the known pods of the 'nwpd-agent-pod-net' daemon set.
+	// PodEndpoints is the subset of the known pods of the 'nwpd-agent-pod-net' daemon set.
 	PodEndpoints []PodEndpoint `json:"podEndpoints,omitempty"`
 	// InternalKubeAPIServer is the discovered internal address of the kube-apiserver
 	InternalKubeAPIServer *Endpoint `json:"internalKubeAPIServer,omitempty"`
 	// KubeAPIServer is the discovered external address of the kube-apiserver (relies on Gardener shoot-info)
 	KubeAPIServer *Endpoint `json:"kubeAPIServer,omitempty"`
-}
-
-func (cc ClusterConfig) Shuffled() ClusterConfig {
-	return ClusterConfig{
-		Nodes:                 CloneAndShuffle(cc.Nodes),
-		PodEndpoints:          CloneAndShuffle(cc.PodEndpoints),
-		InternalKubeAPIServer: cc.InternalKubeAPIServer,
-		KubeAPIServer:         cc.KubeAPIServer,
-	}
 }
