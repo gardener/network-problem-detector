@@ -182,9 +182,11 @@ func (s *server) applyAgentConfig(cfg *config.AgentConfig) error {
 	deleteOutdatedMetricByObsoleteJobIDs(obsoleteJobIDs)
 	deleteOutdatedMetricByValidDestHosts(validDestHosts)
 	if s.aggregator != nil {
+		validSrcHosts := common.StringSet{}
+		validSrcHosts.Add(runners.GetNodeName())
 		s.aggregator.UpdateValidEdges(aggregation.ValidEdges{
 			JobIDs:    applied,
-			SrcHosts:  validDestHosts,
+			SrcHosts:  validSrcHosts,
 			DestHosts: validDestHosts,
 		})
 	}
