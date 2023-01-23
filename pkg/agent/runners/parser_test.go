@@ -86,7 +86,7 @@ var _ = Describe("parser", func() {
 			case Runner:
 				Expect(err).To(BeNil())
 				Expect(actual.Config()).To(Equal(v.Config()))
-				Expect(actual.TestData()).To(Equal(v.TestData()))
+				Expect(actual.runner.TestData()).To(Equal(v.TestData()))
 			case string:
 				Expect(err).NotTo(BeNil())
 				Expect(err.Error()).To(ContainSubstring(v))

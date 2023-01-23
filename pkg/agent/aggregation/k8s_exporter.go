@@ -7,13 +7,12 @@
 package aggregation
 
 import (
-	"time"
-
 	"github.com/gardener/network-problem-detector/pkg/agent/aggregation/condition"
 	"github.com/gardener/network-problem-detector/pkg/agent/aggregation/problemclient"
 	"github.com/gardener/network-problem-detector/pkg/agent/aggregation/types"
 	"github.com/gardener/network-problem-detector/pkg/agent/version"
 	"github.com/gardener/network-problem-detector/pkg/common"
+	"github.com/gardener/network-problem-detector/pkg/common/config"
 	"github.com/sirupsen/logrus"
 	"k8s.io/utils/clock"
 )
@@ -25,7 +24,7 @@ type k8sExporter struct {
 }
 
 // newExporter creates a exporter for Kubernetes apiserver exporting,
-func newExporter(log logrus.FieldLogger, nodeName string, hostNetwork bool, heartbeatPeriod time.Duration) (types.Exporter, error) {
+func newExporter(log logrus.FieldLogger, nodeName string, hostNetwork bool, exporterConfig config.K8sExporterConfig) (types.Exporter, error) {
 	agentName := common.NameDaemonSetAgentPodNet
 	if hostNetwork {
 		agentName = common.NameDaemonSetAgentHostNet
@@ -47,7 +46,7 @@ func newExporter(log logrus.FieldLogger, nodeName string, hostNetwork bool, hear
 	ke := k8sExporter{
 		log:              log,
 		client:           c,
-		conditionManager: condition.NewConditionManager(log, c, clock.RealClock{}, heartbeatPeriod),
+		conditionManager: condition.NewConditionManager(log, c, clock.RealClock{}, exporterConfig.HeartbeatPeriod.Duration),
 	}
 
 	ke.conditionManager.Start()

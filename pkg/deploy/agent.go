@@ -7,6 +7,7 @@ package deploy
 import (
 	_ "embed"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -51,6 +52,8 @@ type AgentDeployConfig struct {
 	K8sExporterEnabled bool
 	// K8sExporterHeartbeat if K8sExporterEnabled sets the period of updating the node condition `ClusterNetworkProblems` or `HostNetworkProblems`
 	K8sExporterHeartbeat time.Duration
+	// K8sExporterMinFailingPeerNodeShare if > 0, reports node conditions `ClusterNetworkProblems` or `HostNetworkProblems` for node checks only if minimum share of destination peer nodes are failing. Valid range: [0.0,1.0]
+	K8sExporterMinFailingPeerNodeShare float64
 	// AdditionalAnnotations adds annotations to the daemonset spec template
 	AdditionalAnnotations map[string]string
 	// AdditionalLabels adds labels to the daemonset spec template
@@ -100,6 +103,7 @@ func (ac *AgentDeployConfig) AddOptionFlags(flags *pflag.FlagSet) {
 	flags.BoolVar(&ac.PodSecurityPolicyEnabled, "enable-psp", true, "if pod security policy should be deployed")
 	flags.BoolVar(&ac.K8sExporterEnabled, "enable-k8s-exporter", false, "if node conditions and events should be updated/created")
 	flags.DurationVar(&ac.K8sExporterHeartbeat, "k8s-exporter-heartbeat", 3*time.Minute, "period for updating the node conditions by the K8s exporter")
+	flags.Float64Var(&ac.K8sExporterMinFailingPeerNodeShare, "k8s-exporter-min-failing-peer-node-share", 0.2, "if > 0, report node conditions only if checks for minimum share of destination peer nodes are failing. Valid range: [0.0,1.0]")
 	flags.BoolVar(&ac.IgnoreAPIServerEndpoint, "ignore-gardener-kube-api-server", false, "if true, does not try to lookup kube api-server of Gardener control plane")
 	flags.StringVar(&ac.PriorityClassName, "priority-class", "", "priority class name")
 	flags.IntVar(&ac.MaxPeerNodes, "max-peer-nodes", 0, "if != 0 restricts number of peer nodes used as check destinations")
@@ -730,8 +734,9 @@ func (ac *AgentDeployConfig) BuildAgentConfig() (*config.AgentConfig, error) {
 
 	if ac.K8sExporterEnabled {
 		cfg.K8sExporter = &config.K8sExporterConfig{
-			Enabled:         true,
-			HeartbeatPeriod: &metav1.Duration{Duration: ac.K8sExporterHeartbeat},
+			Enabled:                 true,
+			HeartbeatPeriod:         &metav1.Duration{Duration: ac.K8sExporterHeartbeat},
+			MinFailingPeerNodeShare: math.Min(math.Max(0.0, ac.K8sExporterMinFailingPeerNodeShare), 1.0),
 		}
 	}
 
