@@ -62,6 +62,7 @@ func BuildClusterConfig(nodes []*corev1.Node, agentPods []*corev1.Pod,
 		return cmp < 0
 	})
 
+	clusterConfig.NodeCount = len(clusterConfig.Nodes)
 	return clusterConfig, nil
 }
 

@@ -44,6 +44,8 @@ type server struct {
 	hostNetwork          bool
 	jobs                 map[jobid]*runners.InternalJob
 	revision             atomic.Int64
+	maxPeerNodes         int
+	nodeSampleStore      *config.NodeSampleStore
 	currentAgentConfig   *config.AgentConfig
 	currentClusterConfig *config.ClusterConfig
 	obsChan              chan *nwpd.Observation
@@ -61,6 +63,7 @@ func newServer(log logrus.FieldLogger, agentConfigFile, clusterConfigFile string
 		agentConfigFile:   agentConfigFile,
 		clusterConfigFile: clusterConfigFile,
 		hostNetwork:       hostNetwork,
+		nodeSampleStore:   config.NewNodeSampleStore(),
 		jobs:              map[jobid]*runners.InternalJob{},
 		obsChan:           make(chan *nwpd.Observation, 100),
 		tickPeriod:        200 * time.Millisecond,
@@ -125,6 +128,7 @@ func (s *server) setup() error {
 	if err != nil {
 		return err
 	}
+	s.maxPeerNodes = cfg.MaxPeerNodes
 
 	return s.applyAgentConfig(cfg)
 }
@@ -178,9 +182,11 @@ func (s *server) applyAgentConfig(cfg *config.AgentConfig) error {
 	deleteOutdatedMetricByObsoleteJobIDs(obsoleteJobIDs)
 	deleteOutdatedMetricByValidDestHosts(validDestHosts)
 	if s.aggregator != nil {
+		validSrcHosts := common.StringSet{}
+		validSrcHosts.Add(runners.GetNodeName())
 		s.aggregator.UpdateValidEdges(aggregation.ValidEdges{
 			JobIDs:    applied,
-			SrcHosts:  validDestHosts,
+			SrcHosts:  validSrcHosts,
 			DestHosts: validDestHosts,
 		})
 	}
@@ -213,7 +219,11 @@ func (s *server) parseJob(job *config.Job) (*runners.InternalJob, error) {
 	if s.currentClusterConfig != nil {
 		clusterCfg = *s.currentClusterConfig
 	}
-	runner, err := runners.Parse(clusterCfg, rconfig, job.Args, true)
+	shuffleCfg := config.SampleConfig{
+		MaxNodes:        s.maxPeerNodes,
+		NodeSampleStore: s.nodeSampleStore,
+	}
+	runner, err := runners.Parse(clusterCfg, rconfig, job.Args, &shuffleCfg)
 	if err != nil {
 		return nil, fmt.Errorf("invalid job %s: %s", job.JobID, err)
 	}
