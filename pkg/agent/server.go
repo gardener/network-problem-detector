@@ -41,6 +41,7 @@ type server struct {
 	log                  logrus.FieldLogger
 	agentConfigFile      string
 	clusterConfigFile    string
+	nodeName             string
 	hostNetwork          bool
 	jobs                 map[jobid]*runners.InternalJob
 	revision             atomic.Int64
@@ -58,17 +59,27 @@ type server struct {
 var _ nwpd.AgentService = &server{}
 
 func newServer(log logrus.FieldLogger, agentConfigFile, clusterConfigFile string, hostNetwork bool) (*server, error) {
+	nodeName := getNodeName()
 	return &server{
 		log:               log,
 		agentConfigFile:   agentConfigFile,
 		clusterConfigFile: clusterConfigFile,
+		nodeName:          nodeName,
 		hostNetwork:       hostNetwork,
-		nodeSampleStore:   config.NewNodeSampleStore(),
+		nodeSampleStore:   config.NewNodeSampleStore(nodeName),
 		jobs:              map[jobid]*runners.InternalJob{},
 		obsChan:           make(chan *nwpd.Observation, 100),
 		tickPeriod:        200 * time.Millisecond,
 		done:              make(chan struct{}),
 	}, nil
+}
+
+func getNodeName() string {
+	nodeName := os.Getenv(common.EnvNodeName)
+	if nodeName == "" {
+		nodeName, _ = os.Hostname()
+	}
+	return nodeName
 }
 
 func (s *server) isHostNetwork() bool {
@@ -99,6 +110,7 @@ func (s *server) setup() error {
 
 	options := &aggregation.ObsAggregationOptions{
 		Log:                        s.log.WithField("sub", "aggr"),
+		NodeName:                   s.nodeName,
 		ReportPeriod:               1 * time.Minute,
 		TimeWindow:                 30 * time.Minute,
 		LogDirectory:               common.PathLogDir,
@@ -183,7 +195,7 @@ func (s *server) applyAgentConfig(cfg *config.AgentConfig) error {
 	deleteOutdatedMetricByValidDestHosts(validDestHosts)
 	if s.aggregator != nil {
 		validSrcHosts := common.StringSet{}
-		validSrcHosts.Add(runners.GetNodeName())
+		validSrcHosts.Add(s.nodeName)
 		s.aggregator.UpdateValidEdges(aggregation.ValidEdges{
 			JobIDs:    applied,
 			SrcHosts:  validSrcHosts,
@@ -490,6 +502,6 @@ func (s *server) triggerJobs() {
 	defer s.lock.Unlock()
 
 	for _, job := range s.jobs {
-		job.Tick(s.obsChan)
+		job.Tick(s.nodeName, s.obsChan)
 	}
 }

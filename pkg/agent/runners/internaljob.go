@@ -21,7 +21,7 @@ type RunnerConfig struct {
 }
 
 type Runner interface {
-	Run(ch chan<- *nwpd.Observation)
+	Run(nodeName string, ch chan<- *nwpd.Observation)
 	Config() RunnerConfig
 	Description() string
 	TestData() any
@@ -64,17 +64,17 @@ func (j *InternalJob) SetLastRun(lastRun *time.Time) {
 	j.lastRun.Store(lastRun)
 }
 
-func (j *InternalJob) Tick(ch chan<- *nwpd.Observation) error {
+func (j *InternalJob) Tick(nodeName string, ch chan<- *nwpd.Observation) error {
 	if j.runner == nil || j.active.Load() {
 		return nil
 	}
 
 	now := time.Now()
-	if now.After(j.getNextRun()) && j.active.CAS(false, true) {
+	if now.After(j.getNextRun()) && j.active.CompareAndSwap(false, true) {
 		j.lastRun.Store(&now)
 		go func() {
 			defer j.active.Store(false)
-			j.runner.Run(ch)
+			j.runner.Run(nodeName, ch)
 		}()
 	}
 	return nil

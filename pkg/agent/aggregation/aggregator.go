@@ -23,6 +23,8 @@ import (
 type ObsAggregationOptions struct {
 	// Log is the used logger
 	Log logrus.FieldLogger
+	// NodeName is the hostname of this node
+	NodeName string
 	// ReportPeriod is the period between two reports
 	ReportPeriod time.Duration
 	// TimeWindow is the window after which aggregations are removed if no new ones are added
@@ -292,7 +294,7 @@ func NewObsAggregator(options *ObsAggregationOptions) (*obsAggr, error) {
 	var k8sExporter types.Exporter
 	if options.K8sExporterEnabled {
 		var err error
-		k8sExporter, err = newExporter(options.Log, options.HostNetwork, options.K8sExporterHeartbeatPeriod)
+		k8sExporter, err = newExporter(options.Log, options.NodeName, options.HostNetwork, options.K8sExporterHeartbeatPeriod)
 		if err != nil {
 			return nil, err
 		}

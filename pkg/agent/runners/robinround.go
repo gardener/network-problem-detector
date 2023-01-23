@@ -45,11 +45,10 @@ func (r *robinRound[T]) DestHosts() []string {
 	return hosts
 }
 
-func (r *robinRound[T]) Run(ch chan<- *nwpd.Observation) {
+func (r *robinRound[T]) Run(nodeName string, ch chan<- *nwpd.Observation) {
 	item := r.items[r.next]
 	r.next = (r.next + 1) % len(r.items)
 
-	nodeName := GetNodeName()
 	obs := &nwpd.Observation{
 		SrcHost:   nodeName,
 		DestHost:  normalise(item.DestHost()),

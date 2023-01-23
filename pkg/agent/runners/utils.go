@@ -5,19 +5,8 @@
 package runners
 
 import (
-	"os"
 	"strings"
-
-	"github.com/gardener/network-problem-detector/pkg/common"
 )
-
-func GetNodeName() string {
-	nodeName := os.Getenv(common.EnvNodeName)
-	if nodeName == "" {
-		nodeName, _ = os.Hostname()
-	}
-	return nodeName
-}
 
 func normalise(dnsname string) string {
 	if strings.HasSuffix(dnsname, ".") {
