@@ -12,7 +12,6 @@ import (
 	"github.com/gardener/network-problem-detector/pkg/agent/aggregation/condition"
 	"github.com/gardener/network-problem-detector/pkg/agent/aggregation/problemclient"
 	"github.com/gardener/network-problem-detector/pkg/agent/aggregation/types"
-	"github.com/gardener/network-problem-detector/pkg/agent/runners"
 	"github.com/gardener/network-problem-detector/pkg/agent/version"
 	"github.com/gardener/network-problem-detector/pkg/common"
 	"github.com/sirupsen/logrus"
@@ -26,7 +25,7 @@ type k8sExporter struct {
 }
 
 // newExporter creates a exporter for Kubernetes apiserver exporting,
-func newExporter(log logrus.FieldLogger, hostNetwork bool, heartbeatPeriod time.Duration) (types.Exporter, error) {
+func newExporter(log logrus.FieldLogger, nodeName string, hostNetwork bool, heartbeatPeriod time.Duration) (types.Exporter, error) {
 	agentName := common.NameDaemonSetAgentPodNet
 	if hostNetwork {
 		agentName = common.NameDaemonSetAgentHostNet
@@ -35,7 +34,7 @@ func newExporter(log logrus.FieldLogger, hostNetwork bool, heartbeatPeriod time.
 	pco := &problemclient.ProblemClientOptions{
 		AgentName:      agentName,
 		AgentVersion:   version.Version,
-		NodeName:       runners.GetNodeName(),
+		NodeName:       nodeName,
 		EventNamespace: "",
 		KubeConfigPath: "", // in-cluster
 		Log:            log,

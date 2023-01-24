@@ -68,7 +68,7 @@ var _ = Describe("sample", func() {
 	It("should select all nodes if maxNodes == 0", func() {
 		sc := &config.SampleConfig{
 			MaxNodes:        0,
-			NodeSampleStore: config.NewNodeSampleStore(),
+			NodeSampleStore: config.NewNodeSampleStore("host-1"),
 		}
 
 		shuffledCC := sc.ShuffledSample(clusterCfg)
@@ -80,11 +80,20 @@ var _ = Describe("sample", func() {
 		scList := make([]*config.SampleConfig, nodeCount)
 		ccList := make([]config.ClusterConfig, nodeCount)
 		for i := 0; i < nodeCount; i++ {
+			nodeName := fmt.Sprintf("host-%d", i)
 			scList[i] = &config.SampleConfig{
 				MaxNodes:        maxNodes,
-				NodeSampleStore: config.NewNodeSampleStore(),
+				NodeSampleStore: config.NewNodeSampleStore(nodeName),
 			}
 			ccList[i] = scList[i].ShuffledSample(clusterCfg)
+			foundSelf := false
+			for _, node := range ccList[i].Nodes {
+				if node.Hostname == nodeName {
+					foundSelf = true
+					break
+				}
+			}
+			Expect(foundSelf).To(BeTrue())
 		}
 
 		distribution, total := calcNodeDistribution(ccList)
@@ -98,7 +107,7 @@ var _ = Describe("sample", func() {
 			if shouldReplaceNode(i) {
 				scList[i] = &config.SampleConfig{
 					MaxNodes:        maxNodes,
-					NodeSampleStore: config.NewNodeSampleStore(),
+					NodeSampleStore: config.NewNodeSampleStore(fmt.Sprintf("host-%d", i)),
 				}
 			}
 			ccList2[i] = scList[i].ShuffledSample(clusterCfg2)

@@ -19,8 +19,8 @@ type SampleConfig struct {
 }
 
 // NewNodeSampleStore create a new node sample store
-func NewNodeSampleStore() *NodeSampleStore {
-	return &NodeSampleStore{store: map[string]float64{}}
+func NewNodeSampleStore(nodeName string) *NodeSampleStore {
+	return &NodeSampleStore{nodeName: nodeName, store: map[string]float64{}}
 }
 
 type orderedNode struct {
@@ -32,7 +32,8 @@ type orderedNode struct {
 // It allows to keep node samples as stable as possible after adding or removing nodes.
 type NodeSampleStore struct {
 	sync.Mutex
-	store map[string]float64
+	nodeName string
+	store    map[string]float64
 }
 
 // SelectTopNodes selects a stable nodes sample of the given size.
@@ -51,6 +52,9 @@ func (s *NodeSampleStore) SelectTopNodes(hostnames map[string]struct{}, size int
 		index, ok := s.store[name]
 		if !ok {
 			index = rand.Float64()
+			if name == s.nodeName {
+				index = 0 // always include own node for self-checks
+			}
 			s.store[name] = index
 		}
 		array = append(array, orderedNode{hostname: name, index: index})
