@@ -29,14 +29,16 @@ type Runner interface {
 }
 
 type InternalJob struct {
-	runner  Runner
-	active  atomic.Bool
-	lastRun atomic.Value
+	runner        Runner
+	peerNodeCount int
+	active        atomic.Bool
+	lastRun       atomic.Value
 }
 
-func NewInternalJob(runner Runner) *InternalJob {
+func NewInternalJob(runner Runner, peerNodeCount int) *InternalJob {
 	return &InternalJob{
-		runner: runner,
+		runner:        runner,
+		peerNodeCount: peerNodeCount,
 	}
 }
 
@@ -54,6 +56,10 @@ func (j *InternalJob) Config() RunnerConfig {
 
 func (j *InternalJob) Description() string {
 	return j.runner.Description()
+}
+
+func (j *InternalJob) PeerNodeCount() int {
+	return j.peerNodeCount
 }
 
 func (j *InternalJob) DestHosts() []string {

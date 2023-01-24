@@ -23,6 +23,12 @@ func (s StringSet) AddAll(keys ...string) {
 	}
 }
 
+func (s StringSet) AddSet(other StringSet) {
+	if len(other) > 0 {
+		s.AddAll(other.ToArray()...)
+	}
+}
+
 func (s StringSet) Contains(key string) bool {
 	_, ok := s[key]
 	return ok
@@ -37,11 +43,16 @@ func (s StringSet) Len() int {
 }
 
 func (s StringSet) ToSortedArray() []string {
+	list := s.ToArray()
+	sort.Strings(list)
+	return list
+}
+
+func (s StringSet) ToArray() []string {
 	list := make([]string, 0, len(s))
 	for key := range s {
 		list = append(list, key)
 	}
-	sort.Strings(list)
 	return list
 }
 

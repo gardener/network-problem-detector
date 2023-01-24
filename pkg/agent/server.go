@@ -109,15 +109,20 @@ func (s *server) setup() error {
 	}
 
 	options := &aggregation.ObsAggregationOptions{
-		Log:                        s.log.WithField("sub", "aggr"),
-		NodeName:                   s.nodeName,
-		ReportPeriod:               1 * time.Minute,
-		TimeWindow:                 30 * time.Minute,
-		LogDirectory:               common.PathLogDir,
-		HostNetwork:                s.hostNetwork,
-		K8sExporterEnabled:         cfg.K8sExporter != nil && cfg.K8sExporter.Enabled,
-		K8sExporterHeartbeatPeriod: 3 * time.Minute,
+		Log:          s.log.WithField("sub", "aggr"),
+		NodeName:     s.nodeName,
+		ReportPeriod: 1 * time.Minute,
+		TimeWindow:   30 * time.Minute,
+		LogDirectory: common.PathLogDir,
+		HostNetwork:  s.hostNetwork,
 	}
+	if cfg.K8sExporter != nil {
+		options.K8sExporterConfig = *cfg.K8sExporter
+		if options.K8sExporterConfig.HeartbeatPeriod.Duration < 1*time.Minute {
+			return fmt.Errorf("Invalid K8sExporter heartbeatPeriod, must be >= 1m")
+		}
+	}
+
 	if cfg.AggregationReportPeriod != nil {
 		options.ReportPeriod = cfg.AggregationReportPeriod.Duration
 		if options.ReportPeriod < 30*time.Second {
@@ -128,12 +133,6 @@ func (s *server) setup() error {
 		options.TimeWindow = cfg.AggregationTimeWindow.Duration
 		if options.TimeWindow < 5*time.Minute {
 			return fmt.Errorf("Invalid AggregationTimeWindow, must be >= 5m")
-		}
-	}
-	if cfg.K8sExporter != nil && cfg.K8sExporter.HeartbeatPeriod != nil {
-		options.K8sExporterHeartbeatPeriod = cfg.K8sExporter.HeartbeatPeriod.Duration
-		if options.TimeWindow < 1*time.Minute {
-			return fmt.Errorf("Invalid K8sExporter heartbeatPeriod, must be >= 1m")
 		}
 	}
 	s.aggregator, err = aggregation.NewObsAggregator(options)
@@ -168,6 +167,7 @@ func (s *server) applyAgentConfig(cfg *config.AgentConfig) error {
 
 	validDestHosts := common.StringSet{}
 	applied := common.StringSet{}
+	peerNodeCount := 1
 	for _, j := range networkCfg.Jobs {
 		job, err := s.parseJob(&j)
 		if err != nil {
@@ -177,6 +177,9 @@ func (s *server) applyAgentConfig(cfg *config.AgentConfig) error {
 			s.addOrReplaceJob(job)
 			for _, s := range job.DestHosts() {
 				validDestHosts.Add(s)
+			}
+			if job.PeerNodeCount() > peerNodeCount {
+				peerNodeCount = job.PeerNodeCount()
 			}
 		}
 		applied.Add(j.JobID)
@@ -197,9 +200,10 @@ func (s *server) applyAgentConfig(cfg *config.AgentConfig) error {
 		validSrcHosts := common.StringSet{}
 		validSrcHosts.Add(s.nodeName)
 		s.aggregator.UpdateValidEdges(aggregation.ValidEdges{
-			JobIDs:    applied,
-			SrcHosts:  validSrcHosts,
-			DestHosts: validDestHosts,
+			JobIDs:        applied,
+			SrcHosts:      validSrcHosts,
+			DestHosts:     validDestHosts,
+			PeerNodeCount: peerNodeCount,
 		})
 	}
 	go func() {
@@ -235,14 +239,11 @@ func (s *server) parseJob(job *config.Job) (*runners.InternalJob, error) {
 		MaxNodes:        s.maxPeerNodes,
 		NodeSampleStore: s.nodeSampleStore,
 	}
-	runner, err := runners.Parse(clusterCfg, rconfig, job.Args, &shuffleCfg)
+	internalJob, err := runners.Parse(clusterCfg, rconfig, job.Args, &shuffleCfg)
 	if err != nil {
 		return nil, fmt.Errorf("invalid job %s: %s", job.JobID, err)
 	}
-	if runner == nil {
-		return nil, nil
-	}
-	return runners.NewInternalJob(runner), nil
+	return internalJob, nil
 }
 
 func (s *server) addOrReplaceJob(job *runners.InternalJob) {

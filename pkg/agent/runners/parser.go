@@ -46,7 +46,7 @@ func GetNewRoot(ra *runnerArgs) *cobra.Command {
 	return root
 }
 
-func Parse(clusterCfg config.ClusterConfig, config RunnerConfig, args []string, sampleCfg *config.SampleConfig) (Runner, error) {
+func Parse(clusterCfg config.ClusterConfig, config RunnerConfig, args []string, sampleCfg *config.SampleConfig) (*InternalJob, error) {
 	ra := &runnerArgs{}
 	root := GetNewRoot(ra)
 
@@ -68,5 +68,8 @@ func Parse(clusterCfg config.ClusterConfig, config RunnerConfig, args []string, 
 	if err != nil {
 		return nil, err
 	}
-	return ra.runner, nil
+	if ra.runner == nil {
+		return nil, nil
+	}
+	return NewInternalJob(ra.runner, len(ra.clusterCfg.Nodes)), nil
 }

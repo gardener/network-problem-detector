@@ -15,6 +15,7 @@ import (
 
 	"github.com/gardener/network-problem-detector/pkg/agent/aggregation/types"
 	"github.com/gardener/network-problem-detector/pkg/common"
+	"github.com/gardener/network-problem-detector/pkg/common/config"
 	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
 
 	"github.com/sirupsen/logrus"
@@ -33,16 +34,15 @@ type ObsAggregationOptions struct {
 	LogDirectory string
 	// HostNetwork is true if agent runs on host network
 	HostNetwork bool
-	// K8sExporterEnabled if true, patches conditions in node status and creates events
-	K8sExporterEnabled bool
-	// K8sExporterHeartbeatPeriod is the heartbeat period of the K8s exporter
-	K8sExporterHeartbeatPeriod time.Duration
+	// K8sExporterConfig configuration for patching conditions in node status and creating events
+	K8sExporterConfig config.K8sExporterConfig
 }
 
 type obsAggr struct {
 	log                     logrus.FieldLogger
 	lock                    sync.Mutex
 	k8sExporter             types.Exporter
+	k8sExporterConfig       config.K8sExporterConfig
 	aggregations            map[jobEdge]*jobEdgeAggregation
 	reportPeriod            time.Duration
 	timeWindow              time.Duration
@@ -61,9 +61,10 @@ type jobEdge struct {
 }
 
 type ValidEdges struct {
-	JobIDs    common.StringSet
-	SrcHosts  common.StringSet
-	DestHosts common.StringSet
+	JobIDs        common.StringSet
+	SrcHosts      common.StringSet
+	DestHosts     common.StringSet
+	PeerNodeCount int
 }
 
 type ObservationListenerExtended interface {
@@ -194,14 +195,16 @@ func (c *groupCounter) summary() string {
 }
 
 type conditionStatus struct {
-	conditionType string
-	source        string
-	network       string
-	alerts        map[jobEdge]time.Time
-	lastChange    time.Time
+	conditionType           string
+	source                  string
+	network                 string
+	minFailingPeerNodeShare float64
+	alerts                  map[jobEdge]time.Time
+	nodeRelated             map[string]struct{}
+	lastChange              time.Time
 }
 
-func newConditionStatus(hostNetwork bool) *conditionStatus {
+func newConditionStatus(hostNetwork bool, minFailingPeerNodeShare float64) *conditionStatus {
 	typ := "ClusterNetworkProblem"
 	source := common.NameDaemonSetAgentPodNet
 	network := "cluster"
@@ -210,10 +213,20 @@ func newConditionStatus(hostNetwork bool) *conditionStatus {
 		source = common.NameDaemonSetAgentHostNet
 		network = "host"
 	}
-	return &conditionStatus{conditionType: typ, source: source, network: network, alerts: map[jobEdge]time.Time{}}
+	return &conditionStatus{
+		conditionType:           typ,
+		source:                  source,
+		network:                 network,
+		minFailingPeerNodeShare: minFailingPeerNodeShare,
+		alerts:                  map[jobEdge]time.Time{},
+		nodeRelated:             map[string]struct{}{},
+	}
 }
 
 func (cs *conditionStatus) update(je jobEdge, alerting bool, firstTime time.Time) {
+	if je.srcHost == je.destHost {
+		cs.nodeRelated[je.jobID] = struct{}{}
+	}
 	_, ok := cs.alerts[je]
 	if alerting == ok {
 		// unchanged
@@ -228,8 +241,8 @@ func (cs *conditionStatus) update(je jobEdge, alerting bool, firstTime time.Time
 	}
 }
 
-func (cs *conditionStatus) report() types.Condition {
-	condition := types.Condition{
+func (cs *conditionStatus) report(peerNodeCount int) types.Condition {
+	okCondition := types.Condition{
 		Type:       cs.conditionType,
 		Status:     types.False,
 		Transition: time.Now(),
@@ -238,21 +251,43 @@ func (cs *conditionStatus) report() types.Condition {
 		Source:     cs.source,
 	}
 	if len(cs.alerts) == 0 {
-		return condition
+		return okCondition
 	}
 
+	condition := okCondition
 	condition.Status = types.True
 	condition.Reason = "FailedNetworkChecks"
 	jobIDSet := common.StringSet{}
 	destHostSet := common.StringSet{}
 	count := 0
+	nodeRelatedJobIDSet := common.StringSet{}
+	nodeRelatedDestHostSet := common.StringSet{}
+	nodeRelatedCount := 0
 	for je, firstTime := range cs.alerts {
 		if firstTime.Before(condition.Transition) {
 			condition.Transition = firstTime
 		}
-		jobIDSet.Add(je.jobID)
-		destHostSet.Add(je.destHost)
-		count++
+		if _, ok := cs.nodeRelated[je.jobID]; ok {
+			nodeRelatedJobIDSet.Add(je.jobID)
+			nodeRelatedDestHostSet.Add(je.destHost)
+			nodeRelatedCount++
+		} else {
+			jobIDSet.Add(je.jobID)
+			destHostSet.Add(je.destHost)
+			count++
+		}
+	}
+	// only report destination node related problems if more than configured share of destination nodes are hit
+	if cs.minFailingPeerNodeShare >= 0.0 &&
+		cs.minFailingPeerNodeShare <= 1.0 &&
+		(cs.minFailingPeerNodeShare == 0.0 || nodeRelatedDestHostSet.Len() > int(1+float64(peerNodeCount)*cs.minFailingPeerNodeShare)) {
+		jobIDSet.AddSet(nodeRelatedJobIDSet)
+		destHostSet.AddSet(nodeRelatedDestHostSet)
+		count += nodeRelatedCount
+	}
+	if count == 0 {
+		// only ignored checks
+		return okCondition
 	}
 	var details string
 	if jobIDSet.Len() == 1 || destHostSet.Len() == 1 {
@@ -292,23 +327,24 @@ func NewObsAggregator(options *ObsAggregationOptions) (*obsAggr, error) {
 	}
 
 	var k8sExporter types.Exporter
-	if options.K8sExporterEnabled {
+	if options.K8sExporterConfig.Enabled {
 		var err error
-		k8sExporter, err = newExporter(options.Log, options.NodeName, options.HostNetwork, options.K8sExporterHeartbeatPeriod)
+		k8sExporter, err = newExporter(options.Log, options.NodeName, options.HostNetwork, options.K8sExporterConfig)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	return &obsAggr{
-		log:          options.Log,
-		aggregations: map[jobEdge]*jobEdgeAggregation{},
-		lastReport:   time.Now(),
-		reportPeriod: options.ReportPeriod,
-		timeWindow:   options.TimeWindow,
-		logDirectory: options.LogDirectory,
-		hostNetwork:  options.HostNetwork,
-		k8sExporter:  k8sExporter,
+		log:               options.Log,
+		aggregations:      map[jobEdge]*jobEdgeAggregation{},
+		lastReport:        time.Now(),
+		reportPeriod:      options.ReportPeriod,
+		timeWindow:        options.TimeWindow,
+		logDirectory:      options.LogDirectory,
+		hostNetwork:       options.HostNetwork,
+		k8sExporter:       k8sExporter,
+		k8sExporterConfig: options.K8sExporterConfig,
 	}, nil
 }
 
@@ -346,6 +382,7 @@ type reportOptions struct {
 	hostNetwork              bool
 	conditionMinFailureCount int
 	conditionMinTimeWindow   time.Duration
+	minFailingPeerNodeShare  float64
 }
 
 type reportData struct {
@@ -368,7 +405,7 @@ func newReportData(start, end time.Time, options *reportOptions) *reportData {
 		jobCounter:  newGroupCounter(),
 		srcCounter:  newGroupCounter(),
 		destCounter: newGroupCounter(),
-		status:      newConditionStatus(options.hostNetwork),
+		status:      newConditionStatus(options.hostNetwork, options.minFailingPeerNodeShare),
 	}
 }
 
@@ -417,6 +454,7 @@ func (a *obsAggr) report() {
 		hostNetwork:              a.hostNetwork,
 		conditionMinFailureCount: 2,
 		conditionMinTimeWindow:   3 * time.Minute,
+		minFailingPeerNodeShare:  a.k8sExporterConfig.MinFailingPeerNodeShare,
 	}
 	report := a.calcReport(options, true)
 	report.sort()
@@ -486,7 +524,7 @@ func (a *obsAggr) reportToK8sExporter(report *reportData) {
 		return
 	}
 
-	condition := report.status.report()
+	condition := report.status.report(a.validEdges.PeerNodeCount)
 	a.k8sExporter.ExportProblems(&types.Status{
 		Conditions: []types.Condition{condition},
 	})
