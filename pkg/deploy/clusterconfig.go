@@ -22,6 +22,7 @@ func BuildClusterConfig(nodes []*corev1.Node, agentPods []*corev1.Pod,
 		KubeAPIServer:         kubeAPIServer,
 	}
 
+	nodeNames := common.StringSet{}
 	for _, n := range nodes {
 		hostname := ""
 		ip := ""
@@ -40,9 +41,13 @@ func BuildClusterConfig(nodes []*corev1.Node, agentPods []*corev1.Pod,
 			Hostname:   hostname,
 			InternalIP: ip,
 		})
+		nodeNames.Add(hostname)
 	}
 
 	for _, p := range agentPods {
+		if p.Status.Phase != corev1.PodRunning || !nodeNames.Contains(p.Spec.NodeName) {
+			continue
+		}
 		clusterConfig.PodEndpoints = append(clusterConfig.PodEndpoints, config.PodEndpoint{
 			Nodename: p.Spec.NodeName,
 			Podname:  p.Name,
