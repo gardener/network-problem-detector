@@ -19,6 +19,15 @@ network-problem-detector:
             registry: 'gcr-readwrite'
             image: 'eu.gcr.io/gardener-project/gardener/network-problem-detector'
             dockerfile: 'Dockerfile'
+            resource_labels:
+            - name: 'gardener.cloud/cve-categorisation'
+              value:
+                network_exposure: 'protected'
+                authentication_enforced: false
+                user_interaction: 'end-user'
+                confidentiality_requirement: 'low'
+                integrity_requirement: 'low'
+                availability_requirement: 'low'
     steps:
       verify:
         image: golang:1.19.5
