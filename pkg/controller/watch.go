@@ -37,6 +37,7 @@ type nodePodController struct {
 	informerFactoryKubeSystem informers.SharedInformerFactory
 	nodesInformer             informerscorev1.NodeInformer
 	podsInformer              informerscorev1.PodInformer
+	knownPodIPs               atomic.Value
 }
 
 func newNodePodController(log logrus.FieldLogger, clientset kubernetes.Interface, resyncPeriod time.Duration) *nodePodController {
@@ -66,7 +67,18 @@ func (c *nodePodController) ListNodes() ([]*corev1.Node, error) {
 }
 
 func (c *nodePodController) ListAgentPods() ([]*corev1.Pod, error) {
-	return c.podsInformer.Lister().List(labels.SelectorFromSet(map[string]string{common.LabelKeyK8sApp: common.NameDaemonSetAgentPodNet}))
+	pods, err := c.podsInformer.Lister().List(labels.SelectorFromSet(map[string]string{common.LabelKeyK8sApp: common.NameDaemonSetAgentPodNet}))
+
+	// remember known pods
+	podIPs := map[string]string{}
+	for _, pod := range pods {
+		if pod.Status.Phase == corev1.PodRunning {
+			podIPs[pod.Name] = pod.Status.PodIP
+		}
+	}
+	c.knownPodIPs.Store(podIPs)
+
+	return pods, err
 }
 
 func (c *nodePodController) Start(stopCh chan struct{}) error {
@@ -95,10 +107,12 @@ func (c *nodePodController) OnAdd(obj interface{}) {
 }
 
 func (c *nodePodController) OnUpdate(oldObj, newObj interface{}) {
-	if oldPod, ok := oldObj.(*corev1.Pod); ok {
-		if c.isRelevant(newObj) {
-			if newPod, ok := newObj.(*corev1.Pod); ok {
-				if oldPod.Status.Phase != corev1.PodRunning && newPod.Status.Phase == corev1.PodRunning {
+	if c.isRelevant(newObj) {
+		if newPod, ok := newObj.(*corev1.Pod); ok {
+			if newPod.Status.Phase == corev1.PodRunning {
+				podIPs := c.knownPodIPs.Load().(map[string]string)
+				if podIPs[newPod.Name] != newPod.Status.PodIP {
+					// either new, yet unknown running agent pod or in very rare edge cases the PodIP has changed (e.g. after node reboot)
 					c.hasUpdates.Store(true)
 				}
 			}
