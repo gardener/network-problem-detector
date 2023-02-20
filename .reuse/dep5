@@ -14,6 +14,7 @@ Files:
   docs/*
   go.mod
   go.sum
+  hack/network-problem-detector-traffic.xlsx
   pkg/common/nwpd/nwpd.twirp.go
   pkg/deploy/DEFAULT_REPOSITORY
   vendor/modules.txt
