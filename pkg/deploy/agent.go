@@ -678,7 +678,7 @@ func (ac *AgentDeployConfig) BuildAgentConfig() (*config.AgentConfig, error) {
 	periodXL := fmt.Sprintf("%ds", imin(60, imax(1, int(ac.DefaultPeriod/time.Second))*2))
 	cfg := config.AgentConfig{
 		OutputDir:       common.PathOutputDir,
-		RetentionHours:  4,
+		RetentionHours:  24,
 		LogObservations: false,
 		HostNetwork: &config.NetworkConfig{
 			DataFilePrefix: common.NameDaemonSetAgentHostNet,
