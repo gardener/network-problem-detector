@@ -44,7 +44,7 @@ const (
 	// PathOutputDir path of output directory with observations in pods
 	PathOutputDir = PathLogDir + "/records"
 	// MaxLogfileSize is the maximum size of a log file written to the host file system
-	MaxLogfileSize = 10 * 1000 * 1000
+	MaxLogfileSize = 5 * 1000 * 1000
 	// PodNetPodHttpPort is the port used for the metrics http server of the pods running in the pod network
 	PodNetPodHttpPort = 8881
 	// HostNetPodHttpPort is the port used for the metrics http server of the pods running in the host network

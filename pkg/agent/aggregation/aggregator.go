@@ -120,7 +120,7 @@ func (jea *jobEdgeAggregation) Report(je jobEdge, start time.Time) string {
 		}
 		return msg
 	}
-	seconds := int(time.Now().Sub(jea.reportStart).Seconds())
+	seconds := int(time.Now().Sub(start).Seconds())
 	return fmt.Sprintf("%s: %d/%d checks failed in last %ds (last ok: %s)", je,
 		jea.reportFailureCount, jea.reportFailureCount+jea.reportOkCount, seconds, common.FormatAsUTC(jea.okLast))
 }
