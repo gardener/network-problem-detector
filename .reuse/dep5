@@ -82,6 +82,10 @@ Files: vendor/github.com/go-ping/ping/*
 Copyright: 2016 Cameron Sparr and contributors.
 License: MIT
 
+Files: vendor/github.com/go-task/slim-sprig/*
+Copyright: 2013-2020 Masterminds
+License: MIT
+
 Files: vendor/github.com/gogo/protobuf/*
 Copyright: 2015 The Go Authors
 License: BSD-3-Clause
@@ -104,6 +108,10 @@ License: BSD-3-Clause
 
 Files: vendor/github.com/google/gofuzz/*
 Copyright: 2014 Google Inc.
+License: Apache-2.0
+
+Files: vendor/github.com/google/pprof/*
+Copyright: 2014 Google Inc
 License: Apache-2.0
 
 Files: vendor/github.com/google/uuid/*
