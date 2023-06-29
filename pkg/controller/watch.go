@@ -243,6 +243,10 @@ func (w *watch) Start(ctx context.Context) error {
 			continue
 		}
 		cfg, err = deploy.BuildClusterConfig(nodes, pods, internalApiServer, apiServer)
+		if err != nil {
+			w.log.Errorf("building cluster config failed: %w", err)
+			continue
+		}
 		cfgBytes, err := yaml.Marshal(cfg)
 		if err != nil {
 			w.log.Errorf("marshal configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameClusterConfigMap, err)
