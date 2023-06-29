@@ -174,6 +174,8 @@ func (w *watch) Start(ctx context.Context) error {
 	}
 
 	var last time.Time
+	var shootInfo *corev1.ConfigMap
+	var apiServer *config.Endpoint
 	for {
 		select {
 		case <-ctx.Done():
@@ -188,7 +190,7 @@ func (w *watch) Start(ctx context.Context) error {
 			last = now
 		}
 
-		if !controller.HasUpdates() {
+		if !controller.HasUpdates() && !w.apiServerAddressChanged(shootInfo, apiServer) {
 			w.lastLoop.Store(last.UnixMilli())
 			continue
 		}
@@ -213,9 +215,8 @@ func (w *watch) Start(ctx context.Context) error {
 			IP:       svc.Spec.ClusterIP,
 			Port:     int(svc.Spec.Ports[0].Port),
 		}
-		var apiServer *config.Endpoint
 		configmaps := w.clientSet.CoreV1().ConfigMaps(common.NamespaceKubeSystem)
-		shootInfo, err := configmaps.Get(ctx, common.NameGardenerShootInfo, metav1.GetOptions{})
+		shootInfo, err = configmaps.Get(ctx, common.NameGardenerShootInfo, metav1.GetOptions{})
 		if err != nil {
 			if !errors.IsNotFound(err) {
 				w.log.Errorf("loading configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameGardenerShootInfo, err)
@@ -261,4 +262,16 @@ func (w *watch) Start(ctx context.Context) error {
 			w.lastLoop.Store(last.UnixMilli())
 		}
 	}
+}
+
+func (w *watch) apiServerAddressChanged(shootInfo *corev1.ConfigMap, apiServer *config.Endpoint) bool {
+	if shootInfo == nil {
+		return true
+	}
+	newApiServer, err := deploy.GetAPIServerEndpointFromShootInfo(shootInfo)
+	if err != nil {
+		w.log.Errorf("failed to determine apiserver endpoint from shoot info: %w", err)
+		return true
+	}
+	return *newApiServer != *apiServer
 }
