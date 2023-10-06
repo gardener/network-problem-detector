@@ -13,6 +13,7 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
 const (
@@ -66,8 +67,10 @@ func (cc *controllerCommand) runController(cmd *cobra.Command, args []string) er
 		LeaderElectionResourceLock: resourcelock.LeasesResourceLock,
 		LeaderElectionID:           leaderElectionId,
 		LeaderElectionNamespace:    cc.leaderElectionNamespace,
-		MetricsBindAddress:         metricsBindAddress,
-		HealthProbeBindAddress:     fmt.Sprintf(":%d", cc.healthzPort),
+		Metrics: server.Options{
+			BindAddress: metricsBindAddress,
+		},
+		HealthProbeBindAddress: fmt.Sprintf(":%d", cc.healthzPort),
 	}
 	mgr, err := manager.New(config, options)
 	if err != nil {

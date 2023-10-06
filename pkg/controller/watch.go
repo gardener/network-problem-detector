@@ -95,7 +95,7 @@ func (c *nodePodController) Start(stopCh chan struct{}) error {
 	return nil
 }
 
-func (c *nodePodController) OnAdd(obj interface{}) {
+func (c *nodePodController) OnAdd(obj interface{}, _ bool) {
 	if c.isRelevant(obj) {
 		if node, ok := obj.(*corev1.Node); ok {
 			if node.CreationTimestamp.Add(1 * time.Minute).After(time.Now()) {
