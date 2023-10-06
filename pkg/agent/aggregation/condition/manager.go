@@ -173,7 +173,8 @@ func (c *conditionManager) sync() {
 	c.latestTry = c.clock.Now()
 	conditions, sources := c.getCoreConditionsWithSources()
 	if len(conditions) > 0 {
-		ctx := context.Background()
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
 		if err := c.client.SetConditions(ctx, conditions); err != nil {
 			// The conditions will be updated again in future sync
 			c.log.Errorf("failed to update node conditions: %v", err)
