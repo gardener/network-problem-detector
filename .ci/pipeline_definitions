@@ -1,7 +1,5 @@
 network-problem-detector:
-  template: 'default'
   base_definition:
-    repo: ~
     traits:
       component_descriptor:
         component_labels:
@@ -22,7 +20,6 @@ network-problem-detector:
             inputs:
               repos:
                 source: ~ # default
-            registry: 'gcr-readwrite'
             image: 'eu.gcr.io/gardener-project/gardener/network-problem-detector'
             dockerfile: 'Dockerfile'
             resource_labels:
