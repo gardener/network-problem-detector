@@ -699,7 +699,7 @@ func (ac *AgentDeployConfig) BuildAgentConfig() (*config.AgentConfig, error) {
 				},
 				{
 					JobID: "nslookup-n",
-					Args:  []string{"nslookup", "--names", "eu.gcr.io.", "--scale-period"},
+					Args:  []string{"nslookup", "--names", "europe-docker.pkg.dev.", "--scale-period"},
 				},
 			},
 		},
@@ -726,7 +726,7 @@ func (ac *AgentDeployConfig) BuildAgentConfig() (*config.AgentConfig, error) {
 				},
 				{
 					JobID: "nslookup-p",
-					Args:  []string{"nslookup", "--names", "eu.gcr.io.", "--name-internal-kube-apiserver", "--scale-period"},
+					Args:  []string{"nslookup", "--names", "europe-docker.pkg.dev.", "--name-internal-kube-apiserver", "--scale-period"},
 				},
 			},
 		},

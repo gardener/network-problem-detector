@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-REGISTRY              := eu.gcr.io/gardener-project
+REGISTRY              := europe-docker.pkg.dev/gardener-project/public
 EXECUTABLE            := nwpdcli
 PROJECT               := github.com/gardener/network-problem-detector
 IMAGE_REPOSITORY      := $(REGISTRY)/gardener/network-problem-detector

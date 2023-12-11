@@ -202,7 +202,7 @@ To examine the current default configuration, run the command
 | Job ID            | Job Type        | Description                                                                                                                                                           |
 |-------------------|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `https-n2api-ext` | `checkHTTPSGet` | HTTPS Get check from all pods of the daemon set of the host network to the external address of the Kube API server.                                                   |
-| `nslookup-n`      | `nslookup`      | DNS Lookup of IP addresses for the domain name `eu.gcr.io`, and external name of Kube API server.                                                                     |
+| `nslookup-n`      | `nslookup`      | DNS Lookup of IP addresses for the domain name `europe-docker.pkg.dev`, and external name of Kube API server.                                                                     |
 | `tcp-n2api-ext`   | `checkTCPPort`  | TCP connection check from all pods of the daemon set of the host network to the external address of the Kube API server.                                              |
 | `tcp-n2api-int`   | `checkTCPPort`  | TCP connection check from all pods of the daemon set of the host network to the internal address of the Kube API server.                                              |
 | `tcp-n2n`         | `checkTCPPort`  | TCP connection check from all pods of the daemon set of the host network to the node port used by the NWPD agent on the host network.                                 |
@@ -217,7 +217,7 @@ The job IDs of the default configuration on the host (=node) network are using t
 |-------------------|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `https-p2api-ext` | `checkHTTPSGet` | HTTPS Get check from all pods of the daemon set on the cluster network to the external address of the Kube API server.                                                |
 | `https-p2api-int` | `checkHTTPSGet` | HTTPS Get check from all pods of the daemon set on the cluster network to the internal address of the Kube API server (`kubernetes.default.svc.cluster.local.:443`).      |
-| `nslookup-p`      | `nslookup`      | Lookup of IP addresses for external DNS name `eu.gcr.io`, and internal and external names of Kube API server.                                                         |
+| `nslookup-p`      | `nslookup`      | Lookup of IP addresses for external DNS name `europe-docker.pkg.dev`, and internal and external names of Kube API server.                                                         |
 | `tcp-p2api-ext`   | `checkTCPPort`  | TCP connection check from all pods of the daemon set on the cluster network to the external address of the Kube API server.                                               |
 | `tcp-p2api-int`   | `checkTCPPort`  | TCP connection check from all pods of the daemon set of the cluster network to the internal address of the Kube API server.                                              |
 | `tcp-p2n`         | `checkTCPPort`  | TCP connection check from all pods of the daemon set of the cluster network to the node port used by the NWPD agent on the host network.                                 |
