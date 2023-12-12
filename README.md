@@ -22,7 +22,7 @@ nodes and pods in the kube-system namespace. As soon as a kubelet discovers thes
 
 The results of the checks are stored locally on the node filesystem for later inspection with the `nwpdcli` command line tool.
 Additionally they are also exposed as metrics for scrapping by Prometheus.
-By enabling the `K8s exporter`, the agents periodically patch the node conditions `ClusterNetworkProblem` and `HostNetworkProblem` in 
+By enabling the `K8s exporter`, the agents periodically patch the node conditions `ClusterNetworkProblem` and `HostNetworkProblem` in
 the status of the node resources. If checks are failing, a summarising event is created too.
 The `K8s exporter` is the only part of the agent which talks to the kube-apiserver.
 
@@ -40,9 +40,9 @@ To get started, the Network Problem Detector is deployed without integration wit
 
 *Side remark:*
 
-This is the fatest way to get started with NWPD. In a productive environment, you may prefer to scrap the check results 
-using [Prometheus](https://prometheus.io/) from metrics HTTP endpoints 
-exposed by the agent pods. You may still follow this stand-alone installation, but 
+This is the fatest way to get started with NWPD. In a productive environment, you may prefer to scrap the check results
+using [Prometheus](https://prometheus.io/) from metrics HTTP endpoints
+exposed by the agent pods. You may still follow this stand-alone installation, but
 you will need additional configuration on the Prometheus side which is not covered here.
 For more details see [Access check results by Prometheus metrics](#access-check-results-by-prometheus-metrics) below.
 
@@ -73,13 +73,13 @@ Follow these steps to deploy NWPD to a Kubernetes cluster:
 4. Optional: In a second shell run the controller to update the configuration on changes of nodes and pod endpoints of the pod network daemon set with
 
    ```bash
-   ./nwpdcli run-controller 
+   ./nwpdcli run-controller
    ```
 
    Alternatively install the agent controller with
 
    ```bash
-   ./nwpdcli deploy controller 
+   ./nwpdcli deploy controller
    ```
 
 6. Collect the observations from all nodes with
@@ -187,7 +187,7 @@ To examine the current default configuration, run the command
 
 4. `nslookup [--period <duration>] [--scale-period] [--names host1,host2,...] [--name-internal-kube-apiserver"] [--name-external-kube-apiserver]`
 
-   Looks up hosts using the local resolver of the pod or the node (for agents running in the host network). 
+   Looks up hosts using the local resolver of the pod or the node (for agents running in the host network).
 
 5. `pingHost [--period <duration>] [--scale-period] [--hosts <host1:ip1>,<host2:ip2>,...]`
 
@@ -202,11 +202,11 @@ To examine the current default configuration, run the command
 | Job ID            | Job Type        | Description                                                                                                                                                           |
 |-------------------|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `https-n2api-ext` | `checkHTTPSGet` | HTTPS Get check from all pods of the daemon set of the host network to the external address of the Kube API server.                                                   |
-| `nslookup-n`      | `nslookup`      | DNS Lookup of IP addresses for the domain name `eu.gcr.io`, and external name of Kube API server.                                                                     |
+| `nslookup-n`      | `nslookup`      | DNS Lookup of IP addresses for the domain name `europe-docker.pkg.dev`, and external name of Kube API server.                                                                     |
 | `tcp-n2api-ext`   | `checkTCPPort`  | TCP connection check from all pods of the daemon set of the host network to the external address of the Kube API server.                                              |
 | `tcp-n2api-int`   | `checkTCPPort`  | TCP connection check from all pods of the daemon set of the host network to the internal address of the Kube API server.                                              |
 | `tcp-n2n`         | `checkTCPPort`  | TCP connection check from all pods of the daemon set of the host network to the node port used by the NWPD agent on the host network.                                 |
-| `tcp-n2p`         | `checkTCPPort`  | TCP connection check from all pods of the daemon set of the host network to pod endpoints (pod IP, port of GRPC server) of the daemon set running in the pod network. | 
+| `tcp-n2p`         | `checkTCPPort`  | TCP connection check from all pods of the daemon set of the host network to pod endpoints (pod IP, port of GRPC server) of the daemon set running in the pod network. |
 
 The job IDs of the default configuration on the host (=node) network are using the naming convention `<jobtype-shortcut>-n[2<destination>][-(int|ext)]`.
 
@@ -217,10 +217,10 @@ The job IDs of the default configuration on the host (=node) network are using t
 |-------------------|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `https-p2api-ext` | `checkHTTPSGet` | HTTPS Get check from all pods of the daemon set on the cluster network to the external address of the Kube API server.                                                |
 | `https-p2api-int` | `checkHTTPSGet` | HTTPS Get check from all pods of the daemon set on the cluster network to the internal address of the Kube API server (`kubernetes.default.svc.cluster.local.:443`).      |
-| `nslookup-p`      | `nslookup`      | Lookup of IP addresses for external DNS name `eu.gcr.io`, and internal and external names of Kube API server.                                                         |
+| `nslookup-p`      | `nslookup`      | Lookup of IP addresses for external DNS name `europe-docker.pkg.dev`, and internal and external names of Kube API server.                                                         |
 | `tcp-p2api-ext`   | `checkTCPPort`  | TCP connection check from all pods of the daemon set on the cluster network to the external address of the Kube API server.                                               |
 | `tcp-p2api-int`   | `checkTCPPort`  | TCP connection check from all pods of the daemon set of the cluster network to the internal address of the Kube API server.                                              |
 | `tcp-p2n`         | `checkTCPPort`  | TCP connection check from all pods of the daemon set of the cluster network to the node port used by the NWPD agent on the host network.                                 |
-| `tcp-p2p`         | `checkTCPPort`  | TCP connection check from all pods of the daemon set of the cluster network to pod endpoints (pod IP, port of GRPC server) of the daemon set running in the pod network. | 
+| `tcp-p2p`         | `checkTCPPort`  | TCP connection check from all pods of the daemon set of the cluster network to pod endpoints (pod IP, port of GRPC server) of the daemon set running in the pod network. |
 
 The job IDs of the default configuration on the cluster (=pod) network are using the naming convention `<jobtype-shortcut>-p[2<destination>][-(int|ext)]`.

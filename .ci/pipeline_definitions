@@ -1,9 +1,9 @@
 network-problem-detector:
-  template: 'default'
   base_definition:
-    repo: ~
     traits:
       component_descriptor:
+        ocm_repository: europe-docker.pkg.dev/gardener-project/snapshots
+        component_name: 'github.com/gardener/network-problem-detector'
         component_labels:
         - name: 'cloud.gardener.cnudie/responsibles'
           value:
@@ -22,8 +22,7 @@ network-problem-detector:
             inputs:
               repos:
                 source: ~ # default
-            registry: 'gcr-readwrite'
-            image: 'eu.gcr.io/gardener-project/gardener/network-problem-detector'
+            image: europe-docker.pkg.dev/gardener-project/snapshots/gardener/network-problem-detector
             dockerfile: 'Dockerfile'
             resource_labels:
             - name: 'gardener.cloud/cve-categorisation'
@@ -40,6 +39,9 @@ network-problem-detector:
   jobs:
     head-update:
       traits:
+        component_descriptor:
+          ocm_repository_mappings:
+            - repository: europe-docker.pkg.dev/gardener-project/releases
         draft_release: ~
     pull-request:
       traits:
@@ -57,4 +59,4 @@ network-problem-detector:
               channel_name: 'C9CEBQPGE' #sap-tech-gardener
               slack_cfg_name: 'scp_workspace'
         component_descriptor:
-          component_name: 'github.com/gardener/network-problem-detector'
+          ocm_repository: europe-docker.pkg.dev/gardener-project/releases
