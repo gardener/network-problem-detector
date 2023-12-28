@@ -6,5 +6,5 @@
 
 package version
 
-// Version is injected
+// Version is injected.
 var Version string

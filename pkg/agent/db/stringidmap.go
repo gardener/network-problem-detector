@@ -56,19 +56,19 @@ type IntStringPersistor interface {
 	Persist(obj *IntString) error
 }
 
-type StringIdMap struct {
+type StringIDMap struct {
 	lock   sync.Mutex
 	str2id map[string]int64
 	id2str map[int64]string
 	last   int64
 }
 
-func NewStringIdMap() *StringIdMap {
-	return NewStringIdMapFromData(nil)
+func NewStringIDMap() *StringIDMap {
+	return NewStringIDMapFromData(nil)
 }
 
-func NewStringIdMapFromData(data []*IntString) *StringIdMap {
-	m := &StringIdMap{
+func NewStringIDMapFromData(data []*IntString) *StringIDMap {
+	m := &StringIDMap{
 		str2id: map[string]int64{},
 		id2str: map[int64]string{},
 	}
@@ -84,7 +84,7 @@ func NewStringIdMapFromData(data []*IntString) *StringIdMap {
 	return m
 }
 
-func (m *StringIdMap) Append(item *IntString) error {
+func (m *StringIDMap) Append(item *IntString) error {
 	if item.key != m.last+1 {
 		return fmt.Errorf("invalid add: %d != %d", item.key, m.last+1)
 	}
@@ -95,7 +95,7 @@ func (m *StringIdMap) Append(item *IntString) error {
 	return nil
 }
 
-func (m *StringIdMap) GetKey(persistor IntStringPersistor, s string) (int64, error) {
+func (m *StringIDMap) GetKey(persistor IntStringPersistor, s string) (int64, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
@@ -121,7 +121,7 @@ func (m *StringIdMap) GetKey(persistor IntStringPersistor, s string) (int64, err
 	return key, nil
 }
 
-func (m *StringIdMap) GetValue(id int64) (string, error) {
+func (m *StringIDMap) GetValue(id int64) (string, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 

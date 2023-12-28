@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/gardener/network-problem-detector/pkg/common"
+
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
@@ -17,8 +18,8 @@ import (
 )
 
 const (
-	// leaderElectionId is the name of the lease resource
-	leaderElectionId = "network-problem-detector-controller-leader-election"
+	// leaderElectionID is the name of the lease resource.
+	leaderElectionID = "network-problem-detector-controller-leader-election"
 )
 
 type controllerCommand struct {
@@ -49,7 +50,7 @@ func CreateRunControllerCmd() *cobra.Command {
 	return cmd
 }
 
-func (cc *controllerCommand) runController(cmd *cobra.Command, args []string) error {
+func (cc *controllerCommand) runController(_ *cobra.Command, _ []string) error {
 	log := logrus.WithField("cmd", "controller")
 
 	config, err := cc.RestConfig()
@@ -65,7 +66,7 @@ func (cc *controllerCommand) runController(cmd *cobra.Command, args []string) er
 	options := manager.Options{
 		LeaderElection:             cc.leaderElection,
 		LeaderElectionResourceLock: resourcelock.LeasesResourceLock,
-		LeaderElectionID:           leaderElectionId,
+		LeaderElectionID:           leaderElectionID,
 		LeaderElectionNamespace:    cc.leaderElectionNamespace,
 		Metrics: server.Options{
 			BindAddress: metricsBindAddress,
@@ -83,8 +84,12 @@ func (cc *controllerCommand) runController(cmd *cobra.Command, args []string) er
 	}
 
 	watcher := &watch{log: log, clientSet: cc.Clientset}
-	mgr.Add(watcher)
-	mgr.AddHealthzCheck("nwpd-controller", watcher.healthzCheck)
+	if err := mgr.Add(watcher); err != nil {
+		return err
+	}
+	if err := mgr.AddHealthzCheck("nwpd-controller", watcher.healthzCheck); err != nil {
+		return err
+	}
 	ctx := signals.SetupSignalHandler()
 	return mgr.Start(ctx)
 }

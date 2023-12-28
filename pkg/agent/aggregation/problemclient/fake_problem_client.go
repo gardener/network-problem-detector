@@ -51,7 +51,7 @@ func (f *FakeProblemClient) AssertConditions(expected []v1.NodeCondition) error 
 }
 
 // SetConditions is a fake mimic of SetConditions, it only update the internal condition cache.
-func (f *FakeProblemClient) SetConditions(ctx context.Context, conditions []v1.NodeCondition) error {
+func (f *FakeProblemClient) SetConditions(_ context.Context, conditions []v1.NodeCondition) error {
 	f.Lock()
 	defer f.Unlock()
 	if err, ok := f.errors["SetConditions"]; ok {
@@ -64,7 +64,7 @@ func (f *FakeProblemClient) SetConditions(ctx context.Context, conditions []v1.N
 }
 
 // GetConditions is a fake mimic of GetConditions, it returns the conditions cached internally.
-func (f *FakeProblemClient) GetConditions(ctx context.Context, types []v1.NodeConditionType) ([]v1.NodeCondition, error) {
+func (f *FakeProblemClient) GetConditions(_ context.Context, types []v1.NodeConditionType) ([]v1.NodeCondition, error) {
 	f.Lock()
 	defer f.Unlock()
 	if err, ok := f.errors["GetConditions"]; ok {
@@ -81,9 +81,9 @@ func (f *FakeProblemClient) GetConditions(ctx context.Context, types []v1.NodeCo
 }
 
 // Eventf does nothing now.
-func (f *FakeProblemClient) Eventf(eventType string, source, reason, messageFmt string, args ...interface{}) {
+func (f *FakeProblemClient) Eventf(_ string, _, _, _ string, _ ...interface{}) {
 }
 
-func (f *FakeProblemClient) GetNode(ctx context.Context) (*v1.Node, error) {
+func (f *FakeProblemClient) GetNode(_ context.Context) (*v1.Node, error) {
 	return nil, fmt.Errorf("GetNode() not implemented")
 }

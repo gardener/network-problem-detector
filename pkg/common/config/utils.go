@@ -8,21 +8,16 @@ package config
 
 import (
 	"fmt"
-	"io/ioutil"
 	"math/rand"
-	"time"
+	"os"
 
 	"sigs.k8s.io/yaml"
 )
 
 var DisableShuffleForTesting = false
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
-
 func LoadAgentConfig(configFile string) (*AgentConfig, error) {
-	data, err := ioutil.ReadFile(configFile)
+	data, err := os.ReadFile(configFile)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +31,7 @@ func LoadAgentConfig(configFile string) (*AgentConfig, error) {
 }
 
 func LoadClusterConfig(configFile string) (*ClusterConfig, error) {
-	data, err := ioutil.ReadFile(configFile)
+	data, err := os.ReadFile(configFile)
 	if err != nil {
 		return nil, err
 	}

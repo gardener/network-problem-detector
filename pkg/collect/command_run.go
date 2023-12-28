@@ -8,17 +8,16 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"strings"
 
 	"github.com/gardener/network-problem-detector/pkg/common"
+
 	"github.com/spf13/cobra"
 )
 
-type runCollectCommand struct {
-}
+type runCollectCommand struct{}
 
 func CreateRunCollectCmd() *cobra.Command {
 	cc := &runCollectCommand{}
@@ -32,7 +31,7 @@ func CreateRunCollectCmd() *cobra.Command {
 	return cmd
 }
 
-func (cc *runCollectCommand) run(cmd *cobra.Command, args []string) error {
+func (cc *runCollectCommand) run(_ *cobra.Command, _ []string) error {
 	filenames, err := cc.listFiles(common.PathOutputDir)
 	if err != nil {
 		return err
@@ -42,7 +41,7 @@ func (cc *runCollectCommand) run(cmd *cobra.Command, args []string) error {
 }
 
 func (cc *runCollectCommand) listFiles(dir string) ([]string, error) {
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
 	}

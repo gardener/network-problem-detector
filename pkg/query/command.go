@@ -44,20 +44,22 @@ func CreateQueryCmd() *cobra.Command {
 	return cmd
 }
 
-func (qc *queryCommand) query(cmd *cobra.Command, args []string) error {
+func (qc *queryCommand) query(_ *cobra.Command, _ []string) error {
 	filenames, err := db.GetAnyRecordFiles(qc.directory, true)
 	if err != nil {
 		return err
 	}
 
-	var endMillis int64 = time.Now().UnixMilli()
-	var startMillis int64 = 0
+	var (
+		endMillis   = time.Now().UnixMilli()
+		startMillis int64
+	)
 	if qc.minutes > 0 {
 		startMillis = endMillis - int64(qc.minutes*60000)
 	}
 	count := 0
 	for _, filename := range filenames {
-		db.IterateRecordFile(filename, func(obs *nwpd.Observation) error {
+		if err := db.IterateRecordFile(filename, func(obs *nwpd.Observation) error {
 			timeMillis := obs.Timestamp.AsTime().UnixMilli()
 
 			if timeMillis < startMillis || timeMillis > endMillis {
@@ -93,7 +95,9 @@ func (qc *queryCommand) query(cmd *cobra.Command, args []string) error {
 			}
 			fmt.Printf("{%q: %q, %q: %q, %q: %q, %q: %q%s, %q: %t}", "time", t, "src", obs.SrcHost, "dest", obs.DestHost, "jobID", obs.JobID, dur, "ok", obs.Ok)
 			return nil
-		})
+		}); err != nil {
+			return err
+		}
 	}
 	if count > 0 {
 		fmt.Printf("]\n")

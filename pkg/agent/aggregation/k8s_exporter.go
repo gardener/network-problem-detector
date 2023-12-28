@@ -13,6 +13,7 @@ import (
 	"github.com/gardener/network-problem-detector/pkg/agent/version"
 	"github.com/gardener/network-problem-detector/pkg/common"
 	"github.com/gardener/network-problem-detector/pkg/common/config"
+
 	"github.com/sirupsen/logrus"
 	"k8s.io/utils/clock"
 )
@@ -20,17 +21,17 @@ import (
 type k8sExporter struct {
 	log              logrus.FieldLogger
 	client           problemclient.Client
-	conditionManager condition.ConditionManager
+	conditionManager condition.Manager
 }
 
-// newExporter creates a exporter for Kubernetes apiserver exporting,
+// newExporter creates a exporter for Kubernetes apiserver exporting.
 func newExporter(log logrus.FieldLogger, nodeName string, hostNetwork bool, exporterConfig config.K8sExporterConfig) (types.Exporter, error) {
 	agentName := common.NameDaemonSetAgentPodNet
 	if hostNetwork {
 		agentName = common.NameDaemonSetAgentHostNet
 	}
 
-	pco := &problemclient.ProblemClientOptions{
+	pco := &problemclient.Options{
 		AgentName:      agentName,
 		AgentVersion:   version.Version,
 		NodeName:       nodeName,
@@ -46,7 +47,7 @@ func newExporter(log logrus.FieldLogger, nodeName string, hostNetwork bool, expo
 	ke := k8sExporter{
 		log:              log,
 		client:           c,
-		conditionManager: condition.NewConditionManager(log, c, clock.RealClock{}, exporterConfig.HeartbeatPeriod.Duration),
+		conditionManager: condition.NewManager(log, c, clock.RealClock{}, exporterConfig.HeartbeatPeriod.Duration),
 	}
 
 	ke.conditionManager.Start()

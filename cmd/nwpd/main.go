@@ -17,9 +17,9 @@ import (
 )
 
 var (
-	// Version is injected by build
+	// Version is injected by build.
 	Version string
-	// ImageTag is injected by build
+	// ImageTag is injected by build.
 	ImageTag string
 
 	rootCmd = &cobra.Command{

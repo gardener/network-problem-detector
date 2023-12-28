@@ -45,7 +45,5 @@ func (o Observations) Less(i, j int) bool {
 }
 
 func (o Observations) Swap(i, j int) {
-	h := o[i]
-	o[i] = o[j]
-	o[j] = h
+	o[i], o[j] = o[j], o[i]
 }

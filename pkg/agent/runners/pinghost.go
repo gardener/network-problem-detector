@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gardener/network-problem-detector/pkg/common/config"
+
 	"github.com/go-ping/ping"
 	"github.com/spf13/cobra"
 	"go.uber.org/atomic"
@@ -20,7 +21,7 @@ type pingHostArgs struct {
 	hosts      []string
 }
 
-func (a *pingHostArgs) createRunner(cmd *cobra.Command, args []string) error {
+func (a *pingHostArgs) createRunner(_ *cobra.Command, _ []string) error {
 	var nodes []config.Node
 	if len(a.hosts) > 0 {
 		for _, host := range a.hosts {
@@ -55,7 +56,7 @@ func createPingHostCmd(ra *runnerArgs) *cobra.Command {
 	return cmd
 }
 
-func NewPingHost(nodes []config.Node, rconfig RunnerConfig) *pingHost {
+func NewPingHost(nodes []config.Node, rconfig RunnerConfig) Runner {
 	if len(nodes) == 0 {
 		return nil
 	}

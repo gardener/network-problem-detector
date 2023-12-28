@@ -32,41 +32,41 @@ import (
 //go:embed DEFAULT_REPOSITORY
 var defaultRepository string
 
-// AgentDeployConfig contains configuration for deploying the nwpd agent daemonset
+// AgentDeployConfig contains configuration for deploying the nwpd agent daemonset.
 type AgentDeployConfig struct {
-	// Image is the image of the network problem detector agent to deploy
+	// Image is the image of the network problem detector agent to deploy.
 	Image string
-	// DefaultPeriod is the default period for jobs
+	// DefaultPeriod is the default period for jobs.
 	DefaultPeriod time.Duration
-	// DefaultSeccompProfileEnabled if seccomp profile should be defaulted to RuntimeDefault for the daemonsets
+	// DefaultSeccompProfileEnabled if seccomp profile should be defaulted to RuntimeDefault for the daemonsets.
 	DefaultSeccompProfileEnabled bool
-	// PingEnabled if ping checks are enabled (needs NET_ADMIN capabilities)
+	// PingEnabled if ping checks are enabled (needs NET_ADMIN capabilities).
 	PingEnabled bool
-	// PodSecurityPolicyEnabled if psp should be deployed
+	// PodSecurityPolicyEnabled if psp should be deployed.
 	PodSecurityPolicyEnabled bool
-	// IgnoreAPIServerEndpoint if the check of the API server endpoint should be ignored
+	// IgnoreAPIServerEndpoint if the check of the API server endpoint should be ignored.
 	IgnoreAPIServerEndpoint bool
-	// PriorityClassName is the priority class name used for the daemon sets
+	// PriorityClassName is the priority class name used for the daemon sets.
 	PriorityClassName string
-	// K8sExporterEnabled if node conditions and events should be updated/created
+	// K8sExporterEnabled if node conditions and events should be updated/created.
 	K8sExporterEnabled bool
-	// K8sExporterHeartbeat if K8sExporterEnabled sets the period of updating the node condition `ClusterNetworkProblems` or `HostNetworkProblems`
+	// K8sExporterHeartbeat if K8sExporterEnabled sets the period of updating the node condition `ClusterNetworkProblems` or `HostNetworkProblems`.
 	K8sExporterHeartbeat time.Duration
-	// K8sExporterMinFailingPeerNodeShare if > 0, reports node conditions `ClusterNetworkProblems` or `HostNetworkProblems` for node checks only if minimum share of destination peer nodes are failing. Valid range: [0.0,1.0]
+	// K8sExporterMinFailingPeerNodeShare if > 0, reports node conditions `ClusterNetworkProblems` or `HostNetworkProblems` for node checks only if minimum share of destination peer nodes are failing. Valid range: [0.0,1.0].
 	K8sExporterMinFailingPeerNodeShare float64
-	// AdditionalAnnotations adds annotations to the daemonset spec template
+	// AdditionalAnnotations adds annotations to the daemonset spec template.
 	AdditionalAnnotations map[string]string
-	// AdditionalLabels adds labels to the daemonset spec template
+	// AdditionalLabels adds labels to the daemonset spec template.
 	AdditionalLabels map[string]string
-	// DisableAutomountServiceAccountTokenForAgents controls if automountServiceAccountToken should always be false for agents as it is provided
+	// DisableAutomountServiceAccountTokenForAgents controls if automountServiceAccountToken should always be false for agents as it is provided.
 	// by other means (e.g. https://github.com/gardener/gardener/blob/eb8400a2961400a8b984252a76eb546ea44432fd/docs/concepts/resource-manager.md#auto-mounting-projected-serviceaccount-tokens)
 	DisableAutomountServiceAccountTokenForAgents bool
-	// MaxPeerNodes if != 0 restricts number of peer nodes used as destinations for checks (nodes are selected randomly, but stable in this case)
+	// MaxPeerNodes if != 0 restricts number of peer nodes used as destinations for checks (nodes are selected randomly, but stable in this case).
 	MaxPeerNodes int
 }
 
-// DeployNetworkProblemDetectorAgent returns K8s resources to be created.
-func DeployNetworkProblemDetectorAgent(config *AgentDeployConfig) ([]Object, error) {
+// NetworkProblemDetectorAgent returns K8s resources to be created.
+func NetworkProblemDetectorAgent(config *AgentDeployConfig) ([]Object, error) {
 	var objects []Object
 	serviceAccountName, secObjects, err := config.buildSecurityObjects()
 	if err != nil {
@@ -142,13 +142,13 @@ func (ac *AgentDeployConfig) getLabels(name string) map[string]string {
 	}
 }
 
-func (ac *AgentDeployConfig) getNetworkConfig(hostnetwork bool) (name string, portHttp int32) {
+func (ac *AgentDeployConfig) getNetworkConfig(hostnetwork bool) (name string, portHTTP int32) {
 	if hostnetwork {
 		name = common.NameDaemonSetAgentHostNet
-		portHttp = common.HostNetPodHttpPort
+		portHTTP = common.HostNetPodHTTPPort
 	} else {
 		name = common.NameDaemonSetAgentPodNet
-		portHttp = common.PodNetPodHttpPort
+		portHTTP = common.PodNetPodHTTPPort
 	}
 	return
 }
@@ -159,9 +159,9 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 		limitCPU, _            = resource.ParseQuantity("50m")
 		requestMemory, _       = resource.ParseQuantity("32Mi")
 		limitMemory, _         = resource.ParseQuantity("64Mi")
-		defaultMode      int32 = 0444
+		defaultMode      int32 = 0o444
 	)
-	name, portHttp := ac.getNetworkConfig(hostNetwork)
+	name, portHTTP := ac.getNetworkConfig(hostNetwork)
 
 	labels := ac.getLabels(name)
 	labelsPlusAdditionalLabels := common.MergeMaps(ac.AdditionalLabels, labels)
@@ -260,14 +260,14 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 						LivenessProbe: &corev1.Probe{
 							ProbeHandler: corev1.ProbeHandler{
 								TCPSocket: &corev1.TCPSocketAction{
-									Port: intstr.FromInt(int(portHttp)),
+									Port: intstr.FromInt(int(portHTTP)),
 								},
 							},
 						},
 						Ports: []corev1.ContainerPort{
 							{
 								Name:          "metrics",
-								ContainerPort: portHttp,
+								ContainerPort: portHTTP,
 								Protocol:      "TCP",
 							},
 						},
@@ -376,7 +376,8 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 }
 
 func (ac *AgentDeployConfig) buildControllerDeployment() (*appsv1.Deployment, *rbacv1.ClusterRole, *rbacv1.ClusterRoleBinding,
-	*rbacv1.Role, *rbacv1.RoleBinding, *corev1.ServiceAccount, error) {
+	*rbacv1.Role, *rbacv1.RoleBinding, *corev1.ServiceAccount, error,
+) {
 	var (
 		requestCPU, _    = resource.ParseQuantity("10m")
 		limitCPU, _      = resource.ParseQuantity("50m")
@@ -645,7 +646,7 @@ func (ac *AgentDeployConfig) buildPodSecurityPolicy(serviceAccountName string) (
 			Volumes:                  []policyv1beta1.FSType{policyv1beta1.Secret, policyv1beta1.ConfigMap, policyv1beta1.HostPath},
 			HostNetwork:              true,
 			HostPorts: []policyv1beta1.HostPortRange{
-				{Min: common.HostNetPodHttpPort, Max: common.HostNetPodHttpPort},
+				{Min: common.HostNetPodHTTPPort, Max: common.HostNetPodHTTPPort},
 			},
 			HostPID: false,
 			HostIPC: false,
@@ -682,7 +683,7 @@ func (ac *AgentDeployConfig) BuildAgentConfig() (*config.AgentConfig, error) {
 		LogObservations: false,
 		HostNetwork: &config.NetworkConfig{
 			DataFilePrefix: common.NameDaemonSetAgentHostNet,
-			HttpPort:       common.HostNetPodHttpPort,
+			HTTPPort:       common.HostNetPodHTTPPort,
 			DefaultPeriod:  metav1.Duration{Duration: ac.DefaultPeriod},
 			Jobs: []config.Job{
 				{
@@ -691,7 +692,7 @@ func (ac *AgentDeployConfig) BuildAgentConfig() (*config.AgentConfig, error) {
 				},
 				{
 					JobID: "tcp-n2n",
-					Args:  []string{"checkTCPPort", "--node-port", fmt.Sprintf("%d", common.HostNetPodHttpPort)},
+					Args:  []string{"checkTCPPort", "--node-port", fmt.Sprintf("%d", common.HostNetPodHTTPPort)},
 				},
 				{
 					JobID: "tcp-n2p",
@@ -706,7 +707,7 @@ func (ac *AgentDeployConfig) BuildAgentConfig() (*config.AgentConfig, error) {
 		PodNetwork: &config.NetworkConfig{
 			DataFilePrefix: common.NameDaemonSetAgentPodNet,
 			DefaultPeriod:  metav1.Duration{Duration: ac.DefaultPeriod},
-			HttpPort:       common.PodNetPodHttpPort,
+			HTTPPort:       common.PodNetPodHTTPPort,
 			Jobs: []config.Job{
 				{
 					JobID: "tcp-p2api-int",
@@ -718,7 +719,7 @@ func (ac *AgentDeployConfig) BuildAgentConfig() (*config.AgentConfig, error) {
 				},
 				{
 					JobID: "tcp-p2n",
-					Args:  []string{"checkTCPPort", "--node-port", fmt.Sprintf("%d", common.HostNetPodHttpPort)},
+					Args:  []string{"checkTCPPort", "--node-port", fmt.Sprintf("%d", common.HostNetPodHTTPPort)},
 				},
 				{
 					JobID: "tcp-p2p",

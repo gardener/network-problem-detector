@@ -9,6 +9,7 @@ import (
 
 	"github.com/gardener/network-problem-detector/pkg/common"
 	"github.com/gardener/network-problem-detector/pkg/common/config"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -60,18 +61,18 @@ var _ = Describe("parser", func() {
 			{Hostname: "node1", IP: "10.128.0.11", Port: 1234},
 			{Hostname: "node2", IP: "10.128.0.12", Port: 1234},
 		}
-		endpointsInternalKubeApiServer = []config.Endpoint{
+		endpointsInternalKubeAPIServer = []config.Endpoint{
 			{Hostname: common.DomainNameKubernetesService, IP: "100.64.0.1", Port: 443},
 		}
 
-		endpointsKubeApiServer = []config.Endpoint{
+		endpointsKubeAPIServer = []config.Endpoint{
 			{Hostname: "api.shoot.domain.com", IP: "1.2.3.4", Port: 443},
 		}
 		httpsEndpoints1 = []config.Endpoint{
 			{Hostname: "server", IP: "", Port: 55555},
 			{Hostname: "server2", IP: "", Port: 443},
 		}
-		httpsEndpointsInternalKubeApiServer = []config.Endpoint{
+		httpsEndpointsInternalKubeAPIServer = []config.Endpoint{
 			{Hostname: common.DomainNameKubernetesService, IP: "", Port: 443},
 		}
 		dnsnames = []string{
@@ -114,9 +115,9 @@ var _ = Describe("parser", func() {
 		Entry("checkTCPPort with pod endpoints", clusterCfg1, config1,
 			[]string{"checkTCPPort", "--endpoints-of-pod-ds"}, NewCheckTCPPort(endpointsPods, config1)),
 		Entry("checkTCPPort with internal kube-apiserver endpoints", clusterCfg1, config1,
-			[]string{"checkTCPPort", "--endpoint-internal-kube-apiserver"}, NewCheckTCPPort(endpointsInternalKubeApiServer, config1)),
+			[]string{"checkTCPPort", "--endpoint-internal-kube-apiserver"}, NewCheckTCPPort(endpointsInternalKubeAPIServer, config1)),
 		Entry("checkTCPPort with external kube-apiserver endpoints", clusterCfg1, config1,
-			[]string{"checkTCPPort", "--endpoint-external-kube-apiserver"}, NewCheckTCPPort(endpointsKubeApiServer, config1)),
+			[]string{"checkTCPPort", "--endpoint-external-kube-apiserver"}, NewCheckTCPPort(endpointsKubeAPIServer, config1)),
 		Entry("checkHTTPSGet", clusterCfg1, config1,
 			[]string{"checkHTTPSGet", "--period", "10s", "--endpoints", "server:55555,server2"}, NewCheckTCPPort(httpsEndpoints1, config2)),
 		Entry("checkHTTPSGet - missing endpoints", clusterCfg1, config1,
@@ -124,9 +125,9 @@ var _ = Describe("parser", func() {
 		Entry("checkHTTPSGet - invalid endpoint", clusterCfg1, config1,
 			[]string{"checkHTTPSGet", "--endpoints", "server:x"}, "invalid endpoint port x"),
 		Entry("checkHTTPSGet with internal kube-apiserver endpoints", clusterCfg1, config1,
-			[]string{"checkHTTPSGet", "--endpoint-internal-kube-apiserver"}, NewCheckHTTPSGet(httpsEndpointsInternalKubeApiServer, config1)),
+			[]string{"checkHTTPSGet", "--endpoint-internal-kube-apiserver"}, NewCheckHTTPSGet(httpsEndpointsInternalKubeAPIServer, config1)),
 		Entry("checkHTTPSGet with external kube-apiserver endpoints", clusterCfg1, config1,
-			[]string{"checkHTTPSGet", "--endpoint-external-kube-apiserver"}, NewCheckHTTPSGet(endpointsKubeApiServer, config1)),
+			[]string{"checkHTTPSGet", "--endpoint-external-kube-apiserver"}, NewCheckHTTPSGet(endpointsKubeAPIServer, config1)),
 		Entry("nslookup with host names", clusterCfg1, config1,
 			[]string{"nslookup", "--names", "eu.gcr.io,foo.bar.", "--name-internal-kube-apiserver", "--name-external-kube-apiserver"},
 			NewNSLookup(dnsnames, config1)),

@@ -18,7 +18,7 @@ type SampleConfig struct {
 	NodeSampleStore *NodeSampleStore
 }
 
-// NewNodeSampleStore create a new node sample store
+// NewNodeSampleStore create a new node sample store.
 func NewNodeSampleStore(nodeName string) *NodeSampleStore {
 	return &NodeSampleStore{nodeName: nodeName, store: map[string]float64{}}
 }
@@ -75,7 +75,7 @@ func (s *NodeSampleStore) SelectTopNodes(hostnames map[string]struct{}, size int
 	return topNodes
 }
 
-// ShuffledSample selects a node sample and shuffles its order
+// ShuffledSample selects a node sample and shuffles its order.
 func (sc *SampleConfig) ShuffledSample(cc ClusterConfig) ClusterConfig {
 	return ClusterConfig{
 		NodeCount:             len(cc.Nodes),

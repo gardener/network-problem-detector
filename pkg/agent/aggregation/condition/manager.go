@@ -16,6 +16,7 @@ import (
 
 	"github.com/gardener/network-problem-detector/pkg/agent/aggregation/problemclient"
 	"github.com/gardener/network-problem-detector/pkg/agent/aggregation/types"
+
 	"github.com/sirupsen/logrus"
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
@@ -27,20 +28,20 @@ const (
 	updatePeriod = 5 * time.Second
 	// resyncPeriod is the period at which condition manager does resync, only updates when needed.
 	resyncPeriod = 10 * time.Second
-	// maxSyncFactor is the factor for longer wait after failed sync
+	// maxSyncFactor is the factor for longer wait after failed sync.
 	maxSyncFactor = 10
 )
 
-// ConditionManager synchronizes node conditions with the apiserver with problem client.
+// Manager synchronizes node conditions with the apiserver with problem client.
 // It makes sure that:
 // 1) Node conditions are updated to apiserver as soon as possible.
 // 2) Node problem detector won't flood apiserver.
 // 3) No one else could change the node conditions maintained by node problem detector.
-// ConditionManager checks every updatePeriod to see whether there is node condition update. If there are any,
+// Manager checks every updatePeriod to see whether there is node condition update. If there are any,
 // it will synchronize with the apiserver. This addresses 1) and 2).
-// ConditionManager synchronizes with apiserver every resyncPeriod no matter there is node condition update or
+// Manager synchronizes with apiserver every resyncPeriod no matter there is node condition update or
 // not. This addresses 3).
-type ConditionManager interface {
+type Manager interface {
 	// Start starts the condition manager.
 	Start()
 	// UpdateCondition updates a specific condition.
@@ -71,8 +72,8 @@ type conditionManager struct {
 	heartbeatPeriod time.Duration
 }
 
-// NewConditionManager creates a condition manager.
-func NewConditionManager(log logrus.FieldLogger, client problemclient.Client, clock clock.WithTicker, heartbeatPeriod time.Duration) ConditionManager {
+// NewManager creates a condition manager.
+func NewManager(log logrus.FieldLogger, client problemclient.Client, clock clock.WithTicker, heartbeatPeriod time.Duration) Manager {
 	return &conditionManager{
 		log:             log,
 		client:          client,
@@ -127,11 +128,9 @@ func (c *conditionManager) syncLoop() {
 	ticker := c.clock.NewTicker(updatePeriod)
 	defer ticker.Stop()
 	for {
-		select {
-		case <-ticker.C():
-			if c.needUpdates() || c.needResync() || c.needHeartbeat() {
-				c.sync()
-			}
+		<-ticker.C()
+		if c.needUpdates() || c.needResync() || c.needHeartbeat() {
+			c.sync()
 		}
 	}
 }

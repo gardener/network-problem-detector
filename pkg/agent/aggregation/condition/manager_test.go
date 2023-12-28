@@ -27,7 +27,7 @@ func newTestManager() (*conditionManager, *problemclient.FakeProblemClient, *clo
 	fakeClient := problemclient.NewFakeProblemClient()
 	fakeClock := clocktesting.NewFakeClock(time.Now())
 	log := logrus.New()
-	manager := NewConditionManager(log, fakeClient, fakeClock, heartbeatPeriod)
+	manager := NewManager(log, fakeClient, fakeClock, heartbeatPeriod)
 	return manager.(*conditionManager), fakeClient, fakeClock
 }
 
@@ -82,6 +82,7 @@ func TestNeedUpdates(t *testing.T) {
 		if tc.condition != "" {
 			// Guarantee that the time advances before creating a new condition.
 			for now := time.Now(); now == time.Now(); {
+				time.Sleep(1 * time.Microsecond)
 			}
 			c = newTestCondition(tc.condition)
 			if tc.status != "" {

@@ -10,6 +10,7 @@ import (
 	"net"
 
 	"github.com/gardener/network-problem-detector/pkg/common/config"
+
 	"github.com/spf13/cobra"
 )
 
@@ -20,7 +21,7 @@ type nslookupArgs struct {
 	names        []string
 }
 
-func (a *nslookupArgs) createRunner(cmd *cobra.Command, args []string) error {
+func (a *nslookupArgs) createRunner(_ *cobra.Command, _ []string) error {
 	allowEmpty := false
 	var names []string
 	if len(a.names) > 0 {
@@ -62,7 +63,7 @@ func createNSLookupCmd(ra *runnerArgs) *cobra.Command {
 	return cmd
 }
 
-func NewNSLookup(names []string, rconfig RunnerConfig) *nslookup {
+func NewNSLookup(names []string, rconfig RunnerConfig) Runner {
 	if len(names) == 0 {
 		return nil
 	}

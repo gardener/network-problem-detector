@@ -51,7 +51,7 @@ func ConvertToAPIEventType(severity Severity) string {
 	}
 }
 
-// ConvertToAPITimestamp converts the timestamp to metav1.Time
+// ConvertToAPITimestamp converts the timestamp to metav1.Time.
 func ConvertToAPITimestamp(timestamp time.Time) metav1.Time {
 	return metav1.NewTime(timestamp)
 }

@@ -10,12 +10,15 @@ import (
 
 	"github.com/gardener/network-problem-detector/pkg/common"
 	"github.com/gardener/network-problem-detector/pkg/common/config"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-const nodeCount = 100
-const maxNodes = 20
+const (
+	nodeCount = 100
+	maxNodes  = 20
+)
 
 var _ = Describe("sample", func() {
 	var nodes []config.Node
@@ -98,7 +101,7 @@ var _ = Describe("sample", func() {
 
 		distribution, total := calcNodeDistribution(ccList)
 		Expect(total).To(Equal(nodeCount * maxNodes))
-		Expect(goodDistribution(nodeCount, maxNodes, distribution)).To(BeTrue())
+		Expect(goodDistribution(maxNodes, distribution)).To(BeTrue())
 
 		By("keeps node selection stable")
 		ccList2 := make([]config.ClusterConfig, nodeCount)
@@ -115,7 +118,7 @@ var _ = Describe("sample", func() {
 		}
 		distribution, total = calcNodeDistribution(ccList2)
 		Expect(total).To(Equal(nodeCount * maxNodes))
-		Expect(goodDistribution(nodeCount, maxNodes, distribution)).To(BeTrue())
+		Expect(goodDistribution(maxNodes, distribution)).To(BeTrue())
 		mismatchNodeCount := nodeCount / 17
 		Expect(sumDelta > (mismatchNodeCount-1)*nodeCount && sumDelta < (mismatchNodeCount+1)*nodeCount).To(BeTrue(), fmt.Sprintf("Unexpected delta: %d (%d)", sumDelta, mismatchNodeCount*nodeCount))
 	})
@@ -157,19 +160,17 @@ func calcNodeDistribution(ccList []config.ClusterConfig) (map[int]int, int) {
 	return distribution, total
 }
 
-func goodDistribution(N, K int, distribution map[int]int) bool {
-	println(fmt.Sprintf("%v", distribution))
+func goodDistribution(kk int, distribution map[int]int) bool {
 	var a, b, c, d int
 	for k, count := range distribution {
 		a += count
 		b += k * count
-		if math.Abs(float64(k-K)) <= float64(K/2) {
+		if math.Abs(float64(k-kk)) <= float64(kk/2) {
 			c += count
 		} else {
 			d += count
 		}
 	}
-	//println(float64(b)/float64(a), a, b, float64(c)/float64(a), float64(d)/float64(a))
 	return float64(d)/float64(a) < 0.1
 }
 

@@ -21,7 +21,7 @@ linters:
   # - wsl
 linters-settings:
   goimports:
-    local-prefixes: github.tools.sap/kubernetes/gardener-installer
+    local-prefixes: github.com/gardener/network-problem-detector
 
 issues:
   exclude-rules:

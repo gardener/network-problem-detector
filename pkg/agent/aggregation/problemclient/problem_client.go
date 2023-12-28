@@ -26,7 +26,7 @@ import (
 	"k8s.io/client-go/tools/record"
 )
 
-// Client is the interface of problem client
+// Client is the interface of problem client.
 type Client interface {
 	// GetConditions get all specific conditions of current node.
 	GetConditions(ctx context.Context, conditionTypes []corev1.NodeConditionType) ([]corev1.NodeCondition, error)
@@ -39,7 +39,7 @@ type Client interface {
 	GetNode(ctx context.Context) (*corev1.Node, error)
 }
 
-type ProblemClientOptions struct {
+type Options struct {
 	// AgentName is the name of the agent used to communicate with Kubernetes ApiServer.
 	AgentName string
 	// AgentVersion is the version of the agent used to communicate with Kubernetes ApiServer.
@@ -66,7 +66,7 @@ type networkProblemClient struct {
 }
 
 // NewClient creates a new problem client.
-func NewClient(options *ProblemClientOptions) (Client, error) {
+func NewClient(options *Options) (Client, error) {
 	c := &networkProblemClient{clock: clock.RealClock{}}
 
 	cfg, err := clientcmd.BuildConfigFromFlags("", options.KubeConfigPath)
@@ -178,7 +178,7 @@ func (c *networkProblemClient) GetNode(ctx context.Context) (*corev1.Node, error
 	return c.client.Nodes().Get(ctx, c.nodeName, metav1.GetOptions{})
 }
 
-// generatePatch generates condition patch
+// generatePatch generates condition patch.
 func generatePatch(conditions []corev1.NodeCondition) ([]byte, error) {
 	raw, err := json.Marshal(&conditions)
 	if err != nil {
