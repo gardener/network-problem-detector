@@ -74,7 +74,7 @@ func (dc *deployCommand) setup() error {
 	return nil
 }
 
-func (dc *deployCommand) printDefaultConfig(cmd *cobra.Command, args []string) error {
+func (dc *deployCommand) printDefaultConfig(_ *cobra.Command, _ []string) error {
 	err := dc.setup()
 	if err != nil {
 		return err
@@ -93,7 +93,7 @@ func (dc *deployCommand) printDefaultConfig(cmd *cobra.Command, args []string) e
 	return nil
 }
 
-func (dc *deployCommand) deployAgentAllDaemonsets(cmd *cobra.Command, args []string) error {
+func (dc *deployCommand) deployAgentAllDaemonsets(_ *cobra.Command, _ []string) error {
 	log := logrus.WithField("cmd", "deploy-agent")
 	err := dc.deployAgent(log, false, dc.buildAgentConfigMap, dc.buildClusterConfigMap)
 	if err != nil {
@@ -102,7 +102,7 @@ func (dc *deployCommand) deployAgentAllDaemonsets(cmd *cobra.Command, args []str
 	return dc.deployAgent(log, true, dc.buildAgentConfigMap, dc.buildClusterConfigMap)
 }
 
-func (dc *deployCommand) deployAgentControllerDeployment(cmd *cobra.Command, args []string) error {
+func (dc *deployCommand) deployAgentControllerDeployment(_ *cobra.Command, _ []string) error {
 	log := logrus.WithField("cmd", "deploy-controller")
 
 	err := dc.setup()
@@ -136,18 +136,9 @@ func (dc *deployCommand) deployAgentControllerDeployment(cmd *cobra.Command, arg
 	return nil
 }
 
-func (dc *deployCommand) deleteAgentControllerDeployment(log logrus.FieldLogger) error {
-	ctx := context.Background()
-	name := common.NameDeploymentAgentController
-	if err := dc.Clientset.AppsV1().Deployments(common.NamespaceKubeSystem).Delete(ctx, name, metav1.DeleteOptions{}); err != nil {
-		return err
-	}
-	log.Infof("daemonset %s/%s deleted", common.NamespaceKubeSystem, name)
-	return nil
-}
-
 func (dc *deployCommand) deployAgent(log logrus.FieldLogger, hostnetwork bool,
-	buildAgentConfigMap, buildClusterConfigMap buildObject[*corev1.ConfigMap]) error {
+	buildAgentConfigMap, buildClusterConfigMap buildObject[*corev1.ConfigMap],
+) error {
 	ac := dc.agentDeployConfig
 	name, _ := ac.getNetworkConfig(hostnetwork)
 
@@ -173,7 +164,7 @@ func (dc *deployCommand) deployAgent(log logrus.FieldLogger, hostnetwork bool,
 		return fmt.Errorf("error building config map: %s", err)
 	}
 
-	serviceAccountName := ""
+	var serviceAccountName string
 	var objects []Object
 	serviceAccountName, objects, err = dc.agentDeployConfig.buildSecurityObjects()
 	if err != nil {
@@ -262,7 +253,7 @@ func (dc *deployCommand) buildClusterConfigMap() (*corev1.ConfigMap, error) {
 	if err != nil {
 		return nil, err
 	}
-	internalApiServer := &config.Endpoint{
+	internalAPIServer := &config.Endpoint{
 		Hostname: common.DomainNameKubernetesService,
 		IP:       svc.Spec.ClusterIP,
 		Port:     int(svc.Spec.Ports[0].Port),
@@ -271,7 +262,7 @@ func (dc *deployCommand) buildClusterConfigMap() (*corev1.ConfigMap, error) {
 	if !dc.agentDeployConfig.IgnoreAPIServerEndpoint {
 		shootInfo, err := dc.Clientset.CoreV1().ConfigMaps(common.NamespaceKubeSystem).Get(ctx, common.NameGardenerShootInfo, metav1.GetOptions{})
 		if err != nil {
-			return nil, fmt.Errorf("error getting configmap %s/%s. If this is no Gardener shoot cluster, please add option '--ignore-gardener-kube-api-server' to deploy command.", common.NamespaceKubeSystem, common.NameGardenerShootInfo)
+			return nil, fmt.Errorf("error getting configmap %s/%s: if this is no Gardener shoot cluster, please add option '--ignore-gardener-kube-api-server' to deploy command", common.NamespaceKubeSystem, common.NameGardenerShootInfo)
 		}
 		apiServer, err = GetAPIServerEndpointFromShootInfo(shootInfo)
 		if err != nil {
@@ -287,7 +278,7 @@ func (dc *deployCommand) buildClusterConfigMap() (*corev1.ConfigMap, error) {
 		return nil, err
 	}
 
-	clusterConfig, err := BuildClusterConfig(nodes, agentPods, internalApiServer, apiServer)
+	clusterConfig, err := BuildClusterConfig(nodes, agentPods, internalAPIServer, apiServer)
 	if err != nil {
 		return nil, err
 	}

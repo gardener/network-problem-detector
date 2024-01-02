@@ -1,0 +1,33 @@
+# options for analysis running
+run:
+  timeout: 2m
+  skip-files:
+  - "zz_generated.*"
+linters:
+  enable:
+  - gocritic
+  - godot
+  - gofumpt
+  - goimports
+  - misspell
+  - nolintlint
+  - predeclared
+  - revive
+  - unused
+  - stylecheck
+  - unconvert
+  - wastedassign
+  - whitespace
+  # - wsl
+linters-settings:
+  goimports:
+    local-prefixes: github.com/gardener/network-problem-detector
+
+issues:
+  exclude-rules:
+  # dot imports in test files and utilities
+  - path: ".*test.*.go$"
+    text: "should not use dot imports"
+    linters:
+    - stylecheck
+    - revive

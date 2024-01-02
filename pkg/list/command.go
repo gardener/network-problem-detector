@@ -18,11 +18,11 @@ import (
 
 	"github.com/gardener/network-problem-detector/pkg/common"
 	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
+
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"k8s.io/client-go/kubernetes"
 )
 
 type listCommand struct {
@@ -35,8 +35,6 @@ type listCommand struct {
 	destHosts  []string
 	failedOnly bool
 	window     time.Duration
-
-	clientset *kubernetes.Clientset
 }
 
 func CreateListCmd() *cobra.Command {
@@ -59,25 +57,21 @@ func CreateListCmd() *cobra.Command {
 	return cmd
 }
 
-func (lc *listCommand) list(ccmd *cobra.Command, args []string) error {
+func (lc *listCommand) list(_ *cobra.Command, args []string) error {
 	log := logrus.WithField("cmd", "list")
 
 	if len(args) != 2 {
-		return fmt.Errorf("Missing kind or pod name: %s", strings.Join(args, " "))
+		return fmt.Errorf("missing kind or pod name: %s", strings.Join(args, " "))
 	}
 
-	aggr := false
+	var aggr bool
 	switch args[0] {
-	case "aggr":
-		fallthrough
-	case "aggregated":
+	case "aggr", "aggregated":
 		aggr = true
-	case "obs":
-		fallthrough
-	case "observation":
+	case "obs", "observation":
 		aggr = false
 	default:
-		return fmt.Errorf("Invalid kind: %s (allowed 'observation', 'obs', 'aggregated', 'aggr')", args[0])
+		return fmt.Errorf("invalid kind: %s (allowed 'observation', 'obs', 'aggregated', 'aggr')", args[0])
 	}
 
 	podname := args[1]
@@ -88,9 +82,9 @@ func (lc *listCommand) list(ccmd *cobra.Command, args []string) error {
 	targetPort := lc.targetPort
 	if targetPort == 0 {
 		if strings.HasPrefix(podname, common.NameDaemonSetAgentHostNet) {
-			targetPort = common.HostNetPodHttpPort
+			targetPort = common.HostNetPodHTTPPort
 		} else {
-			targetPort = common.PodNetPodHttpPort
+			targetPort = common.PodNetPodHTTPPort
 		}
 	}
 
@@ -103,7 +97,7 @@ func (lc *listCommand) list(ccmd *cobra.Command, args []string) error {
 	cmdline := fmt.Sprintf("kubectl %s -n kube-system  port-forward %s %d:%d", kubeconfigOpt, podname, port, targetPort)
 	var stderr bytes.Buffer
 	cmd := exec.Command("sh", "-c", cmdline)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true} //create process group for child processes
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true} // create process group for child processes
 	cmd.Stderr = &stderr
 	cmd.Env = os.Environ()
 	err := cmd.Start()
@@ -111,7 +105,7 @@ func (lc *listCommand) list(ccmd *cobra.Command, args []string) error {
 		return err
 	}
 	defer func() {
-		syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
 	}()
 
 	client := nwpd.NewAgentServiceProtobufClient(fmt.Sprintf("http://localhost:%d", port), &http.Client{})
@@ -134,12 +128,11 @@ func (lc *listCommand) list(ccmd *cobra.Command, args []string) error {
 
 	if aggr {
 		return lc.listAggregatedObservations(log, client, request)
-	} else {
-		return lc.listObservations(log, client, request)
 	}
+	return lc.listObservations(log, client, request)
 }
 
-func (cc *listCommand) listObservations(log logrus.FieldLogger, client nwpd.AgentService, request *nwpd.GetObservationsRequest) error {
+func (lc *listCommand) listObservations(log logrus.FieldLogger, client nwpd.AgentService, request *nwpd.GetObservationsRequest) error {
 	ctx := context.Background()
 	response, err := client.GetObservations(ctx, request)
 	if err != nil {
@@ -162,7 +155,7 @@ func (cc *listCommand) listObservations(log logrus.FieldLogger, client nwpd.Agen
 	return nil
 }
 
-func (cc *listCommand) listAggregatedObservations(log logrus.FieldLogger, client nwpd.AgentService, request *nwpd.GetObservationsRequest) error {
+func (lc *listCommand) listAggregatedObservations(log logrus.FieldLogger, client nwpd.AgentService, request *nwpd.GetObservationsRequest) error {
 	ctx := context.Background()
 	response, err := client.GetAggregatedObservations(ctx, request)
 	if err != nil {
@@ -193,7 +186,7 @@ func (cc *listCommand) listAggregatedObservations(log logrus.FieldLogger, client
 	return nil
 }
 
-func (cc *listCommand) checkPortAvailable(port int) bool {
+func (lc *listCommand) checkPortAvailable(port int) bool {
 	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return false

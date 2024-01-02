@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gardener/network-problem-detector/pkg/common/config"
+
 	"github.com/spf13/cobra"
 )
 
@@ -24,10 +25,11 @@ type checkTCPPortArgs struct {
 	endpoints    []string
 }
 
-func (a *checkTCPPortArgs) createRunner(cmd *cobra.Command, args []string) error {
+func (a *checkTCPPortArgs) createRunner(_ *cobra.Command, _ []string) error {
 	allowEmpty := false
 	var endpoints []config.Endpoint
-	if len(a.endpoints) > 0 {
+	switch {
+	case len(a.endpoints) > 0:
 		for _, ep := range a.endpoints {
 			parts := strings.SplitN(ep, ":", 3)
 			if len(parts) != 3 {
@@ -43,7 +45,7 @@ func (a *checkTCPPortArgs) createRunner(cmd *cobra.Command, args []string) error
 				Port:     port,
 			})
 		}
-	} else if a.nodePort != 0 {
+	case a.nodePort != 0:
 		allowEmpty = true
 		for _, n := range a.runnerArgs.clusterCfg.Nodes {
 			endpoints = append(endpoints, config.Endpoint{
@@ -52,7 +54,7 @@ func (a *checkTCPPortArgs) createRunner(cmd *cobra.Command, args []string) error
 				Port:     a.nodePort,
 			})
 		}
-	} else if a.podDS {
+	case a.podDS:
 		allowEmpty = true
 		for _, pe := range a.runnerArgs.clusterCfg.PodEndpoints {
 			endpoints = append(endpoints, config.Endpoint{
@@ -61,12 +63,12 @@ func (a *checkTCPPortArgs) createRunner(cmd *cobra.Command, args []string) error
 				Port:     int(pe.Port),
 			})
 		}
-	} else if a.internalKAPI {
+	case a.internalKAPI:
 		allowEmpty = true
 		if pe := a.runnerArgs.clusterCfg.InternalKubeAPIServer; pe != nil {
 			endpoints = append(endpoints, *pe)
 		}
-	} else if a.externalKAPI {
+	case a.externalKAPI:
 		allowEmpty = true
 		if pe := a.runnerArgs.clusterCfg.KubeAPIServer; pe != nil {
 			endpoints = append(endpoints, *pe)
@@ -99,7 +101,7 @@ func createCheckTCPPortCmd(ra *runnerArgs) *cobra.Command {
 	return cmd
 }
 
-func NewCheckTCPPort(endpoints []config.Endpoint, rconfig RunnerConfig) *checkTCPPort {
+func NewCheckTCPPort(endpoints []config.Endpoint, rconfig RunnerConfig) Runner {
 	if len(endpoints) == 0 {
 		return nil
 	}

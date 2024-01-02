@@ -7,12 +7,12 @@ package deploy_test
 import (
 	"time"
 
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-
 	"github.com/gardener/network-problem-detector/pkg/deploy"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 var _ = Describe("Add default seccomp profile when enabled", func() {
@@ -28,7 +28,7 @@ var _ = Describe("Add default seccomp profile when enabled", func() {
 	})
 
 	It("should create daemonset without seccomp profile", func() {
-		objs, err := deploy.DeployNetworkProblemDetectorAgent(deployConfig)
+		objs, err := deploy.NetworkProblemDetectorAgent(deployConfig)
 		Expect(err).To(BeNil())
 		Expect(len(objs)).NotTo(BeZero())
 		var ds *appsv1.DaemonSet
@@ -45,7 +45,7 @@ var _ = Describe("Add default seccomp profile when enabled", func() {
 
 	It("should create daemonset with seccomp profile", func() {
 		deployConfig.DefaultSeccompProfileEnabled = true
-		objs, err := deploy.DeployNetworkProblemDetectorAgent(deployConfig)
+		objs, err := deploy.NetworkProblemDetectorAgent(deployConfig)
 		Expect(err).To(BeNil())
 		Expect(len(objs)).NotTo(BeZero())
 		var ds *appsv1.DaemonSet

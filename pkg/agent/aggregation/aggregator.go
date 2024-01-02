@@ -39,19 +39,17 @@ type ObsAggregationOptions struct {
 }
 
 type obsAggr struct {
-	log                     logrus.FieldLogger
-	lock                    sync.Mutex
-	k8sExporter             types.Exporter
-	k8sExporterConfig       config.K8sExporterConfig
-	aggregations            map[jobEdge]*jobEdgeAggregation
-	reportPeriod            time.Duration
-	timeWindow              time.Duration
-	logDirectory            string
-	hostNetwork             bool
-	validEdges              ValidEdges
-	lastReport              time.Time
-	lastReportToK8sExporter time.Time
-	lastK8sExporterStatus   bool
+	log               logrus.FieldLogger
+	lock              sync.Mutex
+	k8sExporter       types.Exporter
+	k8sExporterConfig config.K8sExporterConfig
+	aggregations      map[jobEdge]*jobEdgeAggregation
+	reportPeriod      time.Duration
+	timeWindow        time.Duration
+	logDirectory      string
+	hostNetwork       bool
+	validEdges        ValidEdges
+	lastReport        time.Time
 }
 
 type jobEdge struct {
@@ -120,7 +118,7 @@ func (jea *jobEdgeAggregation) Report(je jobEdge, start time.Time) string {
 		}
 		return msg
 	}
-	seconds := int(time.Now().Sub(start).Seconds())
+	seconds := int(time.Since(start).Seconds())
 	return fmt.Sprintf("%s: %d/%d checks failed in last %ds (last ok: %s)", je,
 		jea.reportFailureCount, jea.reportFailureCount+jea.reportOkCount, seconds, common.FormatAsUTC(jea.okLast))
 }
@@ -172,12 +170,13 @@ func newGroupCounter() *groupCounter {
 }
 
 func (c *groupCounter) inc(key string, ok *bool) {
-	if ok == nil {
-		c.unknown[key] += 1
-	} else if *ok {
-		c.ok[key] += 1
-	} else {
-		c.failed[key] += 1
+	switch {
+	case ok == nil:
+		c.unknown[key]++
+	case *ok:
+		c.ok[key]++
+	default:
+		c.failed[key]++
 	}
 }
 
@@ -318,9 +317,9 @@ func toRestrictedList(set common.StringSet, max int) string {
 
 var _ ObservationListenerExtended = &obsAggr{}
 
-func NewObsAggregator(options *ObsAggregationOptions) (*obsAggr, error) {
+func NewObsAggregator(options *ObsAggregationOptions) (ObservationListenerExtended, error) {
 	if options.LogDirectory != "" {
-		err := os.MkdirAll(options.LogDirectory, 0777)
+		err := os.MkdirAll(options.LogDirectory, 0o777)
 		if err != nil {
 			return nil, err
 		}
@@ -499,7 +498,7 @@ func (a *obsAggr) reportToFilesystem(report *reportData) {
 			a.log.Warnf("cannot rename %s to %s: %s", filename, old, err)
 		}
 	}
-	f, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
 		a.log.Warnf("cannot open %s: %s", filename, err)
 		return
@@ -508,14 +507,14 @@ func (a *obsAggr) reportToFilesystem(report *reportData) {
 
 	prefix := time.Now().UTC().Format("2006-01-02T15:04:05Z ")
 	for _, s := range report.issues {
-		f.WriteString(prefix)
-		f.WriteString(s)
-		f.WriteString("\n")
+		_, _ = f.WriteString(prefix)
+		_, _ = f.WriteString(s)
+		_, _ = f.WriteString("\n")
 	}
 	for _, s := range report.summary() {
-		f.WriteString(prefix)
-		f.WriteString(s)
-		f.WriteString("\n")
+		_, _ = f.WriteString(prefix)
+		_, _ = f.WriteString(s)
+		_, _ = f.WriteString("\n")
 	}
 }
 

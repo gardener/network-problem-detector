@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gardener/network-problem-detector/pkg/common/config"
+
 	"github.com/spf13/cobra"
 )
 

@@ -13,6 +13,7 @@ import (
 
 	"github.com/gardener/network-problem-detector/pkg/common"
 	"github.com/gardener/network-problem-detector/pkg/common/config"
+
 	"github.com/spf13/cobra"
 )
 
@@ -23,10 +24,11 @@ type checkHTTPSGetArgs struct {
 	endpoints    []string
 }
 
-func (a *checkHTTPSGetArgs) createRunner(cmd *cobra.Command, args []string) error {
+func (a *checkHTTPSGetArgs) createRunner(_ *cobra.Command, _ []string) error {
 	allowEmpty := false
 	var endpoints []config.Endpoint
-	if len(a.endpoints) > 0 {
+	switch {
+	case len(a.endpoints) > 0:
 		for _, ep := range a.endpoints {
 			parts := strings.SplitN(ep, ":", 2)
 			if len(parts) != 1 && len(parts) != 2 {
@@ -46,13 +48,13 @@ func (a *checkHTTPSGetArgs) createRunner(cmd *cobra.Command, args []string) erro
 				Port:     port,
 			})
 		}
-	} else if a.internalKAPI {
+	case a.internalKAPI:
 		endpoints = append(endpoints, config.Endpoint{
 			Hostname: common.DomainNameKubernetesService,
 			IP:       "",
 			Port:     443,
 		})
-	} else if a.externalKAPI {
+	case a.externalKAPI:
 		allowEmpty = true
 		if pe := a.runnerArgs.clusterCfg.KubeAPIServer; pe != nil {
 			endpoints = append(endpoints, *pe)
@@ -83,7 +85,7 @@ func createCheckHTTPSGetArgs(ra *runnerArgs) *cobra.Command {
 	return cmd
 }
 
-func NewCheckHTTPSGet(endpoints []config.Endpoint, rconfig RunnerConfig) *checkHTTPSGet {
+func NewCheckHTTPSGet(endpoints []config.Endpoint, rconfig RunnerConfig) Runner {
 	if len(endpoints) == 0 {
 		return nil
 	}

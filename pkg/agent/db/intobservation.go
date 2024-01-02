@@ -14,7 +14,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func ToIntObservation(obs *nwpd.Observation, idMap *StringIdMap, persistor IntStringPersistor) (*nwpd.IntObservation, error) {
+func ToIntObservation(obs *nwpd.Observation, idMap *StringIDMap, persistor IntStringPersistor) (*nwpd.IntObservation, error) {
 	is, err := idMap.GetKey(persistor, obs.SrcHost)
 	if err != nil {
 		return nil, err
@@ -38,7 +38,7 @@ func ToIntObservation(obs *nwpd.Observation, idMap *StringIdMap, persistor IntSt
 	}, nil
 }
 
-func IntObsToObservation(o *nwpd.IntObservation, idMap *StringIdMap) (*nwpd.Observation, error) {
+func IntObsToObservation(o *nwpd.IntObservation, idMap *StringIDMap) (*nwpd.Observation, error) {
 	ss, err := idMap.GetValue(o.SrcHost)
 	if err != nil {
 		return nil, err

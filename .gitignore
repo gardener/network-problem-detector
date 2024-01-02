@@ -1,4 +1,5 @@
-bin/
+/bin/
+/hack/tools/bin/
 .idea/
 *.sw[pq]
 .DS_Store

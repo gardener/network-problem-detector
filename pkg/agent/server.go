@@ -16,9 +16,9 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
 	"github.com/gardener/network-problem-detector/pkg/agent/aggregation"
 	"github.com/gardener/network-problem-detector/pkg/agent/db"
 	"github.com/gardener/network-problem-detector/pkg/agent/runners"
@@ -26,9 +26,9 @@ import (
 	"github.com/gardener/network-problem-detector/pkg/common/config"
 	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
-	"go.uber.org/atomic"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -44,7 +44,6 @@ type server struct {
 	nodeName             string
 	hostNetwork          bool
 	jobs                 map[jobid]*runners.InternalJob
-	revision             atomic.Int64
 	maxPeerNodes         int
 	nodeSampleStore      *config.NodeSampleStore
 	currentAgentConfig   *config.AgentConfig
@@ -82,10 +81,6 @@ func getNodeName() string {
 	return nodeName
 }
 
-func (s *server) isHostNetwork() bool {
-	return s.hostNetwork
-}
-
 func (s *server) getNetworkCfg() *config.NetworkConfig {
 	networkCfg := &config.NetworkConfig{}
 	if s.currentAgentConfig != nil {
@@ -119,20 +114,20 @@ func (s *server) setup() error {
 	if cfg.K8sExporter != nil {
 		options.K8sExporterConfig = *cfg.K8sExporter
 		if options.K8sExporterConfig.HeartbeatPeriod.Duration < 1*time.Minute {
-			return fmt.Errorf("Invalid K8sExporter heartbeatPeriod, must be >= 1m")
+			return fmt.Errorf("invalid K8sExporter heartbeatPeriod, must be >= 1m")
 		}
 	}
 
 	if cfg.AggregationReportPeriod != nil {
 		options.ReportPeriod = cfg.AggregationReportPeriod.Duration
 		if options.ReportPeriod < 30*time.Second {
-			return fmt.Errorf("Invalid AggregationReportPeriod, must be >= 30s")
+			return fmt.Errorf("invalid AggregationReportPeriod, must be >= 30s")
 		}
 	}
 	if cfg.AggregationTimeWindow != nil {
 		options.TimeWindow = cfg.AggregationTimeWindow.Duration
 		if options.TimeWindow < 5*time.Minute {
-			return fmt.Errorf("Invalid AggregationTimeWindow, must be >= 5m")
+			return fmt.Errorf("invalid AggregationTimeWindow, must be >= 5m")
 		}
 	}
 	s.aggregator, err = aggregation.NewObsAggregator(options)
@@ -146,11 +141,11 @@ func (s *server) setup() error {
 
 func (s *server) applyAgentConfig(cfg *config.AgentConfig) error {
 	oldJobs := s.getNetworkCfg().Jobs
-	if clone, err := cfg.Clone(); err != nil {
+	clone, err := cfg.Clone()
+	if err != nil {
 		return err
-	} else {
-		s.currentAgentConfig = clone
 	}
+	s.currentAgentConfig = clone
 
 	networkCfg := s.getNetworkCfg()
 	if cfg.OutputDir != "" && s.writer == nil {
@@ -421,11 +416,11 @@ func (s *server) reloadConfig() {
 
 func (s *server) run() {
 	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt, os.Kill)
+	signal.Notify(interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	ticker := time.NewTicker(s.tickPeriod)
 
-	if port := s.getNetworkCfg().HttpPort; port != 0 {
+	if port := s.getNetworkCfg().HTTPPort; port != 0 {
 		s.log.Infof("provide metrics at ':%d/metrics'", port)
 		http.Handle("/metrics", promhttp.Handler())
 
@@ -445,13 +440,15 @@ func (s *server) run() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer watcher.Close()
 	if err := watcher.Add(path.Dir(s.agentConfigFile)); err != nil {
+		_ = watcher.Close()
 		log.Fatal(err)
 	}
 	if err := watcher.Add(path.Dir(s.clusterConfigFile)); err != nil {
+		_ = watcher.Close()
 		log.Fatal(err)
 	}
+	defer watcher.Close()
 
 	for {
 		select {
@@ -503,6 +500,8 @@ func (s *server) triggerJobs() {
 	defer s.lock.Unlock()
 
 	for _, job := range s.jobs {
-		job.Tick(s.nodeName, s.obsChan)
+		if err := job.Tick(s.nodeName, s.obsChan); err != nil {
+			s.log.Debug(err)
+		}
 	}
 }

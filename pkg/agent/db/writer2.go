@@ -8,7 +8,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"sort"
@@ -46,7 +45,7 @@ type writeFile struct {
 	filename string
 	end      time.Time
 	file     *os.File
-	idMap    *StringIdMap
+	idMap    *StringIDMap
 }
 
 var _ IntStringPersistor = &writeFile{}
@@ -65,8 +64,8 @@ func (wf *writeFile) Persist(obj *IntString) error {
 
 var _ nwpd.ObservationWriter = &obsWriter{}
 
-func NewObsWriter(log logrus.FieldLogger, directory, prefix string, retentionHours int) (*obsWriter, error) {
-	err := os.MkdirAll(directory, 0777)
+func NewObsWriter(log logrus.FieldLogger, directory, prefix string, retentionHours int) (nwpd.ObservationWriter, error) {
+	err := os.MkdirAll(directory, 0o777)
 	if err != nil {
 		return nil, err
 	}
@@ -164,24 +163,24 @@ func readRecord(r io.Reader) (byte, []byte, error) {
 		return 0, nil, fmt.Errorf("missing marker")
 	}
 
-	var len uint16
-	if err := binary.Read(r, binary.LittleEndian, &len); err != nil {
+	var length uint16
+	if err := binary.Read(r, binary.LittleEndian, &length); err != nil {
 		return 0, nil, err
 	}
-	value := make([]byte, len)
+	value := make([]byte, length)
 	if n, err := r.Read(value); err != nil {
 		return 0, nil, err
-	} else if n != int(len) {
-		return 0, nil, fmt.Errorf("incomplete block: %d != %d", n, int(len))
+	} else if n != int(length) {
+		return 0, nil, fmt.Errorf("incomplete block: %d != %d", n, int(length))
 	}
 	return marker[0], value, nil
 }
 
-func (w *obsWriter) loadStringIdMap(filename string) (*StringIdMap, error) {
-	f, err := os.OpenFile(filename, os.O_RDONLY, 0644)
+func (w *obsWriter) loadStringIDMap(filename string) (*StringIDMap, error) {
+	f, err := os.OpenFile(filename, os.O_RDONLY, 0o644)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return NewStringIdMap(), nil
+			return NewStringIDMap(), nil
 		}
 		return nil, err
 	}
@@ -190,7 +189,7 @@ func (w *obsWriter) loadStringIdMap(filename string) (*StringIdMap, error) {
 	for {
 		marker, value, err := readRecord(f)
 		if err != nil {
-			return nil, fmt.Errorf("reading StringIdMap failed: %s", err)
+			return nil, fmt.Errorf("reading StringIDMap failed: %s", err)
 		}
 		if value == nil {
 			break
@@ -199,7 +198,7 @@ func (w *obsWriter) loadStringIdMap(filename string) (*StringIdMap, error) {
 		case markerStringID:
 			raw := &nwpd.IntString{}
 			if err := proto.Unmarshal(value, raw); err != nil {
-				return nil, fmt.Errorf("reading StringIdMap from file %s failed: %s", filename, err)
+				return nil, fmt.Errorf("reading StringIDMap from file %s failed: %s", filename, err)
 			}
 			obj := NewVarint2String(raw.Key, raw.Value)
 			objects = append(objects, obj)
@@ -211,7 +210,7 @@ func (w *obsWriter) loadStringIdMap(filename string) (*StringIdMap, error) {
 			return nil, fmt.Errorf("invalid file format")
 		}
 	}
-	idMap := NewStringIdMapFromData(objects)
+	idMap := NewStringIDMapFromData(objects)
 	return idMap, nil
 }
 
@@ -235,11 +234,11 @@ func (w *obsWriter) getFile() (*writeFile, error) {
 		next := now.Add(61 * time.Minute)
 		nextUTC := startOfHourUTC(next)
 		filename := fmt.Sprintf("%s/%s-%s.records", w.directory, w.prefix, currentUTC.Format("2006-01-02-15"))
-		idMap, err := w.loadStringIdMap(filename)
+		idMap, err := w.loadStringIDMap(filename)
 		if err != nil {
 			return nil, err
 		}
-		f, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+		f, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 		if err != nil {
 			return nil, err
 		}
@@ -258,12 +257,6 @@ func (w *obsWriter) getFile() (*writeFile, error) {
 	return file, nil
 }
 
-func (w *obsWriter) sync() {
-	if f, ok := w.currentFile.Load().(*writeFile); ok {
-		_ = f.file.Sync()
-	}
-}
-
 func (w *obsWriter) cleanOldFiles() {
 	hours := w.retentionHours
 	if hours <= 0 {
@@ -271,13 +264,13 @@ func (w *obsWriter) cleanOldFiles() {
 	}
 	limit := time.Now().Add(-time.Duration(hours) * time.Hour)
 	limitUTC := startOfHourUTC(limit)
-	files, err := ioutil.ReadDir(w.directory)
+	files, err := os.ReadDir(w.directory)
 	if err != nil {
 		w.log.Warnf("cannot read directory %s: %s", w.directory, err)
 		return
 	}
 	for _, f := range files {
-		if !f.IsDir() && strings.HasPrefix(f.Name(), w.prefix) && f.ModTime().Before(limitUTC) {
+		if !f.IsDir() && strings.HasPrefix(f.Name(), w.prefix) && isBefore(f, limitUTC) {
 			filename := path.Join(w.directory, f.Name())
 			if err := os.Remove(filename); err != nil {
 				w.log.Warnf("cannot delete file %s: %s", filename, err)
@@ -286,6 +279,14 @@ func (w *obsWriter) cleanOldFiles() {
 			}
 		}
 	}
+}
+
+func isBefore(entry os.DirEntry, limitUTC time.Time) bool {
+	fileInfo, err := entry.Info()
+	if err != nil {
+		return false
+	}
+	return fileInfo.ModTime().Before(limitUTC)
 }
 
 type filterFunc func(key string) bool
@@ -365,29 +366,29 @@ func startOfHourUTC(t time.Time) time.Time {
 	return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, t.Location())
 }
 
-// GetRecordFiles gets all observation record files
+// GetRecordFiles gets all observation record files.
 func GetRecordFiles(directory, prefix string, start, end time.Time) ([]string, error) {
 	startHour := startOfHourUTC(start)
 	endHour := startOfHourUTC(end)
 	var files []string
 	for hour := startHour; !hour.After(endHour); hour = hour.Add(time.Hour) {
 		filename := fmt.Sprintf("%s/%s-%s.records", directory, prefix, hour.Format("2006-01-02-15"))
-		if stat, err := os.Stat(filename); err != nil {
+		stat, err := os.Stat(filename)
+		if err != nil {
 			if os.IsNotExist(err) {
 				continue
 			}
 			return nil, err
-		} else {
-			if stat.IsDir() {
-				return nil, fmt.Errorf("%s is not a file", filename)
-			}
-			files = append(files, filename)
 		}
+		if stat.IsDir() {
+			return nil, fmt.Errorf("%s is not a file", filename)
+		}
+		files = append(files, filename)
 	}
 	return files, nil
 }
 
-// GetAnyRecordFiles gets all observation record files
+// GetAnyRecordFiles gets all observation record files.
 func GetAnyRecordFiles(directory string, subdir bool) ([]string, error) {
 	entries, err := os.ReadDir(directory)
 	if err != nil {
@@ -417,12 +418,12 @@ func GetAnyRecordFiles(directory string, subdir bool) ([]string, error) {
 type ObservationVisitor func(obs *nwpd.Observation) error
 
 func IterateRecordFile(filename string, visitor ObservationVisitor) error {
-	f, err := os.OpenFile(filename, os.O_RDONLY, 0644)
+	f, err := os.OpenFile(filename, os.O_RDONLY, 0o644)
 	if err != nil {
 		return err
 	}
 
-	idMap := NewStringIdMap()
+	idMap := NewStringIDMap()
 	for {
 		marker, value, err := readRecord(f)
 		if err != nil {
@@ -435,11 +436,11 @@ func IterateRecordFile(filename string, visitor ObservationVisitor) error {
 		case markerStringID:
 			raw := &nwpd.IntString{}
 			if err := proto.Unmarshal(value, raw); err != nil {
-				return fmt.Errorf("error on reading StringIdMap: %s", err)
+				return fmt.Errorf("error on reading StringIDMap: %s", err)
 			}
 			obj := NewVarint2String(raw.Key, raw.Value)
 			if err := idMap.Append(obj); err != nil {
-				return fmt.Errorf("error on appending to StringIdMap: %s", err)
+				return fmt.Errorf("error on appending to StringIDMap: %s", err)
 			}
 		case markerObservation:
 			intobs, err := IntObsFromBytes(value)

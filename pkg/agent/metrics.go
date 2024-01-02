@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/gardener/network-problem-detector/pkg/common"
+
 	"github.com/prometheus/client_golang/prometheus"
 )
 

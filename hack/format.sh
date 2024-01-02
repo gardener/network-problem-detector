@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # SPDX-FileCopyrightText: 2021 SAP SE or an SAP affiliate company and Gardener contributors
 #
@@ -8,4 +8,4 @@ set -e
 
 echo "> Format"
 
-goimports -l -w $@
+${GOIMPORTS:-goimports} -l -w $@

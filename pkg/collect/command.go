@@ -9,22 +9,20 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"sync"
 
-	"golang.org/x/sync/semaphore"
-
 	"github.com/gardener/network-problem-detector/pkg/agent/db"
 	"github.com/gardener/network-problem-detector/pkg/common"
-	"go.uber.org/atomic"
-	corev1 "k8s.io/api/core/v1"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"go.uber.org/atomic"
+	"golang.org/x/sync/semaphore"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -53,10 +51,10 @@ func CreateCollectCmd() *cobra.Command {
 	return cmd
 }
 
-func (cc *collectCommand) collect(cmd *cobra.Command, args []string) error {
+func (cc *collectCommand) collect(_ *cobra.Command, _ []string) error {
 	log := logrus.WithField("cmd", "collect")
 
-	if err := os.MkdirAll(cc.directory, 0755); err != nil {
+	if err := os.MkdirAll(cc.directory, 0o755); err != nil {
 		return err
 	}
 
@@ -72,7 +70,7 @@ func (cc *collectCommand) collect(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("listing pods failed: %w", err)
 	}
 
-	dir, err := ioutil.TempDir("", "nwpd-collect-")
+	dir, err := os.MkdirTemp("", "nwpd-collect-")
 	if err != nil {
 		return fmt.Errorf("creating temporary directory failed: %w", err)
 	}
@@ -115,7 +113,7 @@ func (cc *collectCommand) loadFrom(log logrus.FieldLogger, dir string, pod *core
 	if cc.Kubeconfig != "" {
 		kubeconfigOpt = " --kubeconfig=" + cc.Kubeconfig
 	}
-	if err := os.Mkdir(dir, 0755); err != nil {
+	if err := os.Mkdir(dir, 0o755); err != nil {
 		log.Errorf("mkdir tmpsubdir failed: %s", err)
 		cc.failedNodes.Inc()
 		return
@@ -144,7 +142,7 @@ func (cc *collectCommand) loadFrom(log logrus.FieldLogger, dir string, pod *core
 	}
 
 	outdir := path.Join(cc.directory, pod.Spec.NodeName)
-	if err := os.MkdirAll(outdir, 0755); err != nil {
+	if err := os.MkdirAll(outdir, 0o755); err != nil {
 		log.Errorf("mkdir failed: %s", err)
 		cc.failedNodes.Inc()
 		return
@@ -168,7 +166,6 @@ func (cc *collectCommand) loadFrom(log logrus.FieldLogger, dir string, pod *core
 		}
 		countBytes += int(n)
 		countFiles++
-
 	}
 	log.Infof("Loaded %d bytes from %d files", countBytes, countFiles)
 	cc.totalBytes.Add(int64(countBytes))

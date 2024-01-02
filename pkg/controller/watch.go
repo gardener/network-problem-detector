@@ -15,18 +15,18 @@ import (
 	"github.com/gardener/network-problem-detector/pkg/common"
 	"github.com/gardener/network-problem-detector/pkg/common/config"
 	"github.com/gardener/network-problem-detector/pkg/deploy"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/sirupsen/logrus"
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
 	informerscorev1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/yaml"
 )
 
@@ -40,7 +40,7 @@ type nodePodController struct {
 	knownPodIPs               atomic.Value
 }
 
-func newNodePodController(log logrus.FieldLogger, clientset kubernetes.Interface, resyncPeriod time.Duration) *nodePodController {
+func newNodePodController(log logrus.FieldLogger, clientset kubernetes.Interface, resyncPeriod time.Duration) (*nodePodController, error) {
 	informerFactory := informers.NewSharedInformerFactory(clientset, resyncPeriod)
 	informerFactoryKubeSystem := informers.NewSharedInformerFactoryWithOptions(clientset,
 		resyncPeriod, informers.WithNamespace(common.NamespaceKubeSystem))
@@ -52,10 +52,14 @@ func newNodePodController(log logrus.FieldLogger, clientset kubernetes.Interface
 		podsInformer:              informerFactoryKubeSystem.Core().V1().Pods(),
 	}
 
-	c.nodesInformer.Informer().AddEventHandler(c)
-	c.podsInformer.Informer().AddEventHandler(c)
+	if _, err := c.nodesInformer.Informer().AddEventHandler(c); err != nil {
+		return nil, err
+	}
+	if _, err := c.podsInformer.Informer().AddEventHandler(c); err != nil {
+		return nil, err
+	}
 
-	return c
+	return c, nil
 }
 
 func (c *nodePodController) HasUpdates() bool {
@@ -84,12 +88,12 @@ func (c *nodePodController) ListAgentPods() ([]*corev1.Pod, error) {
 func (c *nodePodController) Start(stopCh chan struct{}) error {
 	c.informerFactory.Start(stopCh)
 	if !cache.WaitForCacheSync(stopCh, c.nodesInformer.Informer().HasSynced) {
-		return fmt.Errorf("Failed to sync")
+		return fmt.Errorf("failed to sync")
 	}
 
 	c.informerFactoryKubeSystem.Start(stopCh)
 	if !cache.WaitForCacheSync(stopCh, c.podsInformer.Informer().HasSynced) {
-		return fmt.Errorf("Failed to sync")
+		return fmt.Errorf("failed to sync")
 	}
 
 	return nil
@@ -106,7 +110,7 @@ func (c *nodePodController) OnAdd(obj interface{}, _ bool) {
 	}
 }
 
-func (c *nodePodController) OnUpdate(oldObj, newObj interface{}) {
+func (c *nodePodController) OnUpdate(_, newObj interface{}) {
 	if c.isRelevant(newObj) {
 		if newPod, ok := newObj.(*corev1.Pod); ok {
 			if newPod.Status.Phase == corev1.PodRunning {
@@ -148,14 +152,16 @@ type watch struct {
 	lastLoop atomic.Int64
 }
 
-var _ manager.Runnable = &watch{}
-var _ manager.LeaderElectionRunnable = &watch{}
+var (
+	_ manager.Runnable               = &watch{}
+	_ manager.LeaderElectionRunnable = &watch{}
+)
 
 func (w *watch) NeedLeaderElection() bool {
 	return true
 }
 
-func (w *watch) healthzCheck(req *http.Request) error {
+func (w *watch) healthzCheck(_ *http.Request) error {
 	if w.started.Load() && time.Now().UnixMilli()-w.lastLoop.Load() > 30000 {
 		return fmt.Errorf("no successful loop since %s", time.UnixMilli(w.lastLoop.Load()))
 	}
@@ -166,7 +172,10 @@ func (w *watch) Start(ctx context.Context) error {
 	w.lastLoop.Store(time.Now().UnixMilli())
 	w.started.Store(true)
 
-	controller := newNodePodController(w.log, w.clientSet, 24*time.Hour)
+	controller, err := newNodePodController(w.log, w.clientSet, 24*time.Hour)
+	if err != nil {
+		return err
+	}
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 	if err := controller.Start(stopCh); err != nil {
@@ -210,7 +219,7 @@ func (w *watch) Start(ctx context.Context) error {
 			w.log.Errorf("loading service %s/%s failed: %s", common.NamespaceDefault, common.NameKubernetesService, err)
 			continue
 		}
-		internalApiServer := &config.Endpoint{
+		internalAPIServer := &config.Endpoint{
 			Hostname: common.DomainNameKubernetesService,
 			IP:       svc.Spec.ClusterIP,
 			Port:     int(svc.Spec.Ports[0].Port),
@@ -242,7 +251,7 @@ func (w *watch) Start(ctx context.Context) error {
 			w.log.Errorf("unmarshal configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameClusterConfigMap, err)
 			continue
 		}
-		cfg, err = deploy.BuildClusterConfig(nodes, pods, internalApiServer, apiServer)
+		cfg, err = deploy.BuildClusterConfig(nodes, pods, internalAPIServer, apiServer)
 		if err != nil {
 			w.log.Errorf("building cluster config failed: %w", err)
 			continue
@@ -272,10 +281,10 @@ func (w *watch) apiServerAddressChanged(shootInfo *corev1.ConfigMap, apiServer *
 	if shootInfo == nil {
 		return true
 	}
-	newApiServer, err := deploy.GetAPIServerEndpointFromShootInfo(shootInfo)
+	newAPIServer, err := deploy.GetAPIServerEndpointFromShootInfo(shootInfo)
 	if err != nil {
 		w.log.Errorf("failed to determine apiserver endpoint from shoot info: %w", err)
 		return true
 	}
-	return *newApiServer != *apiServer
+	return *newAPIServer != *apiServer
 }

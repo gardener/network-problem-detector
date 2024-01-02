@@ -106,7 +106,7 @@ func CreateAggregateCmd() *cobra.Command {
 	return cmd
 }
 
-func (ac *aggrCommand) aggr(cmd *cobra.Command, args []string) error {
+func (ac *aggrCommand) aggr(_ *cobra.Command, _ []string) error {
 	filenames, err := db.GetAnyRecordFiles(ac.directory, true)
 	if err != nil {
 		return err
@@ -136,7 +136,7 @@ func (ac *aggrCommand) aggr(cmd *cobra.Command, args []string) error {
 		}
 	}
 	if startMillis >= endMillis {
-		return fmt.Errorf("Invalid time range")
+		return fmt.Errorf("invalid time range")
 	}
 
 	fmt.Printf("%s - %s with %d buckets\n",
@@ -254,7 +254,7 @@ func (ac *aggrCommand) aggr(cmd *cobra.Command, args []string) error {
 		}
 	}
 	if ac.svgOutput != "" {
-		err = ac.writeSVGFile(sortedJobs, sortedSrcNodes, sortedDestNodes, startMillis/1000, bucketMillis, data)
+		err = ac.writeSVGFile(sortedJobs, sortedSrcNodes, sortedDestNodes, data)
 		if err != nil {
 			return err
 		}
@@ -280,13 +280,14 @@ func (ac *aggrCommand) printJobResultLine(src, dest string, jr *results) {
 	var sb strings.Builder
 	for i := 0; i < ac.buckets; i++ {
 		bd := jr.bucketsData[i]
-		if bd == nil || (bd.okCount == 0 && bd.failedCount == 0) {
+		switch {
+		case bd == nil || (bd.okCount == 0 && bd.failedCount == 0):
 			sb.WriteString(" ")
-		} else if bd.failedCount == 0 {
+		case bd.failedCount == 0:
 			sb.WriteString(".")
-		} else if bd.okCount < bd.failedCount {
+		case bd.okCount < bd.failedCount:
 			sb.WriteString("E")
-		} else {
+		default:
 			sb.WriteString("e")
 		}
 	}
@@ -304,7 +305,7 @@ func (ac *aggrCommand) printJobResultLine(src, dest string, jr *results) {
 }
 
 func (ac *aggrCommand) writeOpenMetricsFile(jobs, srcNodes, destNodes []string, startUnixSecs, bucketMillis int64, data map[edge]*edgeData) error {
-	f, err := os.OpenFile(ac.openMetricsOutput, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0755)
+	f, err := os.OpenFile(ac.openMetricsOutput, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o755)
 	if err != nil {
 		return err
 	}
@@ -360,7 +361,8 @@ func (ac *aggrCommand) writeOpenMetricsFile(jobs, srcNodes, destNodes []string, 
 
 func (ac *aggrCommand) writeMetrics(f *os.File, name, metricsType, description string,
 	jobs, srcNodes, destNodes []string, data map[edge]*edgeData, startUnixSecs, bucketMillis int64,
-	linePrinter func(w io.StringWriter, name, src, dest, jobId string, bd *bucketData, t int64) error) error {
+	linePrinter func(w io.StringWriter, name, src, dest, jobId string, bd *bucketData, t int64) error,
+) error {
 	var err error
 	_, err = f.WriteString(fmt.Sprintf("# HELP %s %s\n", name, description))
 	if err != nil {
@@ -398,8 +400,8 @@ func (ac *aggrCommand) writeMetrics(f *os.File, name, metricsType, description s
 	return nil
 }
 
-func (ac *aggrCommand) writeSVGFile(jobs, srcNodes, destNodes []string, startUnixSecs, bucketMillis int64, data map[edge]*edgeData) error {
-	f, err := os.OpenFile(ac.svgOutput, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0755)
+func (ac *aggrCommand) writeSVGFile(jobs, srcNodes, destNodes []string, data map[edge]*edgeData) error {
+	f, err := os.OpenFile(ac.svgOutput, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o755)
 	if err != nil {
 		return err
 	}
@@ -471,9 +473,9 @@ func (ac *aggrCommand) writeSVGFile(jobs, srcNodes, destNodes []string, startUni
 					canvas.Rect(x, y0+5, 1, 4, "fill: red; fill-opacity: .85;")
 					label := strings.Join(badJobs.ToSortedArray(), ", ")
 					text := fmt.Sprintf(`<text class="hover" x="%d" y="%d">`, x, y0+8)
-					canvas.Writer.(io.StringWriter).WriteString(text)
+					_, _ = canvas.Writer.(io.StringWriter).WriteString(text)
 					xml.Escape(canvas.Writer, []byte(label))
-					canvas.Writer.(io.StringWriter).WriteString("</text>")
+					_, _ = canvas.Writer.(io.StringWriter).WriteString("</text>")
 					canvas.Gend()
 				}
 			}
@@ -485,7 +487,7 @@ func (ac *aggrCommand) writeSVGFile(jobs, srcNodes, destNodes []string, startUni
 	return err
 }
 
-// parseTimestamp parses a timestamp and returns time in Unix mills
+// parseTimestamp parses a timestamp and returns time in Unix millis.
 func parseTimestamp(value string) (int64, error) {
 	location := time.Now().Location()
 	input := value

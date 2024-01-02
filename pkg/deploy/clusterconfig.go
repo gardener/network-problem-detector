@@ -12,11 +12,13 @@ import (
 
 	"github.com/gardener/network-problem-detector/pkg/common"
 	"github.com/gardener/network-problem-detector/pkg/common/config"
+
 	corev1 "k8s.io/api/core/v1"
 )
 
 func BuildClusterConfig(nodes []*corev1.Node, agentPods []*corev1.Pod,
-	internalKubeAPIServer, kubeAPIServer *config.Endpoint) (*config.ClusterConfig, error) {
+	internalKubeAPIServer, kubeAPIServer *config.Endpoint,
+) (*config.ClusterConfig, error) {
 	clusterConfig := &config.ClusterConfig{
 		InternalKubeAPIServer: internalKubeAPIServer,
 		KubeAPIServer:         kubeAPIServer,
@@ -52,7 +54,7 @@ func BuildClusterConfig(nodes []*corev1.Node, agentPods []*corev1.Pod,
 			Nodename: p.Spec.NodeName,
 			Podname:  p.Name,
 			PodIP:    p.Status.PodIP,
-			Port:     common.PodNetPodHttpPort,
+			Port:     common.PodNetPodHTTPPort,
 		})
 	}
 

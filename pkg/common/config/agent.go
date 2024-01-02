@@ -46,8 +46,8 @@ func (c *AgentConfig) Clone() (*AgentConfig, error) {
 type NetworkConfig struct {
 	// DataFilePrefix is the prefix for observation data files.
 	DataFilePrefix string `json:"dataFilePrefix,omitempty"`
-	// HttpPort is the port of the http server.
-	HttpPort int `json:"httpPort,omitempty"`
+	// HTTPPort is the port of the http server.
+	HTTPPort int `json:"httpPort,omitempty"`
 	// Jobs are the jobs to execute.
 	Jobs []Job `json:"jobs,omitempty"`
 	// DefaultPeriod is the period used for a new job if it doesn't specify the period.
