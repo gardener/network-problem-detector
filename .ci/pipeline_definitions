@@ -60,3 +60,7 @@ network-problem-detector:
               slack_cfg_name: 'scp_workspace'
         component_descriptor:
           ocm_repository: europe-docker.pkg.dev/gardener-project/releases
+        publish:
+          dockerimages:
+            network-problem-detector:
+              image: europe-docker.pkg.dev/gardener-project/releases/gardener/network-problem-detector
