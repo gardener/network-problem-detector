@@ -1,6 +1,6 @@
 # Network Problem Detector
 
-[![reuse compliant](https://reuse.software/badge/reuse-compliant.svg)](https://reuse.software/)
+[![REUSE status](https://api.reuse.software/badge/github.com/gardener/network-problem-detector)](https://api.reuse.software/info/github.com/gardener/network-problem-detector)
 
 The Network Problem Detector performs network-related periodic checks between all nodes of a Kubernetes cluster,
 to its Kube API server and/or external endpoints. Checks are performed using TCP connections, HTTPS GET requests, DNS lookups (UDP), or
