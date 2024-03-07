@@ -222,10 +222,10 @@ func (dc *deployCommand) deleteDaemonSet(log logrus.FieldLogger, name string) er
 		return err4
 	}
 
-	return dc.deletePodSecurityPolicy(log)
+	return dc.deleteSecurityObjects(log)
 }
 
-func (dc *deployCommand) deletePodSecurityPolicy(log logrus.FieldLogger) error {
+func (dc *deployCommand) deleteSecurityObjects(log logrus.FieldLogger) error {
 	ctx := context.Background()
 	_, objects, err := dc.agentDeployConfig.buildSecurityObjects()
 	if err != nil {

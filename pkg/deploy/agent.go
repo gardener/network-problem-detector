@@ -15,12 +15,11 @@ import (
 	"github.com/spf13/pflag"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/yaml"
 
 	"github.com/gardener/network-problem-detector/pkg/common"
@@ -42,8 +41,6 @@ type AgentDeployConfig struct {
 	DefaultSeccompProfileEnabled bool
 	// PingEnabled if ping checks are enabled (needs NET_ADMIN capabilities).
 	PingEnabled bool
-	// PodSecurityPolicyEnabled if psp should be deployed.
-	PodSecurityPolicyEnabled bool
 	// IgnoreAPIServerEndpoint if the check of the API server endpoint should be ignored.
 	IgnoreAPIServerEndpoint bool
 	// PriorityClassName is the priority class name used for the daemon sets.
@@ -100,7 +97,6 @@ func (ac *AgentDeployConfig) AddOptionFlags(flags *pflag.FlagSet) {
 	flags.DurationVar(&ac.DefaultPeriod, "default-period", 5*time.Second, "default period for jobs")
 	flags.BoolVar(&ac.DefaultSeccompProfileEnabled, "default-seccomp-profile", false, "if seccomp profile should be defaulted to RuntimeDefault for network-problem-detector pods")
 	flags.BoolVar(&ac.PingEnabled, "enable-ping", false, "if ICMP pings should be used in addition to TCP connection checks")
-	flags.BoolVar(&ac.PodSecurityPolicyEnabled, "enable-psp", true, "if pod security policy should be deployed")
 	flags.BoolVar(&ac.K8sExporterEnabled, "enable-k8s-exporter", false, "if node conditions and events should be updated/created")
 	flags.DurationVar(&ac.K8sExporterHeartbeat, "k8s-exporter-heartbeat", 3*time.Minute, "period for updating the node conditions by the K8s exporter")
 	flags.Float64Var(&ac.K8sExporterMinFailingPeerNodeShare, "k8s-exporter-min-failing-peer-node-share", 0.2, "if > 0, report node conditions only if checks for minimum share of destination peer nodes are failing. Valid range: [0.0,1.0]")
@@ -175,7 +171,7 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 	}
 	var automountServiceAccountToken *bool
 	if !ac.DisableAutomountServiceAccountTokenForAgents {
-		automountServiceAccountToken = pointer.Bool(ac.K8sExporterEnabled)
+		automountServiceAccountToken = ptr.To(ac.K8sExporterEnabled)
 	}
 
 	typ := corev1.HostPathDirectoryOrCreate
@@ -185,7 +181,7 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 			Namespace: common.NamespaceKubeSystem,
 		},
 		Spec: appsv1.DaemonSetSpec{
-			RevisionHistoryLimit: pointer.Int32(5),
+			RevisionHistoryLimit: ptr.To[int32](5),
 			Selector:             &metav1.LabelSelector{MatchLabels: labels},
 			UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
 				Type: appsv1.RollingUpdateDaemonSetStrategyType,
@@ -201,7 +197,7 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 				Spec: corev1.PodSpec{
 					HostNetwork:                   hostNetwork,
 					PriorityClassName:             ac.PriorityClassName,
-					TerminationGracePeriodSeconds: pointer.Int64(0),
+					TerminationGracePeriodSeconds: ptr.To[int64](0),
 					Tolerations: []corev1.Toleration{
 						{
 							Effect:   corev1.TaintEffectNoSchedule,
@@ -395,9 +391,9 @@ func (ac *AgentDeployConfig) buildControllerDeployment() (*appsv1.Deployment, *r
 			Namespace: common.NamespaceKubeSystem,
 		},
 		Spec: appsv1.DeploymentSpec{
-			RevisionHistoryLimit: pointer.Int32(5),
+			RevisionHistoryLimit: ptr.To[int32](5),
 			Selector:             &metav1.LabelSelector{MatchLabels: labels},
-			Replicas:             pointer.Int32(1),
+			Replicas:             ptr.To[int32](1),
 			Strategy: appsv1.DeploymentStrategy{
 				Type: appsv1.RecreateDeploymentStrategyType,
 			},
@@ -407,8 +403,8 @@ func (ac *AgentDeployConfig) buildControllerDeployment() (*appsv1.Deployment, *r
 				},
 				Spec: corev1.PodSpec{
 					PriorityClassName:             ac.PriorityClassName,
-					TerminationGracePeriodSeconds: pointer.Int64(0),
-					AutomountServiceAccountToken:  pointer.Bool(true),
+					TerminationGracePeriodSeconds: ptr.To[int64](0),
+					AutomountServiceAccountToken:  ptr.To(true),
 					ServiceAccountName:            serviceAccountName,
 					Containers: []corev1.Container{{
 						Name:            name,
@@ -426,8 +422,8 @@ func (ac *AgentDeployConfig) buildControllerDeployment() (*appsv1.Deployment, *r
 							},
 						},
 						SecurityContext: &corev1.SecurityContext{
-							RunAsUser:  pointer.Int64(65534),
-							RunAsGroup: pointer.Int64(65534),
+							RunAsUser:  ptr.To[int64](65534),
+							RunAsGroup: ptr.To[int64](65534),
 						},
 					}},
 				},
@@ -524,7 +520,7 @@ func (ac *AgentDeployConfig) buildControllerDeployment() (*appsv1.Deployment, *r
 			Name:      serviceAccountName,
 			Namespace: common.NamespaceKubeSystem,
 		},
-		AutomountServiceAccountToken: pointer.Bool(false),
+		AutomountServiceAccountToken: ptr.To(false),
 	}
 
 	return deployment, clusterRole, clusterRoleBinding, role, roleBinding, serviceAccount, nil
@@ -551,12 +547,7 @@ func (ac *AgentDeployConfig) buildK8sExporterClusterRoleRules() []rbacv1.PolicyR
 }
 
 func (ac *AgentDeployConfig) buildSecurityObjects() (serviceAccountName string, objects []Object, retErr error) {
-	if ac.PodSecurityPolicyEnabled {
-		serviceAccountName = common.ApplicationName
-		cr, crb, sa, psp, err := ac.buildPodSecurityPolicy(serviceAccountName)
-		retErr = err
-		objects = append(objects, cr, crb, sa, psp)
-	} else if ac.K8sExporterEnabled {
+	if ac.K8sExporterEnabled {
 		serviceAccountName = common.ApplicationName
 		cr, crb, sa, err := ac.buildK8sExporterClusterRole(serviceAccountName)
 		retErr = err
@@ -600,79 +591,10 @@ func (ac *AgentDeployConfig) createClusterRuleAndServiceAccount(serviceAccountNa
 			Name:      serviceAccountName,
 			Namespace: common.NamespaceKubeSystem,
 		},
-		AutomountServiceAccountToken: pointer.Bool(false),
+		AutomountServiceAccountToken: ptr.To(false),
 	}
 
 	return clusterRole, clusterRoleBinding, serviceAccount, nil
-}
-
-func (ac *AgentDeployConfig) buildPodSecurityPolicy(serviceAccountName string) (*rbacv1.ClusterRole, *rbacv1.ClusterRoleBinding, *corev1.ServiceAccount, *policyv1beta1.PodSecurityPolicy, error) {
-	roleName := "gardener.cloud:psp:kube-system:" + common.ApplicationName
-	resourceName := "gardener.kube-system." + common.ApplicationName
-	rules := []rbacv1.PolicyRule{
-		{
-			APIGroups:       []string{"policy"},
-			Verbs:           []string{"use"},
-			Resources:       []string{"podsecuritypolicies"},
-			ResourceNames:   []string{resourceName},
-			NonResourceURLs: nil,
-		},
-	}
-	if ac.K8sExporterEnabled {
-		rules = append(rules, ac.buildK8sExporterClusterRoleRules()...)
-	}
-	cr, crb, sa, err := ac.createClusterRuleAndServiceAccount(serviceAccountName, roleName, rules)
-	if err != nil {
-		return cr, crb, sa, nil, err
-	}
-
-	var allowedCapabilities []corev1.Capability
-	if ac.PingEnabled {
-		allowedCapabilities = []corev1.Capability{"NET_ADMIN"}
-	}
-	psp := &policyv1beta1.PodSecurityPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{
-				"seccomp.security.alpha.kubernetes.io/defaultProfileName":  "runtime/default",
-				"seccomp.security.alpha.kubernetes.io/allowedProfileNames": "runtime/default",
-			},
-			Name: resourceName,
-		},
-		Spec: policyv1beta1.PodSecurityPolicySpec{
-			Privileged:               false,
-			DefaultAddCapabilities:   nil,
-			RequiredDropCapabilities: nil,
-			AllowedCapabilities:      allowedCapabilities,
-			Volumes:                  []policyv1beta1.FSType{policyv1beta1.Secret, policyv1beta1.ConfigMap, policyv1beta1.HostPath},
-			HostNetwork:              true,
-			HostPorts: []policyv1beta1.HostPortRange{
-				{Min: common.HostNetPodHTTPPort, Max: common.HostNetPodHTTPPort},
-			},
-			HostPID: false,
-			HostIPC: false,
-			SELinux: policyv1beta1.SELinuxStrategyOptions{
-				Rule: policyv1beta1.SELinuxStrategyRunAsAny,
-			},
-			RunAsUser: policyv1beta1.RunAsUserStrategyOptions{
-				Rule: policyv1beta1.RunAsUserStrategyRunAsAny,
-			},
-			RunAsGroup: nil,
-			SupplementalGroups: policyv1beta1.SupplementalGroupsStrategyOptions{
-				Rule: policyv1beta1.SupplementalGroupsStrategyRunAsAny,
-			},
-			FSGroup: policyv1beta1.FSGroupStrategyOptions{
-				Rule: policyv1beta1.FSGroupStrategyRunAsAny,
-			},
-			ReadOnlyRootFilesystem:          false,
-			DefaultAllowPrivilegeEscalation: nil,
-			AllowPrivilegeEscalation:        pointer.Bool(true),
-			AllowedHostPaths: []policyv1beta1.AllowedHostPath{
-				{PathPrefix: common.PathLogDir, ReadOnly: false},
-			},
-		},
-	}
-
-	return cr, crb, sa, psp, nil
 }
 
 func (ac *AgentDeployConfig) BuildAgentConfig() (*config.AgentConfig, error) {
