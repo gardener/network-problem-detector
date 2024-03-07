@@ -20,10 +20,9 @@ var _ = Describe("Add default seccomp profile when enabled", func() {
 
 	BeforeEach(func() {
 		deployConfig = &deploy.AgentDeployConfig{
-			Image:                    "image:tag",
-			DefaultPeriod:            16 * time.Second,
-			PodSecurityPolicyEnabled: true,
-			PingEnabled:              false,
+			Image:         "image:tag",
+			DefaultPeriod: 16 * time.Second,
+			PingEnabled:   false,
 		}
 	})
 

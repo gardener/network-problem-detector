@@ -11,7 +11,6 @@ import (
 	"github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,8 +57,6 @@ func genericCreateOrUpdate(ctx context.Context, clientset *kubernetes.Clientset,
 		return createOrUpdate(ctx, "role", clientset.RbacV1().Roles(object.GetNamespace()), v)
 	case *rbacv1.RoleBinding:
 		return createOrUpdate(ctx, "rolebinding", clientset.RbacV1().RoleBindings(object.GetNamespace()), v)
-	case *policyv1beta1.PodSecurityPolicy:
-		return createOrUpdate(ctx, "podsecuritypolicy", clientset.PolicyV1beta1().PodSecurityPolicies(), v)
 	default:
 		return nil, fmt.Errorf("unsupported type: %T", v)
 	}
@@ -105,8 +102,6 @@ func genericDelete(ctx context.Context, clientset *kubernetes.Clientset, object 
 		itf = clientset.RbacV1().Roles(object.GetNamespace())
 	case *rbacv1.RoleBinding:
 		itf = clientset.RbacV1().RoleBindings(object.GetNamespace())
-	case *policyv1beta1.PodSecurityPolicy:
-		itf = clientset.PolicyV1beta1().PodSecurityPolicies()
 	default:
 		return fmt.Errorf("unsupported type: %T", v)
 	}
@@ -135,8 +130,6 @@ func typename(object Object) (string, bool) {
 		return "role", true
 	case *rbacv1.RoleBinding:
 		return "role", true
-	case *policyv1beta1.PodSecurityPolicy:
-		return "podsecuritypolicy", false
 	default:
 		return fmt.Sprintf("unsupported type: %T", v), false
 	}
