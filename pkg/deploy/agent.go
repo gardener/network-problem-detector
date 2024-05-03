@@ -152,7 +152,6 @@ func (ac *AgentDeployConfig) getNetworkConfig(hostnetwork bool) (name string, po
 func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwork bool) (*appsv1.DaemonSet, error) {
 	var (
 		requestCPU, _          = resource.ParseQuantity("10m")
-		limitCPU, _            = resource.ParseQuantity("50m")
 		requestMemory, _       = resource.ParseQuantity("32Mi")
 		limitMemory, _         = resource.ParseQuantity("64Mi")
 		defaultMode      int32 = 0o444
@@ -273,7 +272,6 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 								corev1.ResourceMemory: requestMemory,
 							},
 							Limits: corev1.ResourceList{
-								corev1.ResourceCPU:    limitCPU,
 								corev1.ResourceMemory: limitMemory,
 							},
 						},
