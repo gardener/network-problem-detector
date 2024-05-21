@@ -23,7 +23,7 @@ type Object interface {
 	metav1.Object
 }
 
-type buildObject[T Object] func() (T, error)
+type buildObject[T Object] func(log logrus.FieldLogger) (T, error)
 
 type ObjectInterface[T Object] interface {
 	Create(ctx context.Context, obj T, opts metav1.CreateOptions) (T, error)

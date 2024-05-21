@@ -251,7 +251,7 @@ func (w *watch) Start(ctx context.Context) error {
 			w.log.Errorf("unmarshal configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameClusterConfigMap, err)
 			continue
 		}
-		cfg, err = deploy.BuildClusterConfig(nodes, pods, internalAPIServer, apiServer)
+		cfg, err = deploy.BuildClusterConfig(w.log, nodes, pods, internalAPIServer, apiServer)
 		if err != nil {
 			w.log.Errorf("building cluster config failed: %w", err)
 			continue

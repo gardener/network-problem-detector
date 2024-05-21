@@ -155,11 +155,11 @@ func (dc *deployCommand) deployAgent(log logrus.FieldLogger, hostnetwork bool,
 	if err != nil {
 		return fmt.Errorf("error building service[%t]: %s", hostnetwork, err)
 	}
-	acm, err := buildAgentConfigMap()
+	acm, err := buildAgentConfigMap(log)
 	if err != nil {
 		return fmt.Errorf("error building config map: %s", err)
 	}
-	ccm, err := buildClusterConfigMap()
+	ccm, err := buildClusterConfigMap(log)
 	if err != nil {
 		return fmt.Errorf("error building config map: %s", err)
 	}
@@ -239,7 +239,7 @@ func (dc *deployCommand) deleteSecurityObjects(log logrus.FieldLogger) error {
 	return nil
 }
 
-func (dc *deployCommand) buildAgentConfigMap() (*corev1.ConfigMap, error) {
+func (dc *deployCommand) buildAgentConfigMap(_ logrus.FieldLogger) (*corev1.ConfigMap, error) {
 	agentConfig, err := dc.agentDeployConfig.BuildAgentConfig()
 	if err != nil {
 		return nil, err
@@ -247,7 +247,7 @@ func (dc *deployCommand) buildAgentConfigMap() (*corev1.ConfigMap, error) {
 	return BuildAgentConfigMap(agentConfig)
 }
 
-func (dc *deployCommand) buildClusterConfigMap() (*corev1.ConfigMap, error) {
+func (dc *deployCommand) buildClusterConfigMap(log logrus.FieldLogger) (*corev1.ConfigMap, error) {
 	ctx := context.Background()
 	svc, err := dc.Clientset.CoreV1().Services(common.NamespaceDefault).Get(ctx, common.NameKubernetesService, metav1.GetOptions{})
 	if err != nil {
@@ -278,7 +278,7 @@ func (dc *deployCommand) buildClusterConfigMap() (*corev1.ConfigMap, error) {
 		return nil, err
 	}
 
-	clusterConfig, err := BuildClusterConfig(nodes, agentPods, internalAPIServer, apiServer)
+	clusterConfig, err := BuildClusterConfig(log, nodes, agentPods, internalAPIServer, apiServer)
 	if err != nil {
 		return nil, err
 	}
