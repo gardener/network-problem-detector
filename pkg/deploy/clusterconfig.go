@@ -13,11 +13,16 @@ import (
 	"github.com/gardener/network-problem-detector/pkg/common"
 	"github.com/gardener/network-problem-detector/pkg/common/config"
 
+	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 )
 
-func BuildClusterConfig(nodes []*corev1.Node, agentPods []*corev1.Pod,
-	internalKubeAPIServer, kubeAPIServer *config.Endpoint,
+func BuildClusterConfig(
+	log logrus.FieldLogger,
+	nodes []*corev1.Node,
+	agentPods []*corev1.Pod,
+	internalKubeAPIServer,
+	kubeAPIServer *config.Endpoint,
 ) (*config.ClusterConfig, error) {
 	clusterConfig := &config.ClusterConfig{
 		InternalKubeAPIServer: internalKubeAPIServer,
@@ -36,8 +41,12 @@ func BuildClusterConfig(nodes []*corev1.Node, agentPods []*corev1.Pod,
 				ip = addr.Address
 			}
 		}
-		if hostname == "" || ip == "" {
-			return clusterConfig, fmt.Errorf("invalid node: %s", n.Name)
+		if ip == "" {
+			log.Infof("ignore node %s without internalIP", n.Name)
+			continue
+		}
+		if hostname == "" {
+			hostname = n.Name
 		}
 		clusterConfig.Nodes = append(clusterConfig.Nodes, config.Node{
 			Hostname:   hostname,
