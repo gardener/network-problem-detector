@@ -35,7 +35,7 @@ network-problem-detector:
                 availability_requirement: 'low'
     steps:
       verify:
-        image: golang:1.22.5
+        image: golang:1.23.2
   jobs:
     head-update:
       traits:
