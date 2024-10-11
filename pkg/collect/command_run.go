@@ -71,7 +71,7 @@ func createArchive(dir string, filenames []string, buf io.Writer) error {
 }
 
 func addFileToArchive(tw *tar.Writer, filename string) error {
-	file, err := os.Open(filename)
+	file, err := os.Open(filename) // #nosec G304
 	if err != nil {
 		return err
 	}

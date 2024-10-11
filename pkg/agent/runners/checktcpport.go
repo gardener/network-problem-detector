@@ -127,6 +127,6 @@ func checkTCPPortFunc(endpoint config.Endpoint) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	conn.Close()
+	_ = conn.Close()
 	return "connected", nil
 }

@@ -319,7 +319,7 @@ var _ ObservationListenerExtended = &obsAggr{}
 
 func NewObsAggregator(options *ObsAggregationOptions) (ObservationListenerExtended, error) {
 	if options.LogDirectory != "" {
-		err := os.MkdirAll(options.LogDirectory, 0o777)
+		err := os.MkdirAll(options.LogDirectory, 0o750) //  #nosec G302 -- no sensitive data
 		if err != nil {
 			return nil, err
 		}
@@ -498,7 +498,7 @@ func (a *obsAggr) reportToFilesystem(report *reportData) {
 			a.log.Warnf("cannot rename %s to %s: %s", filename, old, err)
 		}
 	}
-	f, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	f, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o640) //  #nosec G302 G304 -- no sensitive data
 	if err != nil {
 		a.log.Warnf("cannot open %s: %s", filename, err)
 		return

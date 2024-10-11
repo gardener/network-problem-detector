@@ -250,7 +250,7 @@ func (s *server) addOrReplaceJob(job *runners.InternalJob) {
 		prefix = "restarting"
 		job.SetLastRun(oldJob.GetLastRun())
 	} else {
-		virtualLastRun := time.Now().Add(-time.Duration(float64(job.Period()) * rand.Float64()))
+		virtualLastRun := time.Now().Add(-time.Duration(float64(job.Period()) * rand.Float64())) // #nosec G404 -- no cryptographic use
 		job.SetLastRun(&virtualLastRun)
 	}
 	s.jobs[job.JobID()] = job
@@ -429,7 +429,15 @@ func (s *server) run() {
 		http.Handle(twirpServer.PathPrefix(), twirpServer)
 
 		go func() {
-			err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
+			server := &http.Server{
+				Addr:    fmt.Sprintf(":%d", port),
+				Handler: http.DefaultServeMux,
+				// Set timeouts to avoid Slowloris attacks and other issues
+				ReadTimeout:  10 * time.Second,
+				WriteTimeout: 10 * time.Second,
+				IdleTimeout:  15 * time.Second,
+			}
+			err := server.ListenAndServe()
 			s.log.Warnf(err.Error())
 		}()
 	}

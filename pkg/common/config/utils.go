@@ -17,7 +17,7 @@ import (
 var DisableShuffleForTesting = false
 
 func LoadAgentConfig(configFile string) (*AgentConfig, error) {
-	data, err := os.ReadFile(configFile)
+	data, err := os.ReadFile(configFile) // #nosec G304
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +31,7 @@ func LoadAgentConfig(configFile string) (*AgentConfig, error) {
 }
 
 func LoadClusterConfig(configFile string) (*ClusterConfig, error) {
-	data, err := os.ReadFile(configFile)
+	data, err := os.ReadFile(configFile) // #nosec G304
 	if err != nil {
 		return nil, err
 	}

@@ -54,7 +54,7 @@ func CreateCollectCmd() *cobra.Command {
 func (cc *collectCommand) collect(_ *cobra.Command, _ []string) error {
 	log := logrus.WithField("cmd", "collect")
 
-	if err := os.MkdirAll(cc.directory, 0o755); err != nil {
+	if err := os.MkdirAll(cc.directory, 0o750); err != nil { //  #nosec G302 -- no sensitive data
 		return err
 	}
 
@@ -113,14 +113,14 @@ func (cc *collectCommand) loadFrom(log logrus.FieldLogger, dir string, pod *core
 	if cc.Kubeconfig != "" {
 		kubeconfigOpt = " --kubeconfig=" + cc.Kubeconfig
 	}
-	if err := os.Mkdir(dir, 0o755); err != nil {
+	if err := os.Mkdir(dir, 0o750); err != nil { //  #nosec G302 -- no sensitive data
 		log.Errorf("mkdir tmpsubdir failed: %s", err)
 		cc.failedNodes.Inc()
 		return
 	}
 	cmdline := fmt.Sprintf("kubectl %s -n %s exec %s -- /nwpdcli run-collect | tar xfz - -C %s", kubeconfigOpt, pod.Namespace, pod.Name, dir)
 	var stderr bytes.Buffer
-	cmd := exec.Command("sh", "-c", cmdline)
+	cmd := exec.Command("sh", "-c", cmdline) //  #nosec G204 -- only used in interactive shell
 	cmd.Stderr = &stderr
 	cmd.Env = os.Environ()
 	err := cmd.Run()
@@ -142,7 +142,7 @@ func (cc *collectCommand) loadFrom(log logrus.FieldLogger, dir string, pod *core
 	}
 
 	outdir := path.Join(cc.directory, pod.Spec.NodeName)
-	if err := os.MkdirAll(outdir, 0o755); err != nil {
+	if err := os.MkdirAll(outdir, 0o750); err != nil { //  #nosec G302 -- no sensitive data
 		log.Errorf("mkdir failed: %s", err)
 		cc.failedNodes.Inc()
 		return
@@ -174,13 +174,13 @@ func (cc *collectCommand) loadFrom(log logrus.FieldLogger, dir string, pod *core
 }
 
 func copyFile(srcFilename, destFilename string) (int64, error) {
-	input, err := os.Open(srcFilename)
+	input, err := os.Open(srcFilename) // #nosec G304
 	if err != nil {
 		return 0, err
 	}
 	defer input.Close()
 
-	output, err := os.Create(destFilename)
+	output, err := os.Create(destFilename) // #nosec G304
 	if err != nil {
 		return 0, err
 	}

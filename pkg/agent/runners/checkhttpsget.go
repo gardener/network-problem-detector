@@ -107,7 +107,7 @@ var _ Runner = &checkHTTPSGet{}
 
 func checkHTTPSGetFunc(endpoint config.Endpoint) (string, error) {
 	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // #nosec G402 -- connection check only, no sensitive data
 	}
 	client := &http.Client{Transport: tr}
 	url := fmt.Sprintf("https://%s:%d", endpoint.Hostname, endpoint.Port)
