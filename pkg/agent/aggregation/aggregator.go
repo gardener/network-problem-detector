@@ -298,14 +298,14 @@ func (cs *conditionStatus) report(peerNodeCount int) types.Condition {
 	return condition
 }
 
-func toRestrictedList(set common.StringSet, max int) string {
+func toRestrictedList(set common.StringSet, maxItems int) string {
 	array := set.ToSortedArray()
 	if len(array) == 1 {
 		return array[0]
 	}
 	n := len(array)
-	if n > max {
-		n = max
+	if n > maxItems {
+		n = maxItems
 	}
 	s := "(" + strings.Join(array[:n], ",")
 	if n < len(array) {

@@ -1,8 +1,7 @@
 # options for analysis running
 run:
   timeout: 2m
-  skip-files:
-  - "zz_generated.*"
+
 linters:
   enable:
   - gocritic
@@ -24,6 +23,8 @@ linters-settings:
     local-prefixes: github.com/gardener/network-problem-detector
 
 issues:
+  exclude-files:
+  - "zz_generated.*"
   exclude-rules:
   # dot imports in test files and utilities
   - path: ".*test.*.go$"
