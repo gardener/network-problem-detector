@@ -24,7 +24,7 @@ tidy:
 	go mod tidy
 
 .PHONY: check
-check: $(GOIMPORTS) $(GOLANGCI_LINT) sast
+check: $(GOIMPORTS) $(GOLANGCI_LINT) sast-report
 	go vet ./...
 	GOIMPORTS=$(GOIMPORTS) GOLANGCI_LINT=$(GOLANGCI_LINT) hack/check.sh ./cmd/... ./pkg/...
 
