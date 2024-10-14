@@ -1,5 +1,12 @@
 network-problem-detector:
   base_definition:
+    repo:
+      source_labels:
+      - name: cloud.gardener.cnudie/dso/scanning-hints/source_analysis/v1
+        value:
+          policy: skip
+          comment: |
+            we use gosec for sast scanning. See attached log.
     traits:
       component_descriptor:
         ocm_repository: europe-docker.pkg.dev/gardener-project/snapshots
@@ -47,6 +54,17 @@ network-problem-detector:
       traits:
         pull-request: ~
     release:
+      assets:
+      - type: build-step-log
+        step_name: verify
+        purposes:
+        - lint
+        - sast
+        - gosec
+        comment: |
+            we use gosec (linter) for SAST scans
+            see: https://github.com/securego/gosec
+            enabled by https://github.com/gardener/network-problem-detector/pull/75
       traits:
         version:
           preprocess: 'finalize'
