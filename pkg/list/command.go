@@ -96,7 +96,7 @@ func (lc *listCommand) list(_ *cobra.Command, args []string) error {
 	log.Infof("Loading observations from pod %s", podname)
 	cmdline := fmt.Sprintf("kubectl %s -n kube-system  port-forward %s %d:%d", kubeconfigOpt, podname, port, targetPort)
 	var stderr bytes.Buffer
-	cmd := exec.Command("sh", "-c", cmdline)
+	cmd := exec.Command("sh", "-c", cmdline)              //  #nosec G204 -- only used in interactive shell
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true} // create process group for child processes
 	cmd.Stderr = &stderr
 	cmd.Env = os.Environ()

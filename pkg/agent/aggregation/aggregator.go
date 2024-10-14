@@ -298,14 +298,14 @@ func (cs *conditionStatus) report(peerNodeCount int) types.Condition {
 	return condition
 }
 
-func toRestrictedList(set common.StringSet, max int) string {
+func toRestrictedList(set common.StringSet, maxItems int) string {
 	array := set.ToSortedArray()
 	if len(array) == 1 {
 		return array[0]
 	}
 	n := len(array)
-	if n > max {
-		n = max
+	if n > maxItems {
+		n = maxItems
 	}
 	s := "(" + strings.Join(array[:n], ",")
 	if n < len(array) {
@@ -319,7 +319,7 @@ var _ ObservationListenerExtended = &obsAggr{}
 
 func NewObsAggregator(options *ObsAggregationOptions) (ObservationListenerExtended, error) {
 	if options.LogDirectory != "" {
-		err := os.MkdirAll(options.LogDirectory, 0o777)
+		err := os.MkdirAll(options.LogDirectory, 0o750) //  #nosec G302 -- no sensitive data
 		if err != nil {
 			return nil, err
 		}
@@ -498,7 +498,7 @@ func (a *obsAggr) reportToFilesystem(report *reportData) {
 			a.log.Warnf("cannot rename %s to %s: %s", filename, old, err)
 		}
 	}
-	f, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	f, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o640) //  #nosec G302 G304 -- no sensitive data
 	if err != nil {
 		a.log.Warnf("cannot open %s: %s", filename, err)
 		return

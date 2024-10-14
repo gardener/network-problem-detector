@@ -10,3 +10,6 @@ collected-observations/
 .vscode/
 nwpdcli
 *.obs/
+
+# gosec
+gosec-report.sarif

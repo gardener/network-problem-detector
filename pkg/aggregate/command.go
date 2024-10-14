@@ -305,7 +305,7 @@ func (ac *aggrCommand) printJobResultLine(src, dest string, jr *results) {
 }
 
 func (ac *aggrCommand) writeOpenMetricsFile(jobs, srcNodes, destNodes []string, startUnixSecs, bucketMillis int64, data map[edge]*edgeData) error {
-	f, err := os.OpenFile(ac.openMetricsOutput, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o755)
+	f, err := os.OpenFile(ac.openMetricsOutput, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o750) //  #nosec G302 -- no sensitive data
 	if err != nil {
 		return err
 	}
@@ -401,7 +401,7 @@ func (ac *aggrCommand) writeMetrics(f *os.File, name, metricsType, description s
 }
 
 func (ac *aggrCommand) writeSVGFile(jobs, srcNodes, destNodes []string, data map[edge]*edgeData) error {
-	f, err := os.OpenFile(ac.svgOutput, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o755)
+	f, err := os.OpenFile(ac.svgOutput, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o750) //  #nosec G302 -- no sensitive data
 	if err != nil {
 		return err
 	}

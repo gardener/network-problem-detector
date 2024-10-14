@@ -51,7 +51,7 @@ func (s *NodeSampleStore) SelectTopNodes(hostnames map[string]struct{}, size int
 	for name := range hostnames {
 		index, ok := s.store[name]
 		if !ok {
-			index = rand.Float64()
+			index = rand.Float64() // #nosec G404 -- no cryptographic use
 			if name == s.nodeName {
 				index = 0 // always include own node for self-checks
 			}
