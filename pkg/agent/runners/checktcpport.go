@@ -14,6 +14,7 @@ import (
 	"github.com/gardener/network-problem-detector/pkg/common/config"
 
 	"github.com/spf13/cobra"
+	k8snetutils "k8s.io/utils/net"
 )
 
 type checkTCPPortArgs struct {
@@ -123,6 +124,9 @@ var _ Runner = &checkTCPPort{}
 
 func checkTCPPortFunc(endpoint config.Endpoint) (string, error) {
 	addr := fmt.Sprintf("%s:%d", endpoint.IP, endpoint.Port)
+	if k8snetutils.IsIPv6(net.ParseIP(endpoint.IP)) {
+		addr = fmt.Sprintf("[%s]:%d", endpoint.IP, endpoint.Port)
+	}
 	conn, err := net.DialTimeout("tcp", addr, 30*time.Second)
 	if err != nil {
 		return "", err
