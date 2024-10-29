@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"path/filepath"
 
 	"sigs.k8s.io/yaml"
 )
@@ -17,7 +18,7 @@ import (
 var DisableShuffleForTesting = false
 
 func LoadAgentConfig(configFile string) (*AgentConfig, error) {
-	data, err := os.ReadFile(configFile) // #nosec G304
+	data, err := os.ReadFile(filepath.Clean(configFile))
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +32,7 @@ func LoadAgentConfig(configFile string) (*AgentConfig, error) {
 }
 
 func LoadClusterConfig(configFile string) (*ClusterConfig, error) {
-	data, err := os.ReadFile(configFile) // #nosec G304
+	data, err := os.ReadFile(filepath.Clean(configFile))
 	if err != nil {
 		return nil, err
 	}

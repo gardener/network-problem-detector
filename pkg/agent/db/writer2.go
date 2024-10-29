@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync/atomic"
@@ -177,7 +178,7 @@ func readRecord(r io.Reader) (byte, []byte, error) {
 }
 
 func (w *obsWriter) loadStringIDMap(filename string) (*StringIDMap, error) {
-	f, err := os.OpenFile(filename, os.O_RDONLY, 0o640) //  #nosec G302 G304 -- no sensitive data
+	f, err := os.OpenFile(filepath.Clean(filename), os.O_RDONLY, 0o640) //  #nosec G302 -- no sensitive data
 	if err != nil {
 		if os.IsNotExist(err) {
 			return NewStringIDMap(), nil
@@ -238,7 +239,7 @@ func (w *obsWriter) getFile() (*writeFile, error) {
 		if err != nil {
 			return nil, err
 		}
-		f, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o640) //  #nosec G302 G304 -- no sensitive data
+		f, err := os.OpenFile(filepath.Clean(filename), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o640) //  #nosec G302 -- no sensitive data
 		if err != nil {
 			return nil, err
 		}
@@ -418,7 +419,7 @@ func GetAnyRecordFiles(directory string, subdir bool) ([]string, error) {
 type ObservationVisitor func(obs *nwpd.Observation) error
 
 func IterateRecordFile(filename string, visitor ObservationVisitor) error {
-	f, err := os.OpenFile(filename, os.O_RDONLY, 0o640) //  #nosec G302 G304 -- no sensitive data
+	f, err := os.OpenFile(filepath.Clean(filename), os.O_RDONLY, 0o640) //  #nosec G302 -- no sensitive data
 	if err != nil {
 		return err
 	}

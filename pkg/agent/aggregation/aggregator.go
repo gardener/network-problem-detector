@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -498,7 +499,7 @@ func (a *obsAggr) reportToFilesystem(report *reportData) {
 			a.log.Warnf("cannot rename %s to %s: %s", filename, old, err)
 		}
 	}
-	f, err := os.OpenFile(filename, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o640) //  #nosec G302 G304 -- no sensitive data
+	f, err := os.OpenFile(filepath.Clean(filename), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o640) //  #nosec G302 -- no sensitive data
 	if err != nil {
 		a.log.Warnf("cannot open %s: %s", filename, err)
 		return

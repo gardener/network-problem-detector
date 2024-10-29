@@ -174,13 +174,13 @@ func (cc *collectCommand) loadFrom(log logrus.FieldLogger, dir string, pod *core
 }
 
 func copyFile(srcFilename, destFilename string) (int64, error) {
-	input, err := os.Open(srcFilename) // #nosec G304
+	input, err := os.Open(filepath.Clean(srcFilename))
 	if err != nil {
 		return 0, err
 	}
 	defer input.Close()
 
-	output, err := os.Create(destFilename) // #nosec G304
+	output, err := os.Create(filepath.Clean(destFilename))
 	if err != nil {
 		return 0, err
 	}

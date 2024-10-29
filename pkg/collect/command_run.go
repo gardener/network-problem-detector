@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/gardener/network-problem-detector/pkg/common"
@@ -71,7 +72,7 @@ func createArchive(dir string, filenames []string, buf io.Writer) error {
 }
 
 func addFileToArchive(tw *tar.Writer, filename string) error {
-	file, err := os.Open(filename) // #nosec G304
+	file, err := os.Open(filepath.Clean(filename))
 	if err != nil {
 		return err
 	}
