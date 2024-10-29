@@ -237,7 +237,13 @@ func (w *obsWriter) getFile() (*writeFile, error) {
 		filename := fmt.Sprintf("%s/%s-%s.records", w.directory, w.prefix, currentUTC.Format("2006-01-02-15"))
 		idMap, err := w.loadStringIDMap(filename)
 		if err != nil {
-			return nil, err
+			// corrupted file, delete it
+			w.log.Warnf("loading StringIDMap from file %s failed: %s", filename, err)
+			w.log.Infof("deleting corrupt file %s", filename)
+			if err := os.Remove(filepath.Clean(filename)); err != nil {
+				w.log.Warnf("cannot delete file %s: %s", filename, err)
+			}
+			idMap = NewStringIDMap()
 		}
 		f, err := os.OpenFile(filepath.Clean(filename), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o640) //  #nosec G302 -- no sensitive data
 		if err != nil {
