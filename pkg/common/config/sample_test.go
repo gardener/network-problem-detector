@@ -27,14 +27,14 @@ var _ = Describe("sample", func() {
 	var podEndpoints2 []config.PodEndpoint
 	for i := 0; i < nodeCount; i++ {
 		hostname := fmt.Sprintf("host-%d", i)
-		nodes = append(nodes, config.Node{Hostname: hostname, InternalIP: fmt.Sprintf("10.0.0.%d", i+10)})
+		nodes = append(nodes, config.Node{Hostname: hostname, InternalIPs: []string{fmt.Sprintf("10.0.0.%d", i+10)}})
 		podEndpoints = append(podEndpoints, config.PodEndpoint{Nodename: hostname, Podname: fmt.Sprintf("pod%d", i), PodIP: fmt.Sprintf("10.128.0.%d", i+10), Port: 1234})
 		j := i
 		if shouldReplaceNode(i) {
 			j = i + nodeCount
 		}
 		hostname = fmt.Sprintf("host-%d", j)
-		nodes2 = append(nodes2, config.Node{Hostname: hostname, InternalIP: fmt.Sprintf("10.0.0.%d", j+10)})
+		nodes2 = append(nodes2, config.Node{Hostname: hostname, InternalIPs: []string{fmt.Sprintf("10.0.0.%d", j+10)}})
 		podEndpoints2 = append(podEndpoints2, config.PodEndpoint{Nodename: hostname, Podname: fmt.Sprintf("pod%d", j), PodIP: fmt.Sprintf("10.128.0.%d", j+10), Port: 1234})
 	}
 

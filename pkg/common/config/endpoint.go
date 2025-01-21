@@ -9,8 +9,8 @@ type WithDestHost interface {
 }
 
 type Node struct {
-	Hostname   string `json:"hostname"`
-	InternalIP string `json:"internalIP"`
+	Hostname    string   `json:"hostname"`
+	InternalIPs []string `json:"internalIPs"`
 }
 
 func (n Node) DestHost() string {

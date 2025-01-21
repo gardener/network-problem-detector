@@ -49,11 +49,13 @@ func (a *checkTCPPortArgs) createRunner(_ *cobra.Command, _ []string) error {
 	case a.nodePort != 0:
 		allowEmpty = true
 		for _, n := range a.runnerArgs.clusterCfg.Nodes {
-			endpoints = append(endpoints, config.Endpoint{
-				Hostname: n.Hostname,
-				IP:       n.InternalIP,
-				Port:     a.nodePort,
-			})
+			for _, ip := range n.InternalIPs {
+				endpoints = append(endpoints, config.Endpoint{
+					Hostname: n.Hostname,
+					IP:       ip,
+					Port:     a.nodePort,
+				})
+			}
 		}
 	case a.podDS:
 		allowEmpty = true

@@ -30,8 +30,8 @@ func (a *pingHostArgs) createRunner(_ *cobra.Command, _ []string) error {
 				return fmt.Errorf("invalid job: %s: invalid host %s", strings.Join(a.runnerArgs.args, " "), host)
 			}
 			nodes = append(nodes, config.Node{
-				Hostname:   parts[0],
-				InternalIP: parts[1],
+				Hostname:    parts[0],
+				InternalIPs: []string{parts[1]},
 			})
 		}
 	} else {
@@ -77,32 +77,34 @@ type pingHost struct {
 var _ Runner = &pingHost{}
 
 func pingFunc(node config.Node) (string, error) {
-	pinger, err := ping.NewPinger(node.InternalIP)
-	if err != nil {
-		return "", err
-	}
-	pinger.SetPrivileged(true)
-	pinger.Count = 1
-	pinger.Timeout = 1 * time.Second
+	for _, ip := range node.InternalIPs {
+		pinger, err := ping.NewPinger(ip)
+		if err != nil {
+			return "", err
+		}
+		pinger.SetPrivileged(true)
+		pinger.Count = 1
+		pinger.Timeout = 1 * time.Second
 
-	result := atomic.String{}
-	pinger.OnRecv = func(pkt *ping.Packet) {
-		result.Store(fmt.Sprintf("%d bytes from %s: icmp_seq=%d time=%v\n",
-			pkt.Nbytes, pkt.IPAddr, pkt.Seq, pkt.Rtt))
-	}
+		result := atomic.String{}
+		pinger.OnRecv = func(pkt *ping.Packet) {
+			result.Store(fmt.Sprintf("%d bytes from %s: icmp_seq=%d time=%v\n",
+				pkt.Nbytes, pkt.IPAddr, pkt.Seq, pkt.Rtt))
+		}
 
-	pinger.OnDuplicateRecv = func(pkt *ping.Packet) {
-		result.Store(fmt.Sprintf("%d bytes from %s: icmp_seq=%d time=%v ttl=%v (DUP!)\n",
-			pkt.Nbytes, pkt.IPAddr, pkt.Seq, pkt.Rtt, pkt.Ttl))
-	}
+		pinger.OnDuplicateRecv = func(pkt *ping.Packet) {
+			result.Store(fmt.Sprintf("%d bytes from %s: icmp_seq=%d time=%v ttl=%v (DUP!)\n",
+				pkt.Nbytes, pkt.IPAddr, pkt.Seq, pkt.Rtt, pkt.Ttl))
+		}
 
-	err = pinger.Run()
-	if err != nil {
-		return "", err
+		err = pinger.Run()
+		if err != nil {
+			return "", err
+		}
+		stats := pinger.Statistics()
+		if stats.PacketsRecv == 1 {
+			return result.Load(), nil
+		}
 	}
-	stats := pinger.Statistics()
-	if stats.PacketsRecv == 1 {
-		return result.Load(), nil
-	}
-	return "", fmt.Errorf("ping lost after %d ms", pinger.Timeout.Milliseconds())
+	return "", fmt.Errorf("ping lost after %d ms", 1*time.Second.Milliseconds())
 }

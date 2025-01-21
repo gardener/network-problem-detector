@@ -24,8 +24,8 @@ var _ = Describe("parser", func() {
 		clusterCfg1 = config.ClusterConfig{
 			NodeCount: 2,
 			Nodes: []config.Node{
-				{Hostname: "node1", InternalIP: "10.0.0.11"},
-				{Hostname: "node2", InternalIP: "10.0.0.12"},
+				{Hostname: "node1", InternalIPs: []string{"10.0.0.11"}},
+				{Hostname: "node2", InternalIPs: []string{"10.0.0.12"}},
 			},
 			PodEndpoints: []config.PodEndpoint{
 				{Nodename: "node1", Podname: "pod1", PodIP: "10.128.0.11", Port: 1234},
@@ -46,8 +46,8 @@ var _ = Describe("parser", func() {
 		clusterCfg2 = config.ClusterConfig{
 			NodeCount: 2,
 			Nodes: []config.Node{
-				{Hostname: "node3", InternalIP: "10.0.0.13"},
-				{Hostname: "node4", InternalIP: "10.0.0.14"},
+				{Hostname: "node3", InternalIPs: []string{"10.0.0.13"}},
+				{Hostname: "node4", InternalIPs: []string{"10.0.0.14"}},
 			},
 		}
 		endpoints1 = []config.Endpoint{

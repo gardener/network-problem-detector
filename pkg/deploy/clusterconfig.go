@@ -32,16 +32,16 @@ func BuildClusterConfig(
 	nodeNames := common.StringSet{}
 	for _, n := range nodes {
 		hostname := ""
-		ip := ""
+		ips := []string{}
 		for _, addr := range n.Status.Addresses {
 			switch addr.Type {
 			case "Hostname":
 				hostname = addr.Address
 			case "InternalIP":
-				ip = addr.Address
+				ips = append(ips, addr.Address)
 			}
 		}
-		if ip == "" {
+		if len(ips) == 0 {
 			log.Infof("ignore node %s without internalIP", n.Name)
 			continue
 		}
@@ -49,8 +49,8 @@ func BuildClusterConfig(
 			hostname = n.Name
 		}
 		clusterConfig.Nodes = append(clusterConfig.Nodes, config.Node{
-			Hostname:   hostname,
-			InternalIP: ip,
+			Hostname:    hostname,
+			InternalIPs: ips,
 		})
 		nodeNames.Add(hostname)
 	}
@@ -59,12 +59,14 @@ func BuildClusterConfig(
 		if p.Status.Phase != corev1.PodRunning || !nodeNames.Contains(p.Spec.NodeName) {
 			continue
 		}
-		clusterConfig.PodEndpoints = append(clusterConfig.PodEndpoints, config.PodEndpoint{
-			Nodename: p.Spec.NodeName,
-			Podname:  p.Name,
-			PodIP:    p.Status.PodIP,
-			Port:     common.PodNetPodHTTPPort,
-		})
+		for _, podIP := range p.Status.PodIPs {
+			clusterConfig.PodEndpoints = append(clusterConfig.PodEndpoints, config.PodEndpoint{
+				Nodename: p.Spec.NodeName,
+				Podname:  p.Name,
+				PodIP:    podIP.IP,
+				Port:     common.PodNetPodHTTPPort,
+			})
+		}
 	}
 
 	sort.Slice(clusterConfig.Nodes, func(i, j int) bool {
