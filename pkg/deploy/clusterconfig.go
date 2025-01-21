@@ -32,16 +32,16 @@ func BuildClusterConfig(
 	nodeNames := common.StringSet{}
 	for _, n := range nodes {
 		hostname := ""
-		ip := ""
+		ips := []string{}
 		for _, addr := range n.Status.Addresses {
 			switch addr.Type {
 			case "Hostname":
 				hostname = addr.Address
 			case "InternalIP":
-				ip = addr.Address
+				ips = append(ips, addr.Address)
 			}
 		}
-		if ip == "" {
+		if len(ips) == 0 {
 			log.Infof("ignore node %s without internalIP", n.Name)
 			continue
 		}
@@ -49,8 +49,8 @@ func BuildClusterConfig(
 			hostname = n.Name
 		}
 		clusterConfig.Nodes = append(clusterConfig.Nodes, config.Node{
-			Hostname:   hostname,
-			InternalIP: ip,
+			Hostname:    hostname,
+			InternalIPs: ips,
 		})
 		nodeNames.Add(hostname)
 	}
