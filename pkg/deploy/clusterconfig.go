@@ -59,12 +59,14 @@ func BuildClusterConfig(
 		if p.Status.Phase != corev1.PodRunning || !nodeNames.Contains(p.Spec.NodeName) {
 			continue
 		}
-		clusterConfig.PodEndpoints = append(clusterConfig.PodEndpoints, config.PodEndpoint{
-			Nodename: p.Spec.NodeName,
-			Podname:  p.Name,
-			PodIP:    p.Status.PodIP,
-			Port:     common.PodNetPodHTTPPort,
-		})
+		for _, podIP := range p.Status.PodIPs {
+			clusterConfig.PodEndpoints = append(clusterConfig.PodEndpoints, config.PodEndpoint{
+				Nodename: p.Spec.NodeName,
+				Podname:  p.Name,
+				PodIP:    podIP.IP,
+				Port:     common.PodNetPodHTTPPort,
+			})
+		}
 	}
 
 	sort.Slice(clusterConfig.Nodes, func(i, j int) bool {

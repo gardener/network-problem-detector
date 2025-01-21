@@ -31,7 +31,8 @@ func (a *pingHostArgs) createRunner(_ *cobra.Command, _ []string) error {
 			}
 			nodes = append(nodes, config.Node{
 				Hostname:    parts[0],
-				InternalIPs: []string{parts[1]}})
+				InternalIPs: []string{parts[1]},
+			})
 		}
 	} else {
 		nodes = a.runnerArgs.clusterCfg.Nodes
