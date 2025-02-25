@@ -12,15 +12,15 @@ import (
 	"time"
 
 	"github.com/gardener/network-problem-detector/pkg/common/config"
-
 	"github.com/spf13/cobra"
-	k8snetutils "k8s.io/utils/net"
 )
 
 type checkTCPPortArgs struct {
 	runnerArgs   *runnerArgs
 	nodePort     int
+	nodePortIPv6 int
 	podDS        bool
+	podDSIPv6    bool
 	internalKAPI bool
 	externalKAPI bool
 	endpoints    []string
@@ -57,9 +57,29 @@ func (a *checkTCPPortArgs) createRunner(_ *cobra.Command, _ []string) error {
 				})
 			}
 		}
+	case a.nodePortIPv6 != 0:
+		allowEmpty = true
+		for _, n := range a.runnerArgs.clusterCfg.Nodes {
+			for _, ip := range n.InternalIPsV6 {
+				endpoints = append(endpoints, config.Endpoint{
+					Hostname: n.Hostname,
+					IP:       ip,
+					Port:     a.nodePortIPv6,
+				})
+			}
+		}
 	case a.podDS:
 		allowEmpty = true
 		for _, pe := range a.runnerArgs.clusterCfg.PodEndpoints {
+			endpoints = append(endpoints, config.Endpoint{
+				Hostname: pe.Nodename,
+				IP:       pe.PodIP,
+				Port:     int(pe.Port),
+			})
+		}
+	case a.podDSIPv6:
+		allowEmpty = true
+		for _, pe := range a.runnerArgs.clusterCfg.PodEndpointsV6 {
 			endpoints = append(endpoints, config.Endpoint{
 				Hostname: pe.Nodename,
 				IP:       pe.PodIP,
@@ -98,7 +118,9 @@ func createCheckTCPPortCmd(ra *runnerArgs) *cobra.Command {
 	}
 	cmd.Flags().StringSliceVar(&a.endpoints, "endpoints", nil, "endpoints in format <hostname>:<ip>:<port>.")
 	cmd.Flags().IntVar(&a.nodePort, "node-port", 0, "port on nodes as alternative to specifying endpoints.")
+	cmd.Flags().IntVar(&a.nodePortIPv6, "node-port-ipv6", 0, "port on nodes via ipv6 address as alternative to specifying endpoints.")
 	cmd.Flags().BoolVar(&a.podDS, "endpoints-of-pod-ds", false, "uses known pod endpoints of the 'nwpd-agent-pod-net' service.")
+	cmd.Flags().BoolVar(&a.podDSIPv6, "endpoints-of-pod-ds-ipv6", false, "uses known pod ipv6 endpoints of the 'nwpd-agent-pod-net' service.")
 	cmd.Flags().BoolVar(&a.internalKAPI, "endpoint-internal-kube-apiserver", false, "uses known internal endpoint of kube-apiserver.")
 	cmd.Flags().BoolVar(&a.externalKAPI, "endpoint-external-kube-apiserver", false, "uses known external endpoint of kube-apiserver.")
 	return cmd
@@ -125,10 +147,7 @@ type checkTCPPort struct {
 var _ Runner = &checkTCPPort{}
 
 func checkTCPPortFunc(endpoint config.Endpoint) (string, error) {
-	addr := fmt.Sprintf("%s:%d", endpoint.IP, endpoint.Port)
-	if k8snetutils.IsIPv6(net.ParseIP(endpoint.IP)) {
-		addr = fmt.Sprintf("[%s]:%d", endpoint.IP, endpoint.Port)
-	}
+	addr := net.JoinHostPort(endpoint.IP, strconv.Itoa(endpoint.Port))
 	conn, err := net.DialTimeout("tcp", addr, 30*time.Second)
 	if err != nil {
 		return "", err
