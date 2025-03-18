@@ -276,7 +276,8 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 							},
 						},
 						SecurityContext: &corev1.SecurityContext{
-							Capabilities: capabilities,
+							AllowPrivilegeEscalation: ptr.To(false),
+							Capabilities:             capabilities,
 						},
 						VolumeMounts: []corev1.VolumeMount{
 							{
@@ -420,8 +421,9 @@ func (ac *AgentDeployConfig) buildControllerDeployment() (*appsv1.Deployment, *r
 							},
 						},
 						SecurityContext: &corev1.SecurityContext{
-							RunAsUser:  ptr.To[int64](65534),
-							RunAsGroup: ptr.To[int64](65534),
+							AllowPrivilegeEscalation: ptr.To(false),
+							RunAsUser:                ptr.To[int64](65534),
+							RunAsGroup:               ptr.To[int64](65534),
 						},
 					}},
 				},
