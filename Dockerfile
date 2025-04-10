@@ -17,7 +17,7 @@ ARG TARGETARCH
 RUN make release GOARCH=$TARGETARCH
 
 ############# network-problem-detector
-FROM gcr.io/distroless/static-debian11 AS network-problem-detector
+FROM gcr.io/distroless/static-debian12 AS network-problem-detector
 
 COPY --from=builder /build/nwpdcli /nwpdcli
 ENTRYPOINT ["/nwpdcli"]
