@@ -9,8 +9,9 @@ type WithDestHost interface {
 }
 
 type Node struct {
-	Hostname    string   `json:"hostname"`
-	InternalIPs []string `json:"internalIPs"`
+	Hostname      string   `json:"hostname"`
+	InternalIPs   []string `json:"internalIPs"`
+	InternalIPsV6 []string `json:"internalIPsV6"`
 }
 
 func (n Node) DestHost() string {
@@ -45,6 +46,8 @@ type ClusterConfig struct {
 	Nodes []Node `json:"nodes,omitempty"`
 	// PodEndpoints is the subset of the known pods of the 'nwpd-agent-pod-net' daemon set.
 	PodEndpoints []PodEndpoint `json:"podEndpoints,omitempty"`
+	// PodEndpoints is the subset of the IPv6 addresses of known pods of the 'nwpd-agent-pod-net' daemon set.
+	PodEndpointsV6 []PodEndpoint `json:"podEndpointsV6,omitempty"`
 	// InternalKubeAPIServer is the discovered internal address of the kube-apiserver
 	InternalKubeAPIServer *Endpoint `json:"internalKubeAPIServer,omitempty"`
 	// KubeAPIServer is the discovered external address of the kube-apiserver (relies on Gardener shoot-info)

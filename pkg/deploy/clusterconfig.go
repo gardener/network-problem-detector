@@ -17,6 +17,24 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+func arePodsOfIPFamily(agentPods []*corev1.Pod, ipFamily string) bool {
+	for _, p := range agentPods {
+		if len(p.Status.PodIPs) == 1 {
+			podIP := net.ParseIP(p.Status.PodIPs[0].IP)
+			if podIP == nil {
+				return false
+			}
+			if ipFamily == "IPv4" && podIP.To4() == nil {
+				return false
+			}
+			if ipFamily == "IPv6" && podIP.To4() != nil {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 func BuildClusterConfig(
 	log logrus.FieldLogger,
 	nodes []*corev1.Node,
@@ -29,19 +47,32 @@ func BuildClusterConfig(
 		KubeAPIServer:         kubeAPIServer,
 	}
 
+	// Determine the IP family of the pods once
+	arePodsIPv4 := arePodsOfIPFamily(agentPods, "IPv4")
+	arePodsIPv6 := arePodsOfIPFamily(agentPods, "IPv6")
+
 	nodeNames := common.StringSet{}
 	for _, n := range nodes {
 		hostname := ""
 		ips := []string{}
+		ipsV6 := []string{}
 		for _, addr := range n.Status.Addresses {
 			switch addr.Type {
 			case "Hostname":
 				hostname = addr.Address
 			case "InternalIP":
-				ips = append(ips, addr.Address)
+				ip := net.ParseIP(addr.Address)
+				if ip == nil {
+					continue
+				}
+				if ip.To4() != nil && arePodsIPv4 {
+					ips = append(ips, addr.Address)
+				} else if ip.To4() == nil && arePodsIPv6 {
+					ipsV6 = append(ipsV6, addr.Address)
+				}
 			}
 		}
-		if len(ips) == 0 {
+		if len(ips) == 0 && len(ipsV6) == 0 {
 			log.Infof("ignore node %s without internalIP", n.Name)
 			continue
 		}
@@ -49,8 +80,9 @@ func BuildClusterConfig(
 			hostname = n.Name
 		}
 		clusterConfig.Nodes = append(clusterConfig.Nodes, config.Node{
-			Hostname:    hostname,
-			InternalIPs: ips,
+			Hostname:      hostname,
+			InternalIPs:   ips,
+			InternalIPsV6: ipsV6,
 		})
 		nodeNames.Add(hostname)
 	}
@@ -60,12 +92,26 @@ func BuildClusterConfig(
 			continue
 		}
 		for _, podIP := range p.Status.PodIPs {
-			clusterConfig.PodEndpoints = append(clusterConfig.PodEndpoints, config.PodEndpoint{
-				Nodename: p.Spec.NodeName,
-				Podname:  p.Name,
-				PodIP:    podIP.IP,
-				Port:     common.PodNetPodHTTPPort,
-			})
+			ip := net.ParseIP(podIP.IP)
+			if ip == nil {
+				log.Infof("ignore pod %s/%s with invalid podIP %s", p.Namespace, p.Name, podIP.IP)
+				continue
+			}
+			if ip.To4() != nil {
+				clusterConfig.PodEndpoints = append(clusterConfig.PodEndpoints, config.PodEndpoint{
+					Nodename: p.Spec.NodeName,
+					Podname:  p.Name,
+					PodIP:    podIP.IP,
+					Port:     common.PodNetPodHTTPPort,
+				})
+			} else {
+				clusterConfig.PodEndpointsV6 = append(clusterConfig.PodEndpointsV6, config.PodEndpoint{
+					Nodename: p.Spec.NodeName,
+					Podname:  p.Name,
+					PodIP:    podIP.IP,
+					Port:     common.PodNetPodHTTPPort,
+				})
+			}
 		}
 	}
 
@@ -76,6 +122,13 @@ func BuildClusterConfig(
 		cmp := strings.Compare(clusterConfig.PodEndpoints[i].Nodename, clusterConfig.PodEndpoints[j].Nodename)
 		if cmp == 0 {
 			cmp = strings.Compare(clusterConfig.PodEndpoints[i].Podname, clusterConfig.PodEndpoints[j].Podname)
+		}
+		return cmp < 0
+	})
+	sort.Slice(clusterConfig.PodEndpointsV6, func(i, j int) bool {
+		cmp := strings.Compare(clusterConfig.PodEndpointsV6[i].Nodename, clusterConfig.PodEndpointsV6[j].Nodename)
+		if cmp == 0 {
+			cmp = strings.Compare(clusterConfig.PodEndpointsV6[i].Podname, clusterConfig.PodEndpointsV6[j].Podname)
 		}
 		return cmp < 0
 	})
