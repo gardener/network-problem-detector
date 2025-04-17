@@ -364,11 +364,11 @@ func (ac *aggrCommand) writeMetrics(f *os.File, name, metricsType, description s
 	linePrinter func(w io.StringWriter, name, src, dest, jobId string, bd *bucketData, t int64) error,
 ) error {
 	var err error
-	_, err = f.WriteString(fmt.Sprintf("# HELP %s %s\n", name, description))
+	_, err = fmt.Fprintf(f, "# HELP %s %s\n", name, description)
 	if err != nil {
 		return err
 	}
-	_, err = f.WriteString(fmt.Sprintf("# TYPE %s %s\n", name, metricsType))
+	_, err = fmt.Fprintf(f, "# TYPE %s %s\n", name, metricsType)
 	if err != nil {
 		return err
 	}

@@ -33,8 +33,8 @@ func ToIntObservation(obs *nwpd.Observation, idMap *StringIDMap, persistor IntSt
 		JobID:          ij,
 		Ok:             obs.Ok,
 		TimeMillis:     obs.Timestamp.AsTime().UnixMilli(),
-		DurationMillis: int32(obs.Duration.AsDuration().Milliseconds()),
-		PeriodMillis:   int32(obs.Period.AsDuration().Milliseconds()),
+		DurationMillis: int32(obs.Duration.AsDuration().Milliseconds()), // #nosec G115 - always in second range
+		PeriodMillis:   int32(obs.Period.AsDuration().Milliseconds()),   // #nosec G115 - always in second range
 	}, nil
 }
 

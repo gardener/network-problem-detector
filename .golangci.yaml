@@ -1,34 +1,46 @@
-# options for analysis running
-run:
-  timeout: 2m
-
+version: "2"
 linters:
   enable:
-  - gocritic
-  - godot
-  - gofumpt
-  - goimports
-  - misspell
-  - nolintlint
-  - predeclared
-  - revive
-  - unused
-  - stylecheck
-  - unconvert
-  - wastedassign
-  - whitespace
-  # - wsl
-linters-settings:
-  goimports:
-    local-prefixes: github.com/gardener/network-problem-detector
-
-issues:
-  exclude-files:
-  - "zz_generated.*"
-  exclude-rules:
-  # dot imports in test files and utilities
-  - path: ".*test.*.go$"
-    text: "should not use dot imports"
-    linters:
-    - stylecheck
+    - gocritic
+    - godot
+    - misspell
+    - nolintlint
+    - predeclared
     - revive
+    - staticcheck
+    - unconvert
+    - wastedassign
+    - whitespace
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - revive
+          - staticcheck
+        path: .*test.*.go$
+        text: should not use dot imports
+    paths:
+      - zz_generated.*
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/gardener/network-problem-detector
+  exclusions:
+    generated: lax
+    paths:
+      - zz_generated.*
+      - third_party$
+      - builtin$
+      - examples$
