@@ -144,7 +144,8 @@ func writeRecord(w io.Writer, marker byte, value []byte) error {
 		return err
 	}
 
-	if err := binary.Write(w, binary.LittleEndian, uint16(len(value))); err != nil {
+	length := uint16(len(value)) // #nosec G115 - records are always in range
+	if err := binary.Write(w, binary.LittleEndian, length); err != nil {
 		return err
 	}
 
@@ -322,7 +323,7 @@ func (w *obsWriter) ListObservations(options nwpd.ListObservationsOptions) (nwpd
 		start = startLimit
 	}
 	end := options.End
-	if end == empty {
+	if end.Equal(empty) {
 		end = now
 	} else if end.After(start) || end.Before(startLimit) {
 		return nil, nil

@@ -111,7 +111,7 @@ func (lc *listCommand) list(_ *cobra.Command, args []string) error {
 	client := nwpd.NewAgentServiceProtobufClient(fmt.Sprintf("http://localhost:%d", port), &http.Client{})
 	request := &nwpd.GetObservationsRequest{
 		Start:               timestamppb.New(time.Now().Add(-lc.since)),
-		Limit:               int32(lc.limit),
+		Limit:               int32(lc.limit), // #nosec G115 - limit fits in int32
 		RestrictToJobIDs:    lc.jobIDs,
 		RestrictToSrcHosts:  lc.srcHosts,
 		RestrictToDestHosts: lc.destHosts,
