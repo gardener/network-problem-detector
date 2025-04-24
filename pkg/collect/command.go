@@ -169,7 +169,7 @@ func (cc *collectCommand) loadFrom(log logrus.FieldLogger, dir string, pod *core
 	}
 	log.Infof("Loaded %d bytes from %d files", countBytes, countFiles)
 	cc.totalBytes.Add(int64(countBytes))
-	cc.totalFiles.Add(int32(countFiles))
+	cc.totalFiles.Add(int32(countFiles)) // #nosec G115 - number of files is well below 100
 	cc.totalNodes.Inc()
 }
 
