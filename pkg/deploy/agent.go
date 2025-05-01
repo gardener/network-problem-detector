@@ -89,7 +89,7 @@ func NetworkProblemDetectorAgent(config *AgentDeployConfig) ([]Object, error) {
 }
 
 func (ac *AgentDeployConfig) AddImageFlag(imageTag string, flags *pflag.FlagSet) {
-	defaultImage := defaultRepository + ":" + imageTag
+	defaultImage := strings.TrimRight(defaultRepository, "\n") + ":" + imageTag
 	flags.StringVar(&ac.Image, "image", strings.TrimSpace(defaultImage), "the nwpd container image to use.")
 }
 
