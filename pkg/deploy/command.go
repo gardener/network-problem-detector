@@ -172,7 +172,7 @@ func (dc *deployCommand) deployAgent(log logrus.FieldLogger, hostnetwork bool,
 	}
 
 	ctx := context.Background()
-	dnssvc, err := dc.Clientset.CoreV1().Services(common.NamespaceDefault).Get(ctx, common.NameKubernetesService, metav1.GetOptions{})
+	dnssvc, err := dc.Clientset.CoreV1().Services(common.NamespaceKubeSystem).Get(ctx, common.NameKubeDNSService, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}

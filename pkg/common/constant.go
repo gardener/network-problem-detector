@@ -13,6 +13,8 @@ const (
 	NameKubernetesService = "kubernetes"
 	// DomainNameKubernetesService is the Kubernetes service domain name.
 	DomainNameKubernetesService = "kubernetes.default.svc.cluster.local."
+	// NameKubeDNSService is the name of the kube-dns service.
+	NameKubeDNSService = "kube-dns"
 	// NameGardenerShootInfo is the name of the shoot info config map from Gardener.
 	NameGardenerShootInfo = "shoot-info"
 	// AgentConfigFilename is the name of the config file.
