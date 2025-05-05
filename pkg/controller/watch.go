@@ -231,6 +231,8 @@ func (w *watch) Start(ctx context.Context) error {
 				w.log.Errorf("loading configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameGardenerShootInfo, err)
 				continue
 			}
+			// NOTE: client-go returns an empty object, even if the requested object does not exist.
+			shootInfo = nil
 		}
 		if err == nil {
 			apiServer, err = deploy.GetAPIServerEndpointFromShootInfo(shootInfo)
