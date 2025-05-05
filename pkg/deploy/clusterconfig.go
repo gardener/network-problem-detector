@@ -19,17 +19,23 @@ import (
 
 func arePodsOfIPFamily(agentPods []*corev1.Pod, ipFamily string) bool {
 	for _, p := range agentPods {
-		if len(p.Status.PodIPs) == 1 {
-			podIP := net.ParseIP(p.Status.PodIPs[0].IP)
+		found := false
+		for _, podIPEntry := range p.Status.PodIPs {
+			podIP := net.ParseIP(podIPEntry.IP)
 			if podIP == nil {
-				return false
+				continue
 			}
-			if ipFamily == "IPv4" && podIP.To4() == nil {
-				return false
+			if ipFamily == "IPv4" && podIP.To4() != nil {
+				found = true
+				break
 			}
-			if ipFamily == "IPv6" && podIP.To4() != nil {
-				return false
+			if ipFamily == "IPv6" && podIP.To4() == nil {
+				found = true
+				break
 			}
+		}
+		if !found {
+			return false
 		}
 	}
 	return true

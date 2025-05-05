@@ -178,6 +178,7 @@ var _ = Describe("BuildClusterConfig", func() {
 					Phase: corev1.PodRunning,
 					PodIPs: []corev1.PodIP{
 						{IP: "10.0.0.1"},
+						{IP: "10.0.0.2"},
 					},
 				},
 				Spec: corev1.PodSpec{
