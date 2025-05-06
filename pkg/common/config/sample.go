@@ -81,6 +81,7 @@ func (sc *SampleConfig) ShuffledSample(cc ClusterConfig) ClusterConfig {
 		NodeCount:             len(cc.Nodes),
 		Nodes:                 CloneAndShuffle(selectSample(sc, cc.Nodes)),
 		PodEndpoints:          CloneAndShuffle(selectSample(sc, cc.PodEndpoints)),
+		PodEndpointsV6:        CloneAndShuffle(selectSample(sc, cc.PodEndpointsV6)),
 		InternalKubeAPIServer: cc.InternalKubeAPIServer,
 		KubeAPIServer:         cc.KubeAPIServer,
 	}

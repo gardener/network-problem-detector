@@ -60,6 +60,8 @@ type AgentDeployConfig struct {
 	DisableAutomountServiceAccountTokenForAgents bool
 	// MaxPeerNodes if != 0 restricts number of peer nodes used as destinations for checks (nodes are selected randomly, but stable in this case).
 	MaxPeerNodes int
+
+	IPFamilies string
 }
 
 // NetworkProblemDetectorAgent returns K8s resources to be created.
@@ -78,7 +80,7 @@ func NetworkProblemDetectorAgent(config *AgentDeployConfig) ([]Object, error) {
 			return nil, err
 		}
 		objects = append(objects, svc)
-		ds, err := config.buildDaemonSet(serviceAccountName, hostnetwork)
+		ds, err := config.buildDaemonSet(serviceAccountName, hostnetwork, config.IPFamilies)
 		if err != nil {
 			return nil, err
 		}
@@ -149,7 +151,7 @@ func (ac *AgentDeployConfig) getNetworkConfig(hostnetwork bool) (name string, po
 	return
 }
 
-func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwork bool) (*appsv1.DaemonSet, error) {
+func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwork bool, ipFamilies string) (*appsv1.DaemonSet, error) {
 	var (
 		requestCPU, _          = resource.ParseQuantity("10m")
 		requestMemory, _       = resource.ParseQuantity("32Mi")
@@ -160,8 +162,7 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 
 	labels := ac.getLabels(name)
 	labelsPlusAdditionalLabels := common.MergeMaps(ac.AdditionalLabels, labels)
-	annotations := common.MergeMaps(ac.AdditionalAnnotations, map[string]string{"check-sum/k8s-exporter": strconv.FormatBool(ac.K8sExporterEnabled)})
-
+	annotations := common.MergeMaps(ac.AdditionalAnnotations, map[string]string{"check-sum/k8s-exporter": strconv.FormatBool(ac.K8sExporterEnabled), "check-sum/ipfamily": ipFamilies})
 	var capabilities *corev1.Capabilities
 	if ac.PingEnabled {
 		capabilities = &corev1.Capabilities{
@@ -617,8 +618,16 @@ func (ac *AgentDeployConfig) BuildAgentConfig() (*config.AgentConfig, error) {
 					Args:  []string{"checkTCPPort", "--node-port", fmt.Sprintf("%d", common.HostNetPodHTTPPort)},
 				},
 				{
+					JobID: "tcp-n2n-ipv6",
+					Args:  []string{"checkTCPPort", "--node-port-ipv6", fmt.Sprintf("%d", common.HostNetPodHTTPPort)},
+				},
+				{
 					JobID: "tcp-n2p",
 					Args:  []string{"checkTCPPort", "--endpoints-of-pod-ds"},
+				},
+				{
+					JobID: "tcp-n2p-ipv6",
+					Args:  []string{"checkTCPPort", "--endpoints-of-pod-ds-ipv6"},
 				},
 				{
 					JobID: "nslookup-n",
@@ -644,8 +653,16 @@ func (ac *AgentDeployConfig) BuildAgentConfig() (*config.AgentConfig, error) {
 					Args:  []string{"checkTCPPort", "--node-port", fmt.Sprintf("%d", common.HostNetPodHTTPPort)},
 				},
 				{
+					JobID: "tcp-p2n-ipv6",
+					Args:  []string{"checkTCPPort", "--node-port-ipv6", fmt.Sprintf("%d", common.HostNetPodHTTPPort)},
+				},
+				{
 					JobID: "tcp-p2p",
 					Args:  []string{"checkTCPPort", "--endpoints-of-pod-ds"},
+				},
+				{
+					JobID: "tcp-p2p-ipv6",
+					Args:  []string{"checkTCPPort", "--endpoints-of-pod-ds-ipv6"},
 				},
 				{
 					JobID: "nslookup-p",

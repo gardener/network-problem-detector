@@ -171,12 +171,22 @@ func (dc *deployCommand) deployAgent(log logrus.FieldLogger, hostnetwork bool,
 		return err
 	}
 
-	ds, err := ac.buildDaemonSet(serviceAccountName, hostnetwork)
+	ctx := context.Background()
+	dnssvc, err := dc.Clientset.CoreV1().Services(common.NamespaceKubeSystem).Get(ctx, common.NameKubeDNSService, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	ipFamilies := make([]string, len(dnssvc.Spec.IPFamilies))
+	for i, ipFamily := range dnssvc.Spec.IPFamilies {
+		ipFamilies[i] = string(ipFamily)
+	}
+	ipFamiliesStr := strings.Join(ipFamilies, ",")
+	log.Infof("IP families: %s", ipFamiliesStr)
+	ds, err := ac.buildDaemonSet(serviceAccountName, hostnetwork, ipFamiliesStr)
 	if err != nil {
 		return fmt.Errorf("error building daemon set: %s", err)
 	}
 	objects = append(objects, svc, acm, ccm, ds)
-	ctx := context.Background()
 	for _, obj := range objects {
 		_, err = genericCreateOrUpdate(ctx, dc.Clientset, obj)
 		if err != nil {
