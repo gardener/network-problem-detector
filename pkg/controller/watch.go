@@ -231,6 +231,8 @@ func (w *watch) Start(ctx context.Context) error {
 				w.log.Errorf("loading configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameGardenerShootInfo, err)
 				continue
 			}
+			// NOTE: client-go returns an empty object, even if the requested object does not exist.
+			shootInfo = nil
 		}
 		if err == nil {
 			apiServer, err = deploy.GetAPIServerEndpointFromShootInfo(shootInfo)
@@ -253,7 +255,7 @@ func (w *watch) Start(ctx context.Context) error {
 		}
 		cfg, err = deploy.BuildClusterConfig(w.log, nodes, pods, internalAPIServer, apiServer)
 		if err != nil {
-			w.log.Errorf("building cluster config failed: %w", err)
+			w.log.Errorf("building cluster config failed: %s", err)
 			continue
 		}
 		cfgBytes, err := yaml.Marshal(cfg)
@@ -283,7 +285,7 @@ func (w *watch) apiServerAddressChanged(shootInfo *corev1.ConfigMap, apiServer *
 	}
 	newAPIServer, err := deploy.GetAPIServerEndpointFromShootInfo(shootInfo)
 	if err != nil {
-		w.log.Errorf("failed to determine apiserver endpoint from shoot info: %w", err)
+		w.log.Errorf("failed to determine apiserver endpoint from shoot info: %s", err)
 		return true
 	}
 	return *newAPIServer != *apiServer
