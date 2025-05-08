@@ -70,13 +70,13 @@ Follow these steps to deploy NWPD to a Kubernetes cluster:
    *Note:* Run `./nwpdcli deploy agent --help` to see more options.
 
 
-4. Optional: In a second shell run the controller to update the configuration on changes of nodes and pod endpoints of the pod network daemon set with
+4. To enable automatic update of the configuration on changes of nodes and pod endpoints of the pod network daemon set, run the controller in a second shell with
 
    ```bash
    ./nwpdcli run-controller
    ```
 
-   Alternatively install the agent controller with
+   Alternatively, install the agent controller with
 
    ```bash
    ./nwpdcli deploy controller
