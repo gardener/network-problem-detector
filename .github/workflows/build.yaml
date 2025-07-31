@@ -74,7 +74,7 @@ jobs:
             .ci/verify |& tee /tmp/blobs.d/verify-log.txt
           # linter-script is expected to output `gosec-report.sarif` (hardcoded contract)
           tar czf /tmp/blobs.d/gosec-report.tar.gz gosec-report.sarif
-          tar czf /tmp/blobs.d/verify-log.tar.gz -C/tmp/blobs.d verify-log.txt
+          tar czf /tmp/blobs.d/verify-log.tar.gz -C /tmp/blobs.d verify-log.txt
       - name: add-reports-to-component-descriptor
         uses: gardener/cc-utils/.github/actions/export-ocm-fragments@master
         with:
