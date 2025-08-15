@@ -68,7 +68,7 @@ jobs:
       - name: run-linter
         shell: bash
         run: |
-          set -eu
+          set -euo pipefail
           mkdir -p /tmp/blobs.d
           TEST_COV=yes \
             .ci/verify |& tee /tmp/blobs.d/verify-log.txt
