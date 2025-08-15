@@ -45,37 +45,4 @@ var _ = Describe("utils", func() {
 		Expect(cfg.InternalKubeAPIServer).To(Equal(clusterCfg.InternalKubeAPIServer))
 		Expect(cfg.KubeAPIServer).To(Equal(clusterCfg.KubeAPIServer))
 	})
-
-	It("should remove token file from cluster config during parsing", func() {
-		tokenConfig := config.ClusterConfig{
-			InternalKubeAPIServer: &config.Endpoint{
-				Hostname:  clusterCfg.InternalKubeAPIServer.Hostname,
-				IP:        clusterCfg.InternalKubeAPIServer.IP,
-				Port:      clusterCfg.InternalKubeAPIServer.Port,
-				TokenFile: "internal-token-file",
-			},
-			KubeAPIServer: &config.Endpoint{
-				Hostname:  clusterCfg.KubeAPIServer.Hostname,
-				IP:        clusterCfg.KubeAPIServer.IP,
-				Port:      clusterCfg.KubeAPIServer.Port,
-				TokenFile: "external-token-file",
-			},
-		}
-		data, err := yaml.Marshal(tokenConfig)
-		Expect(err).NotTo(HaveOccurred())
-
-		file, err := os.CreateTemp("", "test-cluster-config-")
-		defer os.Remove(file.Name())
-		Expect(err).NotTo(HaveOccurred())
-
-		err = os.WriteFile(file.Name(), data, 0o644)
-		Expect(err).NotTo(HaveOccurred())
-
-		cfg, err := config.LoadClusterConfig(file.Name())
-		Expect(err).NotTo(HaveOccurred())
-		Expect(cfg.InternalKubeAPIServer).NotTo(Equal(tokenConfig.InternalKubeAPIServer))
-		Expect(cfg.InternalKubeAPIServer).To(Equal(clusterCfg.InternalKubeAPIServer))
-		Expect(cfg.KubeAPIServer).NotTo(Equal(tokenConfig.KubeAPIServer))
-		Expect(cfg.KubeAPIServer).To(Equal(clusterCfg.KubeAPIServer))
-	})
 })
