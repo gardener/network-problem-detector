@@ -18,7 +18,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const tokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+const tokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token" // #nosec G101 - only path to credentials
 
 type checkHTTPSGetArgs struct {
 	runnerArgs   *runnerArgs
