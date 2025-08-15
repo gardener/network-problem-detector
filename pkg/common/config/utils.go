@@ -42,6 +42,11 @@ func LoadClusterConfig(configFile string) (*ClusterConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unmarshalling %s failed: %w", configFile, err)
 	}
+
+	// Disallow setting token files externally.
+	cfg.InternalKubeAPIServer.TokenFile = ""
+	cfg.KubeAPIServer.TokenFile = ""
+
 	return cfg, nil
 }
 

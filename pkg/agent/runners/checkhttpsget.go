@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -50,14 +51,20 @@ func (a *checkHTTPSGetArgs) createRunner(_ *cobra.Command, _ []string) error {
 		}
 	case a.internalKAPI:
 		endpoints = append(endpoints, config.Endpoint{
-			Hostname: common.DomainNameKubernetesService,
-			IP:       "",
-			Port:     443,
+			Hostname:  common.DomainNameKubernetesService,
+			IP:        "",
+			Port:      443,
+			TokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token",
 		})
 	case a.externalKAPI:
 		allowEmpty = true
 		if pe := a.runnerArgs.clusterCfg.KubeAPIServer; pe != nil {
-			endpoints = append(endpoints, *pe)
+			endpoints = append(endpoints, config.Endpoint{
+				Hostname:  pe.Hostname,
+				IP:        pe.IP,
+				Port:      pe.Port,
+				TokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token",
+			})
 		}
 	}
 
@@ -111,7 +118,23 @@ func checkHTTPSGetFunc(endpoint config.Endpoint) (string, error) {
 	}
 	client := &http.Client{Transport: tr}
 	url := fmt.Sprintf("https://%s:%d", endpoint.Hostname, endpoint.Port)
-	resp, err := client.Get(url)
+	if endpoint.TokenFile != "" {
+		url = fmt.Sprintf("https://%s:%d/api", endpoint.Hostname, endpoint.Port)
+	}
+	request, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return "", err
+	}
+
+	if endpoint.TokenFile != "" {
+		token, err := os.ReadFile(endpoint.TokenFile)
+		if err != nil {
+			return "", fmt.Errorf("reading token from file %s failed: %w", endpoint.TokenFile, err)
+		}
+		request.Header.Set("Authorization", "Bearer "+string(token))
+	}
+
+	resp, err := client.Do(request)
 	if err != nil {
 		return "", err
 	}

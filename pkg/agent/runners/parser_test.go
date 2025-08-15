@@ -68,12 +68,15 @@ var _ = Describe("parser", func() {
 		endpointsKubeAPIServer = []config.Endpoint{
 			{Hostname: "api.shoot.domain.com", IP: "1.2.3.4", Port: 443},
 		}
+		httpsEndpointsKubeAPIServer = []config.Endpoint{
+			{Hostname: "api.shoot.domain.com", IP: "1.2.3.4", Port: 443, TokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token"},
+		}
 		httpsEndpoints1 = []config.Endpoint{
 			{Hostname: "server", IP: "", Port: 55555},
 			{Hostname: "server2", IP: "", Port: 443},
 		}
 		httpsEndpointsInternalKubeAPIServer = []config.Endpoint{
-			{Hostname: common.DomainNameKubernetesService, IP: "", Port: 443},
+			{Hostname: common.DomainNameKubernetesService, IP: "", Port: 443, TokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token"},
 		}
 		dnsnames = []string{
 			"eu.gcr.io.", "foo.bar.", common.DomainNameKubernetesService, "api.shoot.domain.com.",
@@ -127,7 +130,7 @@ var _ = Describe("parser", func() {
 		Entry("checkHTTPSGet with internal kube-apiserver endpoints", clusterCfg1, config1,
 			[]string{"checkHTTPSGet", "--endpoint-internal-kube-apiserver"}, NewCheckHTTPSGet(httpsEndpointsInternalKubeAPIServer, config1)),
 		Entry("checkHTTPSGet with external kube-apiserver endpoints", clusterCfg1, config1,
-			[]string{"checkHTTPSGet", "--endpoint-external-kube-apiserver"}, NewCheckHTTPSGet(endpointsKubeAPIServer, config1)),
+			[]string{"checkHTTPSGet", "--endpoint-external-kube-apiserver"}, NewCheckHTTPSGet(httpsEndpointsKubeAPIServer, config1)),
 		Entry("nslookup with host names", clusterCfg1, config1,
 			[]string{"nslookup", "--names", "eu.gcr.io,foo.bar.", "--name-internal-kube-apiserver", "--name-external-kube-apiserver"},
 			NewNSLookup(dnsnames, config1)),

@@ -30,9 +30,10 @@ func (e PodEndpoint) DestHost() string {
 }
 
 type Endpoint struct {
-	Hostname string `json:"hostname"`
-	IP       string `json:"ip"`
-	Port     int    `json:"port"`
+	Hostname  string `json:"hostname"`
+	IP        string `json:"ip"`
+	Port      int    `json:"port"`
+	TokenFile string `json:"tokenFile"`
 }
 
 func (e Endpoint) DestHost() string {
