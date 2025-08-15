@@ -42,6 +42,7 @@ func LoadClusterConfig(configFile string) (*ClusterConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unmarshalling %s failed: %w", configFile, err)
 	}
+
 	return cfg, nil
 }
 
