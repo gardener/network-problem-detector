@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 
@@ -17,6 +18,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const tokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token" // #nosec G101 - only path to credentials
+
 type checkHTTPSGetArgs struct {
 	runnerArgs   *runnerArgs
 	internalKAPI bool
@@ -24,9 +27,14 @@ type checkHTTPSGetArgs struct {
 	endpoints    []string
 }
 
+type CheckHTTPSEndpoint struct {
+	config.Endpoint
+	AuthBySAToken bool
+}
+
 func (a *checkHTTPSGetArgs) createRunner(_ *cobra.Command, _ []string) error {
 	allowEmpty := false
-	var endpoints []config.Endpoint
+	var endpoints []CheckHTTPSEndpoint
 	switch {
 	case len(a.endpoints) > 0:
 		for _, ep := range a.endpoints {
@@ -42,22 +50,34 @@ func (a *checkHTTPSGetArgs) createRunner(_ *cobra.Command, _ []string) error {
 					return fmt.Errorf("invalid endpoint port %s", parts[1])
 				}
 			}
-			endpoints = append(endpoints, config.Endpoint{
-				Hostname: parts[0],
-				IP:       "",
-				Port:     port,
+			endpoints = append(endpoints, CheckHTTPSEndpoint{
+				Endpoint: config.Endpoint{
+					Hostname: parts[0],
+					IP:       "",
+					Port:     port,
+				},
 			})
 		}
 	case a.internalKAPI:
-		endpoints = append(endpoints, config.Endpoint{
-			Hostname: common.DomainNameKubernetesService,
-			IP:       "",
-			Port:     443,
+		endpoints = append(endpoints, CheckHTTPSEndpoint{
+			Endpoint: config.Endpoint{
+				Hostname: common.DomainNameKubernetesService,
+				IP:       "",
+				Port:     443,
+			},
+			AuthBySAToken: true,
 		})
 	case a.externalKAPI:
 		allowEmpty = true
 		if pe := a.runnerArgs.clusterCfg.KubeAPIServer; pe != nil {
-			endpoints = append(endpoints, *pe)
+			endpoints = append(endpoints, CheckHTTPSEndpoint{
+				Endpoint: config.Endpoint{
+					Hostname: pe.Hostname,
+					IP:       pe.IP,
+					Port:     pe.Port,
+				},
+				AuthBySAToken: true,
+			})
 		}
 	}
 
@@ -85,12 +105,12 @@ func createCheckHTTPSGetArgs(ra *runnerArgs) *cobra.Command {
 	return cmd
 }
 
-func NewCheckHTTPSGet(endpoints []config.Endpoint, rconfig RunnerConfig) Runner {
+func NewCheckHTTPSGet(endpoints []CheckHTTPSEndpoint, rconfig RunnerConfig) Runner {
 	if len(endpoints) == 0 {
 		return nil
 	}
 	return &checkHTTPSGet{
-		robinRound[config.Endpoint]{
+		robinRound[CheckHTTPSEndpoint]{
 			itemsName: "endpoints",
 			items:     config.CloneAndShuffle(endpoints),
 			runFunc:   checkHTTPSGetFunc,
@@ -100,18 +120,34 @@ func NewCheckHTTPSGet(endpoints []config.Endpoint, rconfig RunnerConfig) Runner 
 }
 
 type checkHTTPSGet struct {
-	robinRound[config.Endpoint]
+	robinRound[CheckHTTPSEndpoint]
 }
 
 var _ Runner = &checkHTTPSGet{}
 
-func checkHTTPSGetFunc(endpoint config.Endpoint) (string, error) {
+func checkHTTPSGetFunc(endpoint CheckHTTPSEndpoint) (string, error) {
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // #nosec G402 -- connection check only, no sensitive data
 	}
 	client := &http.Client{Transport: tr}
 	url := fmt.Sprintf("https://%s:%d", endpoint.Hostname, endpoint.Port)
-	resp, err := client.Get(url)
+	if endpoint.AuthBySAToken {
+		url = fmt.Sprintf("https://%s:%d/api", endpoint.Hostname, endpoint.Port)
+	}
+	request, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return "", err
+	}
+
+	if endpoint.AuthBySAToken {
+		token, err := os.ReadFile(tokenFile)
+		if err != nil {
+			return "", fmt.Errorf("reading token from file %s failed: %w", tokenFile, err)
+		}
+		request.Header.Set("Authorization", "Bearer "+string(token))
+	}
+
+	resp, err := client.Do(request)
 	if err != nil {
 		return "", err
 	}
