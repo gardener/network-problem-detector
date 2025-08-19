@@ -171,7 +171,7 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 	}
 	var automountServiceAccountToken *bool
 	if !ac.DisableAutomountServiceAccountTokenForAgents {
-		automountServiceAccountToken = ptr.To(ac.K8sExporterEnabled)
+		automountServiceAccountToken = ptr.To(true)
 	}
 
 	typ := corev1.HostPathDirectoryOrCreate
@@ -548,18 +548,20 @@ func (ac *AgentDeployConfig) buildK8sExporterClusterRoleRules() []rbacv1.PolicyR
 }
 
 func (ac *AgentDeployConfig) buildSecurityObjects() (serviceAccountName string, objects []Object, retErr error) {
-	if ac.K8sExporterEnabled {
-		serviceAccountName = common.ApplicationName
-		cr, crb, sa, err := ac.buildK8sExporterClusterRole(serviceAccountName)
-		retErr = err
-		objects = append(objects, cr, crb, sa)
-	}
+	serviceAccountName = common.ApplicationName
+	cr, crb, sa, err := ac.buildK8sExporterClusterRole(serviceAccountName)
+	retErr = err
+	objects = append(objects, cr, crb, sa)
 	return
 }
 
 func (ac *AgentDeployConfig) buildK8sExporterClusterRole(serviceAccountName string) (*rbacv1.ClusterRole, *rbacv1.ClusterRoleBinding, *corev1.ServiceAccount, error) {
 	roleName := "gardener.cloud:kube-system:" + common.ApplicationName
-	rules := ac.buildK8sExporterClusterRoleRules()
+
+	var rules []rbacv1.PolicyRule
+	if ac.K8sExporterEnabled {
+		rules = ac.buildK8sExporterClusterRoleRules()
+	}
 	return ac.createClusterRuleAndServiceAccount(serviceAccountName, roleName, rules)
 }
 
