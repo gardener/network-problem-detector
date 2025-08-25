@@ -43,9 +43,6 @@ func (a *checkHTTPSGetArgs) createRunner(_ *cobra.Command, _ []string) error {
 	case len(a.endpoints) > 0:
 		for _, ep := range a.endpoints {
 			parts := strings.SplitN(ep, ":", 2)
-			if len(parts) != 1 && len(parts) != 2 {
-				return fmt.Errorf("invalid endpoint %s", ep)
-			}
 			port := 443
 			if len(parts) == 2 {
 				var err error
