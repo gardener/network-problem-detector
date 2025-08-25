@@ -6,6 +6,7 @@ package runners
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net/http"
 	"os"
@@ -18,7 +19,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const tokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token" // #nosec G101 - only path to credentials
+const (
+	caFile    = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	tokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token" // #nosec G101 - only path to credentials
+)
 
 type checkHTTPSGetArgs struct {
 	runnerArgs   *runnerArgs
@@ -142,6 +146,18 @@ var _ Runner = &checkHTTPSGet{}
 func checkHTTPSGetFunc(endpoint CheckHTTPSEndpoint) (string, error) {
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // #nosec G402 -- connection check only, no sensitive data
+	}
+	if endpoint.AuthBySAToken {
+		caPEM, err := os.ReadFile(caFile)
+		if err != nil {
+			return "", fmt.Errorf("reading CA file %s failed: %w", caFile, err)
+		}
+		roots := x509.NewCertPool()
+		if ok := roots.AppendCertsFromPEM(caPEM); !ok {
+			return "", fmt.Errorf("failed to parse root certificate from %s", caFile)
+		}
+		tr.TLSClientConfig.InsecureSkipVerify = false
+		tr.TLSClientConfig.RootCAs = roots
 	}
 	client := &http.Client{Transport: tr}
 	url := fmt.Sprintf("https://%s:%d", endpoint.Hostname, endpoint.Port)
