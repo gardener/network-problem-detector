@@ -69,12 +69,26 @@ func (a *checkHTTPSGetArgs) createRunner(_ *cobra.Command, _ []string) error {
 		})
 	case a.externalKAPI:
 		allowEmpty = true
-		if pe := a.runnerArgs.clusterCfg.KubeAPIServer; pe != nil {
+		if host := os.Getenv(common.EnvAPIServerHost); len(host) > 0 {
+			port := 443
+			if envPort := os.Getenv(common.EnvAPIServerPort); len(envPort) > 0 {
+				p, err := strconv.Atoi(envPort)
+				if err != nil {
+					return fmt.Errorf("invalid API server port %s: %w", envPort, err)
+				}
+				port = p
+			}
+			if strings.TrimSpace(host) == "" {
+				return fmt.Errorf("invalid API server host %q: hostname cannot be empty", host)
+			}
+			if port == 0 || port > 65535 {
+				return fmt.Errorf("invalid API server port %q: port must be between 1 and 65535", port)
+			}
 			endpoints = append(endpoints, CheckHTTPSEndpoint{
 				Endpoint: config.Endpoint{
-					Hostname: pe.Hostname,
-					IP:       pe.IP,
-					Port:     pe.Port,
+					Hostname: host,
+					IP:       "",
+					Port:     port,
 				},
 				AuthBySAToken: true,
 			})

@@ -27,6 +27,10 @@ const (
 	EnvNodeIP = "NODE_IP"
 	// EnvPodIP is the env variable to get the pod ip in an agent pod.
 	EnvPodIP = "POD_IP"
+	// EnvAPIServerHost is the env variable to get the API server host in an agent pod.
+	EnvAPIServerHost = "KUBERNETES_SERVICE_HOST"
+	// EnvAPIServerPort is the env variable to get the API server port in an agent pod.
+	EnvAPIServerPort = "KUBERNETES_SERVICE_PORT"
 	// LabelKeyK8sApp is the label key used to mark the pods.
 	LabelKeyK8sApp = "k8s-app"
 	// ApplicationName is the application name.
