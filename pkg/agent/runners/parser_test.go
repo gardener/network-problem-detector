@@ -5,6 +5,7 @@
 package runners
 
 import (
+	"os"
 	"time"
 
 	"github.com/gardener/network-problem-detector/pkg/common"
@@ -70,7 +71,7 @@ var _ = Describe("parser", func() {
 		}
 		httpsEndpointsKubeAPIServer = []CheckHTTPSEndpoint{
 			{
-				Endpoint:      config.Endpoint{Hostname: "api.shoot.domain.com", IP: "1.2.3.4", Port: 443},
+				Endpoint:      config.Endpoint{Hostname: "api.shoot.domain.com", IP: "", Port: 443},
 				AuthBySAToken: true,
 			},
 		}
@@ -88,6 +89,10 @@ var _ = Describe("parser", func() {
 			"eu.gcr.io.", "foo.bar.", common.DomainNameKubernetesService, "api.shoot.domain.com.",
 		}
 	)
+
+	BeforeEach(func() {
+		_ = os.Setenv("KUBERNETES_SERVICE_HOST", "api.shoot.domain.com")
+	})
 
 	DescribeTable("should parse runner commands",
 		func(clusterCfg config.ClusterConfig, runnerConfig RunnerConfig, args []string, expected interface{}) {

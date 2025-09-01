@@ -60,7 +60,7 @@ type AgentDeployConfig struct {
 	DisableAutomountServiceAccountTokenForAgents bool
 	// MaxPeerNodes if != 0 restricts number of peer nodes used as destinations for checks (nodes are selected randomly, but stable in this case).
 	MaxPeerNodes int
-
+	// IPFamilies represents the current IP address families. Used to force rollout of the daemonset when the IP family changes.
 	IPFamilies string
 }
 

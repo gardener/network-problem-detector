@@ -6,6 +6,7 @@ package runners
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net/http"
 	"os"
@@ -18,7 +19,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const tokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token" // #nosec G101 - only path to credentials
+const (
+	caFile    = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+	tokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token" // #nosec G101 - only path to credentials
+)
 
 type checkHTTPSGetArgs struct {
 	runnerArgs   *runnerArgs
@@ -39,9 +43,6 @@ func (a *checkHTTPSGetArgs) createRunner(_ *cobra.Command, _ []string) error {
 	case len(a.endpoints) > 0:
 		for _, ep := range a.endpoints {
 			parts := strings.SplitN(ep, ":", 2)
-			if len(parts) != 1 && len(parts) != 2 {
-				return fmt.Errorf("invalid endpoint %s", ep)
-			}
 			port := 443
 			if len(parts) == 2 {
 				var err error
@@ -69,12 +70,26 @@ func (a *checkHTTPSGetArgs) createRunner(_ *cobra.Command, _ []string) error {
 		})
 	case a.externalKAPI:
 		allowEmpty = true
-		if pe := a.runnerArgs.clusterCfg.KubeAPIServer; pe != nil {
+		if host := os.Getenv(common.EnvAPIServerHost); len(host) > 0 {
+			port := 443
+			if envPort := os.Getenv(common.EnvAPIServerPort); len(envPort) > 0 {
+				p, err := strconv.Atoi(envPort)
+				if err != nil {
+					return fmt.Errorf("invalid API server port %s: %w", envPort, err)
+				}
+				port = p
+			}
+			if strings.TrimSpace(host) == "" {
+				return fmt.Errorf("invalid API server host %q: hostname cannot be empty", host)
+			}
+			if port == 0 || port > 65535 {
+				return fmt.Errorf("invalid API server port %q: port must be between 1 and 65535", port)
+			}
 			endpoints = append(endpoints, CheckHTTPSEndpoint{
 				Endpoint: config.Endpoint{
-					Hostname: pe.Hostname,
-					IP:       pe.IP,
-					Port:     pe.Port,
+					Hostname: host,
+					IP:       "",
+					Port:     port,
 				},
 				AuthBySAToken: true,
 			})
@@ -128,6 +143,18 @@ var _ Runner = &checkHTTPSGet{}
 func checkHTTPSGetFunc(endpoint CheckHTTPSEndpoint) (string, error) {
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // #nosec G402 -- connection check only, no sensitive data
+	}
+	if endpoint.AuthBySAToken {
+		caPEM, err := os.ReadFile(caFile)
+		if err != nil {
+			return "", fmt.Errorf("reading CA file %s failed: %w", caFile, err)
+		}
+		roots := x509.NewCertPool()
+		if ok := roots.AppendCertsFromPEM(caPEM); !ok {
+			return "", fmt.Errorf("failed to parse root certificate from %s", caFile)
+		}
+		tr.TLSClientConfig.InsecureSkipVerify = false
+		tr.TLSClientConfig.RootCAs = roots
 	}
 	client := &http.Client{Transport: tr}
 	url := fmt.Sprintf("https://%s:%d", endpoint.Hostname, endpoint.Port)
