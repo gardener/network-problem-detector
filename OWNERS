@@ -1,0 +1,6 @@
+# See the OWNERS docs at https://go.k8s.io/owners
+
+reviewers:
+- network-problem-detector-reviewers
+approvers:
+- network-problem-detector-approvers
