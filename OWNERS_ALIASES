@@ -1,0 +1,15 @@
+# See the OWNERS docs at https://go.k8s.io/owners
+
+aliases:
+  network-problem-detector-reviewers:
+  - axel7born
+  - DockToFuture
+  - domdom82
+  - MartinWeindel
+  - ScheererJ
+  network-problem-detector-approvers:
+  - axel7born
+  - DockToFuture
+  - domdom82
+  - MartinWeindel
+  - ScheererJ
