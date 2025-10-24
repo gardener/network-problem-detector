@@ -152,5 +152,5 @@ func createOrUpdate[T Object, S ObjectInterface[T]](ctx context.Context, typenam
 	if err != nil {
 		err = fmt.Errorf("error %s %s %s/%s: %s", op, typename, obj.GetNamespace(), obj.GetName(), err)
 	}
-	return
+	return result, err
 }
