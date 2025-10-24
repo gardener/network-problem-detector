@@ -1,8 +1,8 @@
 module github.com/gardener/network-problem-detector
 
-go 1.24.0
+go 1.25.0
 
-toolchain go1.24.2
+toolchain go1.25.3
 
 require (
 	github.com/ajstarks/svgo v0.0.0-20211024235047-1546f124cd8b

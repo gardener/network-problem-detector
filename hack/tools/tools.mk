@@ -37,9 +37,9 @@ clean-tools-bin:
 
 # default tool versions
 # renovate: datasource=github-releases depName=golangci/golangci-lint
-GOLANGCI_LINT_VERSION ?= v2.0.2
+GOLANGCI_LINT_VERSION ?= v2.5.0
 # renovate: datasource=github-releases depName=securego/gosec
-GOSEC_VERSION ?= v2.22.3
+GOSEC_VERSION ?= v2.22.10
 
 GOIMPORTS_VERSION ?= $(call version_gomod,golang.org/x/tools)
 
