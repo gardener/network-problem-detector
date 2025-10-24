@@ -24,6 +24,10 @@ linters:
           - staticcheck
         path: .*test.*.go$
         text: should not use dot imports
+      - linters:
+          - revive
+        path: (pkg/common|pkg/agent/aggregation/types)
+        text: "var-naming: avoid meaningless package names"
     paths:
       - zz_generated.*
       - third_party$

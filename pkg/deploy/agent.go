@@ -148,7 +148,7 @@ func (ac *AgentDeployConfig) getNetworkConfig(hostnetwork bool) (name string, po
 		name = common.NameDaemonSetAgentPodNet
 		portHTTP = common.PodNetPodHTTPPort
 	}
-	return
+	return name, portHTTP
 }
 
 func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwork bool, ipFamilies string) (*appsv1.DaemonSet, error) {
@@ -552,7 +552,7 @@ func (ac *AgentDeployConfig) buildSecurityObjects() (serviceAccountName string, 
 	cr, crb, sa, err := ac.buildK8sExporterClusterRole(serviceAccountName)
 	retErr = err
 	objects = append(objects, cr, crb, sa)
-	return
+	return serviceAccountName, objects, retErr
 }
 
 func (ac *AgentDeployConfig) buildK8sExporterClusterRole(serviceAccountName string) (*rbacv1.ClusterRole, *rbacv1.ClusterRoleBinding, *corev1.ServiceAccount, error) {
