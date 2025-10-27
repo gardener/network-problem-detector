@@ -20,11 +20,13 @@ import (
 func arePodsOfIPFamily(agentPods []*corev1.Pod, ipFamily string) bool {
 	for _, p := range agentPods {
 		found := false
+		hasValidIP := false
 		for _, podIPEntry := range p.Status.PodIPs {
 			podIP := net.ParseIP(podIPEntry.IP)
 			if podIP == nil {
 				continue
 			}
+			hasValidIP = true
 			if ipFamily == "IPv4" && podIP.To4() != nil {
 				found = true
 				break
@@ -34,7 +36,8 @@ func arePodsOfIPFamily(agentPods []*corev1.Pod, ipFamily string) bool {
 				break
 			}
 		}
-		if !found {
+		// Only return false if the pod has valid IPs but none of the requested family
+		if hasValidIP && !found {
 			return false
 		}
 	}
