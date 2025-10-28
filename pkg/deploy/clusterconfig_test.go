@@ -270,4 +270,123 @@ var _ = Describe("BuildClusterConfig", func() {
 		Expect(clusterConfig.PodEndpoints[0].Nodename).To(Equal("node1"))
 		Expect(clusterConfig.PodEndpoints[0].PodIP).To(Equal("10.0.0.1"))
 	})
+
+	It("should build cluster config correctly when one pod has nil IP address", func() {
+		log := logrus.New()
+		nodes := []*corev1.Node{
+			{
+				Status: corev1.NodeStatus{
+					Addresses: []corev1.NodeAddress{
+						{Type: corev1.NodeInternalIP, Address: "192.168.1.1"},
+						{Type: corev1.NodeHostName, Address: "node1"},
+					},
+				},
+			},
+		}
+		agentPods := []*corev1.Pod{
+			{
+				Status: corev1.PodStatus{
+					Phase: corev1.PodRunning,
+					PodIPs: []corev1.PodIP{
+						{IP: "10.0.0.1"},
+					},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "node1",
+				},
+			},
+			{
+				Status: corev1.PodStatus{
+					Phase: corev1.PodRunning,
+					PodIPs: []corev1.PodIP{
+						{IP: ""}, // nil/empty IP
+					},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "node1",
+				},
+			},
+		}
+		internalKubeAPIServer := &config.Endpoint{
+			Hostname: "internal-api-server",
+			IP:       "192.168.1.2",
+			Port:     443,
+		}
+		kubeAPIServer := &config.Endpoint{
+			Hostname: "api-server",
+			IP:       "192.168.1.3",
+			Port:     443,
+		}
+
+		clusterConfig, err := deploy.BuildClusterConfig(log, nodes, agentPods, internalKubeAPIServer, kubeAPIServer)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(clusterConfig).NotTo(BeNil())
+		Expect(clusterConfig.NodeCount).To(Equal(1))
+		Expect(clusterConfig.Nodes[0].Hostname).To(Equal("node1"))
+		Expect(len(clusterConfig.Nodes[0].InternalIPs)).To(Equal(1))
+		Expect(slices.Contains(clusterConfig.Nodes[0].InternalIPs, ("192.168.1.1"))).To(BeTrue())
+		// Should only have one pod endpoint (the one with valid IP)
+		Expect(len(clusterConfig.PodEndpoints)).To(Equal(1))
+		Expect(clusterConfig.PodEndpoints[0].Nodename).To(Equal("node1"))
+		Expect(clusterConfig.PodEndpoints[0].PodIP).To(Equal("10.0.0.1"))
+	})
+
+	It("should build cluster config correctly when all pods have nil IP addresses", func() {
+		log := logrus.New()
+		nodes := []*corev1.Node{
+			{
+				Status: corev1.NodeStatus{
+					Addresses: []corev1.NodeAddress{
+						{Type: corev1.NodeInternalIP, Address: "192.168.1.1"},
+						{Type: corev1.NodeHostName, Address: "node1"},
+					},
+				},
+			},
+		}
+		agentPods := []*corev1.Pod{
+			{
+				Status: corev1.PodStatus{
+					Phase: corev1.PodRunning,
+					PodIPs: []corev1.PodIP{
+						{IP: ""}, // nil/empty IP
+					},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "node1",
+				},
+			},
+			{
+				Status: corev1.PodStatus{
+					Phase: corev1.PodRunning,
+					PodIPs: []corev1.PodIP{
+						{IP: "invalid-ip"}, // invalid IP
+					},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "node1",
+				},
+			},
+		}
+		internalKubeAPIServer := &config.Endpoint{
+			Hostname: "internal-api-server",
+			IP:       "192.168.1.2",
+			Port:     443,
+		}
+		kubeAPIServer := &config.Endpoint{
+			Hostname: "api-server",
+			IP:       "192.168.1.3",
+			Port:     443,
+		}
+
+		clusterConfig, err := deploy.BuildClusterConfig(log, nodes, agentPods, internalKubeAPIServer, kubeAPIServer)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(clusterConfig).NotTo(BeNil())
+		Expect(clusterConfig.NodeCount).To(Equal(1))
+		Expect(clusterConfig.Nodes[0].Hostname).To(Equal("node1"))
+		Expect(len(clusterConfig.Nodes[0].InternalIPs)).To(Equal(1))
+		Expect(slices.Contains(clusterConfig.Nodes[0].InternalIPs, ("192.168.1.1"))).To(BeTrue())
+		// Should have no pod endpoints since all pods have invalid IPs
+		Expect(len(clusterConfig.PodEndpoints)).To(Equal(0))
+		Expect(len(clusterConfig.PodEndpointsV6)).To(Equal(0))
+	})
 })
