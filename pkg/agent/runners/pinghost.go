@@ -11,7 +11,7 @@ import (
 
 	"github.com/gardener/network-problem-detector/pkg/common/config"
 
-	"github.com/go-ping/ping"
+	probing "github.com/prometheus-community/pro-bing"
 	"github.com/spf13/cobra"
 	"go.uber.org/atomic"
 )
@@ -38,8 +38,8 @@ func (a *pingHostArgs) createRunner(_ *cobra.Command, _ []string) error {
 		nodes = a.runnerArgs.clusterCfg.Nodes
 	}
 
-	config := a.runnerArgs.prepareConfig()
-	if r := NewPingHost(nodes, config); r != nil {
+	cfg := a.runnerArgs.prepareConfig()
+	if r := NewPingHost(nodes, cfg); r != nil {
 		a.runnerArgs.runner = r
 	}
 	return nil
@@ -78,7 +78,7 @@ var _ Runner = &pingHost{}
 
 func pingFunc(node config.Node) (string, error) {
 	for _, ip := range node.InternalIPs {
-		pinger, err := ping.NewPinger(ip)
+		pinger, err := probing.NewPinger(ip)
 		if err != nil {
 			return "", err
 		}
@@ -87,14 +87,14 @@ func pingFunc(node config.Node) (string, error) {
 		pinger.Timeout = 1 * time.Second
 
 		result := atomic.String{}
-		pinger.OnRecv = func(pkt *ping.Packet) {
+		pinger.OnRecv = func(pkt *probing.Packet) {
 			result.Store(fmt.Sprintf("%d bytes from %s: icmp_seq=%d time=%v\n",
 				pkt.Nbytes, pkt.IPAddr, pkt.Seq, pkt.Rtt))
 		}
 
-		pinger.OnDuplicateRecv = func(pkt *ping.Packet) {
+		pinger.OnDuplicateRecv = func(pkt *probing.Packet) {
 			result.Store(fmt.Sprintf("%d bytes from %s: icmp_seq=%d time=%v ttl=%v (DUP!)\n",
-				pkt.Nbytes, pkt.IPAddr, pkt.Seq, pkt.Rtt, pkt.Ttl))
+				pkt.Nbytes, pkt.IPAddr, pkt.Seq, pkt.Rtt, pkt.TTL))
 		}
 
 		err = pinger.Run()
