@@ -155,7 +155,7 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 	var (
 		requestCPU, _          = resource.ParseQuantity("10m")
 		requestMemory, _       = resource.ParseQuantity("32Mi")
-		limitMemory, _         = resource.ParseQuantity("64Mi")
+		limitMemory, _         = resource.ParseQuantity("80Mi")
 		defaultMode      int32 = 0o444
 	)
 	name, portHTTP := ac.getNetworkConfig(hostNetwork)
