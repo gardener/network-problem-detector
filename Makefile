@@ -75,7 +75,7 @@ prepare-default-image:
 
 .PHONY: docker-images
 docker-images:
-	@docker build -t $(IMAGE_REPOSITORY):$(IMAGE_TAG) -f Dockerfile .
+	@docker build --platform=linux/$(GOARCH) -t $(IMAGE_REPOSITORY):$(IMAGE_TAG) -f Dockerfile .
 
 .PHONY: sast
 sast: $(GOSEC)

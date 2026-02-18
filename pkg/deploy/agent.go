@@ -155,7 +155,6 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 	var (
 		requestCPU, _          = resource.ParseQuantity("10m")
 		requestMemory, _       = resource.ParseQuantity("32Mi")
-		limitMemory, _         = resource.ParseQuantity("80Mi")
 		defaultMode      int32 = 0o444
 	)
 	name, portHTTP := ac.getNetworkConfig(hostNetwork)
@@ -272,9 +271,6 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 								corev1.ResourceCPU:    requestCPU,
 								corev1.ResourceMemory: requestMemory,
 							},
-							Limits: corev1.ResourceList{
-								corev1.ResourceMemory: limitMemory,
-							},
 						},
 						SecurityContext: &corev1.SecurityContext{
 							AllowPrivilegeEscalation: ptr.To(false),
@@ -376,9 +372,7 @@ func (ac *AgentDeployConfig) buildControllerDeployment() (*appsv1.Deployment, *r
 ) {
 	var (
 		requestCPU, _    = resource.ParseQuantity("10m")
-		limitCPU, _      = resource.ParseQuantity("50m")
 		requestMemory, _ = resource.ParseQuantity("32Mi")
-		limitMemory, _   = resource.ParseQuantity("128Mi")
 	)
 
 	name := common.NameDeploymentAgentController
@@ -415,10 +409,6 @@ func (ac *AgentDeployConfig) buildControllerDeployment() (*appsv1.Deployment, *r
 							Requests: corev1.ResourceList{
 								corev1.ResourceCPU:    requestCPU,
 								corev1.ResourceMemory: requestMemory,
-							},
-							Limits: corev1.ResourceList{
-								corev1.ResourceCPU:    limitCPU,
-								corev1.ResourceMemory: limitMemory,
 							},
 						},
 						SecurityContext: &corev1.SecurityContext{
