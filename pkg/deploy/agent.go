@@ -19,7 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/yaml"
 
 	"github.com/gardener/network-problem-detector/pkg/common"
@@ -170,7 +169,7 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 	}
 	var automountServiceAccountToken *bool
 	if !ac.DisableAutomountServiceAccountTokenForAgents {
-		automountServiceAccountToken = ptr.To(true)
+		automountServiceAccountToken = new(true)
 	}
 
 	typ := corev1.HostPathDirectoryOrCreate
@@ -180,7 +179,7 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 			Namespace: common.NamespaceKubeSystem,
 		},
 		Spec: appsv1.DaemonSetSpec{
-			RevisionHistoryLimit: ptr.To[int32](5),
+			RevisionHistoryLimit: new(int32(5)),
 			Selector:             &metav1.LabelSelector{MatchLabels: labels},
 			UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
 				Type: appsv1.RollingUpdateDaemonSetStrategyType,
@@ -196,7 +195,7 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 				Spec: corev1.PodSpec{
 					HostNetwork:                   hostNetwork,
 					PriorityClassName:             ac.PriorityClassName,
-					TerminationGracePeriodSeconds: ptr.To[int64](0),
+					TerminationGracePeriodSeconds: new(int64(0)),
 					Tolerations: []corev1.Toleration{
 						{
 							Effect:   corev1.TaintEffectNoSchedule,
@@ -273,7 +272,7 @@ func (ac *AgentDeployConfig) buildDaemonSet(serviceAccountName string, hostNetwo
 							},
 						},
 						SecurityContext: &corev1.SecurityContext{
-							AllowPrivilegeEscalation: ptr.To(false),
+							AllowPrivilegeEscalation: new(false),
 							Capabilities:             capabilities,
 						},
 						VolumeMounts: []corev1.VolumeMount{
@@ -385,9 +384,9 @@ func (ac *AgentDeployConfig) buildControllerDeployment() (*appsv1.Deployment, *r
 			Namespace: common.NamespaceKubeSystem,
 		},
 		Spec: appsv1.DeploymentSpec{
-			RevisionHistoryLimit: ptr.To[int32](5),
+			RevisionHistoryLimit: new(int32(5)),
 			Selector:             &metav1.LabelSelector{MatchLabels: labels},
-			Replicas:             ptr.To[int32](1),
+			Replicas:             new(int32(1)),
 			Strategy: appsv1.DeploymentStrategy{
 				Type: appsv1.RecreateDeploymentStrategyType,
 			},
@@ -397,8 +396,8 @@ func (ac *AgentDeployConfig) buildControllerDeployment() (*appsv1.Deployment, *r
 				},
 				Spec: corev1.PodSpec{
 					PriorityClassName:             ac.PriorityClassName,
-					TerminationGracePeriodSeconds: ptr.To[int64](0),
-					AutomountServiceAccountToken:  ptr.To(true),
+					TerminationGracePeriodSeconds: new(int64(0)),
+					AutomountServiceAccountToken:  new(true),
 					ServiceAccountName:            serviceAccountName,
 					Containers: []corev1.Container{{
 						Name:            name,
@@ -412,9 +411,9 @@ func (ac *AgentDeployConfig) buildControllerDeployment() (*appsv1.Deployment, *r
 							},
 						},
 						SecurityContext: &corev1.SecurityContext{
-							AllowPrivilegeEscalation: ptr.To(false),
-							RunAsUser:                ptr.To[int64](65534),
-							RunAsGroup:               ptr.To[int64](65534),
+							AllowPrivilegeEscalation: new(false),
+							RunAsUser:                new(int64(65534)),
+							RunAsGroup:               new(int64(65534)),
 						},
 					}},
 				},
@@ -511,7 +510,7 @@ func (ac *AgentDeployConfig) buildControllerDeployment() (*appsv1.Deployment, *r
 			Name:      serviceAccountName,
 			Namespace: common.NamespaceKubeSystem,
 		},
-		AutomountServiceAccountToken: ptr.To(false),
+		AutomountServiceAccountToken: new(false),
 	}
 
 	return deployment, clusterRole, clusterRoleBinding, role, roleBinding, serviceAccount, nil
@@ -584,7 +583,7 @@ func (ac *AgentDeployConfig) createClusterRuleAndServiceAccount(serviceAccountNa
 			Name:      serviceAccountName,
 			Namespace: common.NamespaceKubeSystem,
 		},
-		AutomountServiceAccountToken: ptr.To(false),
+		AutomountServiceAccountToken: new(false),
 	}
 
 	return clusterRole, clusterRoleBinding, serviceAccount, nil

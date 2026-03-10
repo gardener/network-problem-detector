@@ -25,7 +25,7 @@ var _ = Describe("sample", func() {
 	var podEndpoints []config.PodEndpoint
 	var nodes2 []config.Node
 	var podEndpoints2 []config.PodEndpoint
-	for i := 0; i < nodeCount; i++ {
+	for i := range nodeCount {
 		hostname := fmt.Sprintf("host-%d", i)
 		nodes = append(nodes, config.Node{Hostname: hostname, InternalIPs: []string{fmt.Sprintf("10.0.0.%d", i+10)}})
 		podEndpoints = append(podEndpoints, config.PodEndpoint{Nodename: hostname, Podname: fmt.Sprintf("pod%d", i), PodIP: fmt.Sprintf("10.128.0.%d", i+10), Port: 1234})
@@ -82,7 +82,7 @@ var _ = Describe("sample", func() {
 	It("should select good distributed, random sample if maxNodes > 0", func() {
 		scList := make([]*config.SampleConfig, nodeCount)
 		ccList := make([]config.ClusterConfig, nodeCount)
-		for i := 0; i < nodeCount; i++ {
+		for i := range nodeCount {
 			nodeName := fmt.Sprintf("host-%d", i)
 			scList[i] = &config.SampleConfig{
 				MaxNodes:        maxNodes,
@@ -106,7 +106,7 @@ var _ = Describe("sample", func() {
 		By("keeps node selection stable")
 		ccList2 := make([]config.ClusterConfig, nodeCount)
 		sumDelta := 0
-		for i := 0; i < nodeCount; i++ {
+		for i := range nodeCount {
 			if shouldReplaceNode(i) {
 				scList[i] = &config.SampleConfig{
 					MaxNodes:        maxNodes,

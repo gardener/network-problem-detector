@@ -33,7 +33,7 @@ type Client interface {
 	// SetConditions set or update conditions of current node.
 	SetConditions(ctx context.Context, conditions []corev1.NodeCondition) error
 	// Eventf reports the event.
-	Eventf(eventType string, source, reason, messageFmt string, args ...interface{})
+	Eventf(eventType string, source, reason, messageFmt string, args ...any)
 	// GetNode returns the Node object of the node on which the
 	// node-problem-detector runs.
 	GetNode(ctx context.Context) (*corev1.Node, error)
@@ -164,7 +164,7 @@ func (c *networkProblemClient) mergeConditionsLastTransitionTime(ctx context.Con
 	return nil
 }
 
-func (c *networkProblemClient) Eventf(eventType, source, reason, messageFmt string, args ...interface{}) {
+func (c *networkProblemClient) Eventf(eventType, source, reason, messageFmt string, args ...any) {
 	recorder, found := c.recorders[source]
 	if !found {
 		// TODO(random-liu): If needed use separate client and QPS limit for event.
@@ -184,7 +184,7 @@ func generatePatch(conditions []corev1.NodeCondition) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return []byte(fmt.Sprintf(`{"status":{"conditions":%s}}`, raw)), nil
+	return fmt.Appendf(nil, `{"status":{"conditions":%s}}`, raw), nil
 }
 
 // getEventRecorder generates a recorder for specific node name and source.

@@ -95,7 +95,7 @@ var _ = Describe("parser", func() {
 	})
 
 	DescribeTable("should parse runner commands",
-		func(clusterCfg config.ClusterConfig, runnerConfig RunnerConfig, args []string, expected interface{}) {
+		func(clusterCfg config.ClusterConfig, runnerConfig RunnerConfig, args []string, expected any) {
 			actual, err := Parse(clusterCfg, runnerConfig, args, &config.SampleConfig{})
 			switch v := expected.(type) {
 			case Runner:

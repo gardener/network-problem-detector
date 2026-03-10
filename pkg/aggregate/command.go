@@ -194,10 +194,7 @@ func (ac *aggrCommand) aggr(_ *cobra.Command, _ []string) error {
 			}
 			aggrBucket := int((timeMillis - startMillis) * int64(ac.buckets) / (endMillis - startMillis))
 			jr.incr(aggrBucket, obs.Ok, obs.Duration.AsDuration())
-			last := jr.lastOkMillis
-			if jr.lastFailedMillis > last {
-				last = jr.lastFailedMillis
-			}
+			last := max(jr.lastFailedMillis, jr.lastOkMillis)
 			if last > 0 {
 				jr.cumulativeDelta += timeMillis - last
 				jr.count++

@@ -5,6 +5,7 @@
 package agent
 
 import (
+	"slices"
 	"sync"
 
 	"github.com/gardener/network-problem-detector/pkg/common"
@@ -92,12 +93,7 @@ func ReportAggregatedObservationLatency(src, dest, jobid string, seconds float64
 func deleteOutdatedMetricByObsoleteJobIDs(jobIDs []string) {
 	if len(jobIDs) > 0 {
 		keys := metricKeys.remove(func(key observationKey) bool {
-			for _, id := range jobIDs {
-				if key.jobid == id {
-					return true
-				}
-			}
-			return false
+			return slices.Contains(jobIDs, key.jobid)
 		})
 		deleteOutdatedMetricsByKeys(keys)
 	}
