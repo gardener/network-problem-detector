@@ -40,7 +40,7 @@ To get started, the Network Problem Detector is deployed without integration wit
 
 *Side remark:*
 
-This is the fatest way to get started with NWPD. In a productive environment, you may prefer to scrap the check results
+This is the fastest way to get started with NWPD. In a productive environment, you may prefer to scrap the check results
 using [Prometheus](https://prometheus.io/) from metrics HTTP endpoints
 exposed by the agent pods. You may still follow this stand-alone installation, but
 you will need additional configuration on the Prometheus side which is not covered here.
@@ -162,7 +162,7 @@ To examine the current default configuration, run the command
 
 1. `checkTCPPort [--period <duration>] [--scale-period] [--endpoints <host1:ip1:port1>,<host2:ip2:port2>,...] [--endpoints-of-pod-ds] [--node-port <port>] [--endpoint-internal-kube-apiserver] [--endpoint-external-kube-apiserver]`
 
-   Tries to open a connection to the given `IP:port`. There are multipe variants:
+   Tries to open a connection to the given `IP:port`. There are multiple variants:
    - using an explicit list of endpoints with `--endpoints`
    - using the known pod endpoints of the pod network daemon set
    - using a node port on all known nodes
@@ -177,12 +177,12 @@ To examine the current default configuration, run the command
 
 3. `checkHTTPSGet [--period <duration>] [--scale-period] [--endpoints <host1[:port1]>,<host2[:port2]>,...] [--endpoint-internal-kube-apiserver] [--endpoint-external-kube-apiserver]`
 
-   Tries to open a connection to the given `IP:port`. There are multipe variants:
+   Tries to open a connection to the given `IP:port`. There are multiple variants:
    - using an explicit list of endpoints with `--endpoints`
    - the cluster internal address of the kube-apiserver
    - the external address of the kube-apiserver
 
-   The checks run in a robin round fashion after an inital random shuffle. The global default period between two checks can overwritten with the `--period` option.
+   The checks run in a robin round fashion after an initial random shuffle. The global default period between two checks can overwritten with the `--period` option.
    With `--scale-period` the period length is increased by a factor `sqrt(<number-of-nodes>)` to reduce the number of checks per node.
 
 4. `nslookup [--period <duration>] [--scale-period] [--names host1,host2,...] [--name-internal-kube-apiserver"] [--name-external-kube-apiserver]`

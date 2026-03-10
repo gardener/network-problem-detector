@@ -81,7 +81,7 @@ func (f *FakeProblemClient) GetConditions(_ context.Context, types []v1.NodeCond
 }
 
 // Eventf does nothing now.
-func (f *FakeProblemClient) Eventf(_ string, _, _, _ string, _ ...interface{}) {
+func (f *FakeProblemClient) Eventf(_ string, _, _, _ string, _ ...any) {
 }
 
 func (f *FakeProblemClient) GetNode(_ context.Context) (*v1.Node, error) {

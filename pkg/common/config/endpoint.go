@@ -40,7 +40,7 @@ func (e Endpoint) DestHost() string {
 }
 
 type ClusterConfig struct {
-	// NodeCount is the number known nodes (not anly the subset used as destinations)
+	// NodeCount is the number known nodes (not only the subset used as destinations)
 	NodeCount int
 	// Nodes is the subset of the known nodes used as destinations.
 	Nodes []Node `json:"nodes,omitempty"`

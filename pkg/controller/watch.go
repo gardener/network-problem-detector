@@ -99,7 +99,7 @@ func (c *nodePodController) Start(stopCh chan struct{}) error {
 	return nil
 }
 
-func (c *nodePodController) OnAdd(obj interface{}, _ bool) {
+func (c *nodePodController) OnAdd(obj any, _ bool) {
 	if c.isRelevant(obj) {
 		if node, ok := obj.(*corev1.Node); ok {
 			if node.CreationTimestamp.Add(1 * time.Minute).After(time.Now()) {
@@ -110,7 +110,7 @@ func (c *nodePodController) OnAdd(obj interface{}, _ bool) {
 	}
 }
 
-func (c *nodePodController) OnUpdate(_, newObj interface{}) {
+func (c *nodePodController) OnUpdate(_, newObj any) {
 	if c.isRelevant(newObj) {
 		if newPod, ok := newObj.(*corev1.Pod); ok {
 			if newPod.Status.Phase == corev1.PodRunning {
@@ -124,7 +124,7 @@ func (c *nodePodController) OnUpdate(_, newObj interface{}) {
 	}
 }
 
-func (c *nodePodController) OnDelete(obj interface{}) {
+func (c *nodePodController) OnDelete(obj any) {
 	if c.isRelevant(obj) {
 		if node, ok := obj.(*corev1.Node); ok {
 			c.log.WithField("node", node.Name).Info("node deleted")
@@ -133,7 +133,7 @@ func (c *nodePodController) OnDelete(obj interface{}) {
 	}
 }
 
-func (c *nodePodController) isRelevant(obj interface{}) bool {
+func (c *nodePodController) isRelevant(obj any) bool {
 	if _, ok := obj.(*corev1.Node); ok {
 		return ok
 	}

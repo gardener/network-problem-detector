@@ -83,7 +83,7 @@ func (a *checkHTTPSGetArgs) createRunner(_ *cobra.Command, _ []string) error {
 				return fmt.Errorf("invalid API server host %q: hostname cannot be empty", host)
 			}
 			if port == 0 || port > 65535 {
-				return fmt.Errorf("invalid API server port %q: port must be between 1 and 65535", port)
+				return fmt.Errorf("invalid API server port %d: port must be between 1 and 65535", port)
 			}
 			endpoints = append(endpoints, CheckHTTPSEndpoint{
 				Endpoint: config.Endpoint{

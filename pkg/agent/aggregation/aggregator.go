@@ -304,10 +304,7 @@ func toRestrictedList(set common.StringSet, maxItems int) string {
 	if len(array) == 1 {
 		return array[0]
 	}
-	n := len(array)
-	if n > maxItems {
-		n = maxItems
-	}
+	n := min(len(array), maxItems)
 	s := "(" + strings.Join(array[:n], ",")
 	if n < len(array) {
 		s += fmt.Sprintf(" and %d more", len(array)-n)

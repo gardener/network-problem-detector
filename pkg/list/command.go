@@ -50,7 +50,7 @@ func CreateListCmd() *cobra.Command {
 	cmd.Flags().DurationVar(&lc.since, "since", 10*time.Minute, "list observations since given time period.")
 	cmd.Flags().IntVar(&lc.limit, "limit", 10000, "maximum number of observations to retrieve.")
 	cmd.Flags().StringArrayVar(&lc.jobIDs, "job", nil, "jobID(s) to filter")
-	cmd.Flags().StringArrayVar(&lc.srcHosts, "src", nil, "sourc host(s) to filter")
+	cmd.Flags().StringArrayVar(&lc.srcHosts, "src", nil, "source host(s) to filter")
 	cmd.Flags().StringArrayVar(&lc.destHosts, "dest", nil, "destination host(s) to filter")
 	cmd.Flags().BoolVar(&lc.failedOnly, "failed-only", false, "only failures")
 	cmd.Flags().DurationVar(&lc.window, "window", 1*time.Minute, "aggregation window (only for aggregated observations)")
@@ -119,7 +119,7 @@ func (lc *listCommand) list(_ *cobra.Command, args []string) error {
 		AggregationWindow:   durationpb.New(lc.window),
 	}
 
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		if !lc.checkPortAvailable(port) {
 			break
 		}

@@ -56,7 +56,7 @@ func TestGeneratePatch(t *testing.T) {
 	}
 	raw, err := json.Marshal(&update)
 	assert.NoError(t, err)
-	expectedPatch := []byte(fmt.Sprintf(`{"status":{"conditions":%s}}`, raw))
+	expectedPatch := fmt.Appendf(nil, `{"status":{"conditions":%s}}`, raw)
 
 	patch, err := generatePatch(update)
 	assert.NoError(t, err)
