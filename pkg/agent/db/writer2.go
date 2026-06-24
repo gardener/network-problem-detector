@@ -19,12 +19,12 @@ import (
 	"github.com/gardener/network-problem-detector/pkg/common"
 	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
 
-	"github.com/sirupsen/logrus"
+	"github.com/go-logr/logr"
 	"google.golang.org/protobuf/proto"
 )
 
 type obsWriter struct {
-	log            logrus.FieldLogger
+	log            logr.Logger
 	directory      string
 	prefix         string
 	retentionHours int
@@ -65,7 +65,7 @@ func (wf *writeFile) Persist(obj *IntString) error {
 
 var _ nwpd.ObservationWriter = &obsWriter{}
 
-func NewObsWriter(log logrus.FieldLogger, directory, prefix string, retentionHours int) (nwpd.ObservationWriter, error) {
+func NewObsWriter(log logr.Logger, directory, prefix string, retentionHours int) (nwpd.ObservationWriter, error) {
 	err := os.MkdirAll(directory, 0o750) //  #nosec G302 -- no sensitive data
 	if err != nil {
 		return nil, err
@@ -107,32 +107,32 @@ func (w *obsWriter) Run() {
 		case <-w.ticker.C:
 			file, err := w.getFile()
 			if err != nil {
-				w.log.Warnf("sync failed: getFile: %s", err)
+				w.log.Error(err, "sync failed: getFile")
 				continue
 			}
 			err = file.file.Sync()
 			if err != nil {
-				w.log.Warnf("sync failed: %s", err)
+				w.log.Error(err, "sync failed")
 				continue
 			}
 		case obs := <-w.obsChan:
 			file, err := w.getFile()
 			if err != nil {
-				w.log.Warnf("write failed: getFile: %s", err)
+				w.log.Error(err, "write failed: getFile")
 				continue
 			}
 			intobs, err := ToIntObservation(obs, file.idMap, file)
 			if err != nil {
-				w.log.Warnf("write failed: ToIntObservation: %s", err)
+				w.log.Error(err, "write failed: ToIntObservation")
 				continue
 			}
 			value, err := IntObsToBytes(intobs)
 			if err != nil {
-				w.log.Warnf("write failed: IntObsToBytes: %s", err)
+				w.log.Error(err, "write failed: IntObsToBytes")
 				continue
 			}
 			if err := writeRecord(file.file, markerObservation, value); err != nil {
-				w.log.Warnf("write failed: %s", err)
+				w.log.Error(err, "write failed")
 				continue
 			}
 		}
@@ -229,7 +229,7 @@ func (w *obsWriter) getFile() (*writeFile, error) {
 		// rotate output file
 		if file != nil {
 			if err := file.file.Close(); err != nil {
-				w.log.Warnf("closing file %s failed: %s", file.filename, err)
+				w.log.Error(err, "closing file failed", "filename", file.filename)
 			}
 		}
 		currentUTC := startOfHourUTC(now)
@@ -239,10 +239,10 @@ func (w *obsWriter) getFile() (*writeFile, error) {
 		idMap, err := w.loadStringIDMap(filename)
 		if err != nil {
 			// corrupted file, delete it
-			w.log.Warnf("loading StringIDMap from file %s failed: %s", filename, err)
-			w.log.Infof("deleting corrupt file %s", filename)
+			w.log.Error(err, "loading StringIDMap from file failed", "filename", filename)
+			w.log.Info("deleting corrupt file", "filename", filename)
 			if err := os.Remove(filepath.Clean(filename)); err != nil {
-				w.log.Warnf("cannot delete file %s: %s", filename, err)
+				w.log.Error(err, "cannot delete file", "filename", filename)
 			}
 			idMap = NewStringIDMap()
 		}
@@ -274,16 +274,16 @@ func (w *obsWriter) cleanOldFiles() {
 	limitUTC := startOfHourUTC(limit)
 	files, err := os.ReadDir(w.directory)
 	if err != nil {
-		w.log.Warnf("cannot read directory %s: %s", w.directory, err)
+		w.log.Error(err, "cannot read directory", "directory", w.directory)
 		return
 	}
 	for _, f := range files {
 		if !f.IsDir() && strings.HasPrefix(f.Name(), w.prefix) && isBefore(f, limitUTC) {
 			filename := path.Join(w.directory, f.Name())
 			if err := os.Remove(filename); err != nil {
-				w.log.Warnf("cannot delete file %s: %s", filename, err)
+				w.log.Error(err, "cannot delete file", "filename", filename)
 			} else {
-				w.log.Infof("deleted file %s", filename)
+				w.log.Info("deleted file", "filename", filename)
 			}
 		}
 	}

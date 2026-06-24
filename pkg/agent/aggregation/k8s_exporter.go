@@ -14,18 +14,18 @@ import (
 	"github.com/gardener/network-problem-detector/pkg/common"
 	"github.com/gardener/network-problem-detector/pkg/common/config"
 
-	"github.com/sirupsen/logrus"
+	"github.com/go-logr/logr"
 	"k8s.io/utils/clock"
 )
 
 type k8sExporter struct {
-	log              logrus.FieldLogger
+	log              logr.Logger
 	client           problemclient.Client
 	conditionManager condition.Manager
 }
 
 // newExporter creates a exporter for Kubernetes apiserver exporting.
-func newExporter(log logrus.FieldLogger, nodeName string, hostNetwork bool, exporterConfig config.K8sExporterConfig) (types.Exporter, error) {
+func newExporter(log logr.Logger, nodeName string, hostNetwork bool, exporterConfig config.K8sExporterConfig) (types.Exporter, error) {
 	agentName := common.NameDaemonSetAgentPodNet
 	if hostNetwork {
 		agentName = common.NameDaemonSetAgentHostNet

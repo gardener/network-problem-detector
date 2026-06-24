@@ -19,7 +19,7 @@ import (
 	"github.com/gardener/network-problem-detector/pkg/common"
 	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
 
-	"github.com/sirupsen/logrus"
+	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -58,7 +58,7 @@ func CreateListCmd() *cobra.Command {
 }
 
 func (lc *listCommand) list(_ *cobra.Command, args []string) error {
-	log := logrus.WithField("cmd", "list")
+	log := common.NewLogger("list")
 
 	if len(args) != 2 {
 		return fmt.Errorf("missing kind or pod name: %s", strings.Join(args, " "))
@@ -93,7 +93,7 @@ func (lc *listCommand) list(_ *cobra.Command, args []string) error {
 		kubeconfigOpt = " --kubeconfig=" + lc.kubeconfig
 	}
 
-	log.Infof("Loading observations from pod %s", podname)
+	log.Info("Loading observations from pod", "pod", podname)
 	cmdline := fmt.Sprintf("kubectl %s -n kube-system  port-forward %s %d:%d", kubeconfigOpt, podname, port, targetPort)
 	var stderr bytes.Buffer
 	cmd := exec.Command("sh", "-c", cmdline)              //  #nosec G204 -- only used in interactive shell
@@ -132,7 +132,7 @@ func (lc *listCommand) list(_ *cobra.Command, args []string) error {
 	return lc.listObservations(log, client, request)
 }
 
-func (lc *listCommand) listObservations(log logrus.FieldLogger, client nwpd.AgentService, request *nwpd.GetObservationsRequest) error {
+func (lc *listCommand) listObservations(log logr.Logger, client nwpd.AgentService, request *nwpd.GetObservationsRequest) error {
 	ctx := context.Background()
 	response, err := client.GetObservations(ctx, request)
 	if err != nil {
@@ -150,12 +150,12 @@ func (lc *listCommand) listObservations(log logrus.FieldLogger, client nwpd.Agen
 		fmt.Printf("%s src=%s dest=%s jobid=%s%s status=%s\n", obs.Timestamp.AsTime().UTC().Format("2006-01-02T15:04:05.000Z"),
 			obs.SrcHost, obs.DestHost, obs.JobID, dur, status)
 	}
-	log.Infof("%d observations", len(response.Observations))
+	log.Info("observations", "count", len(response.Observations))
 
 	return nil
 }
 
-func (lc *listCommand) listAggregatedObservations(log logrus.FieldLogger, client nwpd.AgentService, request *nwpd.GetObservationsRequest) error {
+func (lc *listCommand) listAggregatedObservations(log logr.Logger, client nwpd.AgentService, request *nwpd.GetObservationsRequest) error {
 	ctx := context.Background()
 	response, err := client.GetAggregatedObservations(ctx, request)
 	if err != nil {
@@ -181,7 +181,7 @@ func (lc *listCommand) listAggregatedObservations(log logrus.FieldLogger, client
 				window, ao.SrcHost, ao.DestHost, jobID, dur, okCount, notOkCount)
 		}
 	}
-	log.Infof("%d aggregated observations", len(response.AggregatedObservations))
+	log.Info("aggregated observations", "count", len(response.AggregatedObservations))
 
 	return nil
 }

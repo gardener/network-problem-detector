@@ -7,6 +7,7 @@ package collect
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -18,7 +19,7 @@ import (
 	"github.com/gardener/network-problem-detector/pkg/agent/db"
 	"github.com/gardener/network-problem-detector/pkg/common"
 
-	"github.com/sirupsen/logrus"
+	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
 	"go.uber.org/atomic"
 	"golang.org/x/sync/semaphore"
@@ -52,7 +53,7 @@ func CreateCollectCmd() *cobra.Command {
 }
 
 func (cc *collectCommand) collect(_ *cobra.Command, _ []string) error {
-	log := logrus.WithField("cmd", "collect")
+	log := common.NewLogger("collect")
 
 	if err := os.MkdirAll(cc.directory, 0o750); err != nil { //  #nosec G302 -- no sensitive data
 		return err
@@ -76,7 +77,7 @@ func (cc *collectCommand) collect(_ *cobra.Command, _ []string) error {
 	}
 	defer os.RemoveAll(dir)
 
-	log.Infof("Collecting from %d nodes...", len(list.Items))
+	log.Info("collecting from nodes...", "count", len(list.Items))
 	cc.totalBytes.Store(0)
 	cc.totalFiles.Store(0)
 	cc.totalNodes.Store(0)
@@ -88,9 +89,9 @@ func (cc *collectCommand) collect(_ *cobra.Command, _ []string) error {
 		pod := item
 		go func() {
 			defer wg.Done()
-			tasklog := log.WithField("node", pod.Spec.NodeName)
+			tasklog := log.WithValues("node", pod.Spec.NodeName)
 			if err := sem.Acquire(ctx, 1); err != nil {
-				tasklog.Errorf("acquire failed")
+				tasklog.Error(err, "acquire failed")
 				return
 			}
 			defer sem.Release(1)
@@ -98,23 +99,23 @@ func (cc *collectCommand) collect(_ *cobra.Command, _ []string) error {
 		}()
 	}
 	wg.Wait()
-	log.Infof("Written %d bytes form %d files to directory %s from %d nodes",
-		cc.totalBytes.Load(), cc.totalFiles.Load(), cc.directory, cc.totalNodes.Load())
+	log.Info(fmt.Sprintf("written %d bytes from %d files to directory %s from %d nodes",
+		cc.totalBytes.Load(), cc.totalFiles.Load(), cc.directory, cc.totalNodes.Load()))
 	if cc.failedNodes.Load() > 0 {
-		log.Warnf("%d nodes not completed (see log messages above)", cc.failedNodes.Load())
+		log.Info(fmt.Sprintf("%d nodes not completed (see log messages above)", cc.failedNodes.Load()))
 	}
 
 	return nil
 }
 
-func (cc *collectCommand) loadFrom(log logrus.FieldLogger, dir string, pod *corev1.Pod) {
-	log.Infof("Loading observations")
+func (cc *collectCommand) loadFrom(log logr.Logger, dir string, pod *corev1.Pod) {
+	log.Info("Loading observations")
 	kubeconfigOpt := ""
 	if cc.Kubeconfig != "" {
 		kubeconfigOpt = " --kubeconfig=" + cc.Kubeconfig
 	}
 	if err := os.Mkdir(dir, 0o750); err != nil { //  #nosec G302 -- no sensitive data
-		log.Errorf("mkdir tmpsubdir failed: %s", err)
+		log.Error(err, "mkdir tmpsubdir failed")
 		cc.failedNodes.Inc()
 		return
 	}
@@ -125,25 +126,25 @@ func (cc *collectCommand) loadFrom(log logrus.FieldLogger, dir string, pod *core
 	cmd.Env = os.Environ()
 	err := cmd.Run()
 	if err != nil {
-		log.Errorf("kubectl exec failed for %s/%s: %s (stderr: %s)", pod.Namespace, pod.Name, err, stderr.String())
+		log.Error(err, "kubectl exec failed", "pod", fmt.Sprintf("%s/%s", pod.Namespace, pod.Name), "stderr", stderr.String())
 		cc.failedNodes.Inc()
 		return
 	}
 	filenames, err := db.GetAnyRecordFiles(dir, false)
 	if err != nil {
-		log.Errorf("listing temp dir %s failed: %s", dir, err)
+		log.Error(err, "listing temp dir failed", "dir", dir)
 		cc.failedNodes.Inc()
 		return
 	}
 	if len(filenames) == 0 && stderr.Len() != 0 {
-		log.Errorf("execution with unexpected result: %s", stderr.String())
+		log.Error(errors.New(stderr.String()), "execution with unexpected result")
 		cc.failedNodes.Inc()
 		return
 	}
 
 	outdir := path.Join(cc.directory, pod.Spec.NodeName)
 	if err := os.MkdirAll(outdir, 0o750); err != nil { //  #nosec G302 -- no sensitive data
-		log.Errorf("mkdir failed: %s", err)
+		log.Error(err, "mkdir failed")
 		cc.failedNodes.Inc()
 		return
 	}
@@ -154,20 +155,20 @@ func (cc *collectCommand) loadFrom(log logrus.FieldLogger, dir string, pod *core
 		destFilename := path.Join(outdir, name)
 		n, err := copyFile(filename, destFilename)
 		if err != nil {
-			log.Errorf("copyFile failed: %s", err)
+			log.Error(err, "copyFile failed")
 			cc.failedNodes.Inc()
 			return
 		}
 		err = copyFileDates(filename, destFilename)
 		if err != nil {
-			log.Errorf("copyFileDates failed: %s", err)
+			log.Error(err, "copyFileDates failed")
 			cc.failedNodes.Inc()
 			return
 		}
 		countBytes += int(n)
 		countFiles++
 	}
-	log.Infof("Loaded %d bytes from %d files", countBytes, countFiles)
+	log.Info(fmt.Sprintf("Loaded %d bytes from %d files", countBytes, countFiles))
 	cc.totalBytes.Add(int64(countBytes))
 	cc.totalFiles.Add(int32(countFiles)) // #nosec G115 - number of files is well below 100
 	cc.totalNodes.Inc()

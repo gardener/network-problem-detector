@@ -13,7 +13,7 @@ import (
 	"github.com/gardener/network-problem-detector/pkg/common"
 	"github.com/gardener/network-problem-detector/pkg/common/config"
 
-	"github.com/sirupsen/logrus"
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -45,7 +45,7 @@ func arePodsOfIPFamily(agentPods []*corev1.Pod, ipFamily string) bool {
 }
 
 func BuildClusterConfig(
-	log logrus.FieldLogger,
+	log logr.Logger,
 	nodes []*corev1.Node,
 	agentPods []*corev1.Pod,
 	internalKubeAPIServer,
@@ -82,7 +82,7 @@ func BuildClusterConfig(
 			}
 		}
 		if len(ips) == 0 && len(ipsV6) == 0 {
-			log.Infof("ignore node %s without internalIP", n.Name)
+			log.Info("ignore node without internalIP", "node", n.Name)
 			continue
 		}
 		if hostname == "" {
@@ -103,7 +103,7 @@ func BuildClusterConfig(
 		for _, podIP := range p.Status.PodIPs {
 			ip := net.ParseIP(podIP.IP)
 			if ip == nil {
-				log.Infof("ignore pod %s/%s with invalid podIP %s", p.Namespace, p.Name, podIP.IP)
+				log.Info("ignore pod with invalid podIP", "pod", fmt.Sprintf("%s/%s", p.Namespace, p.Name), "podIP", podIP.IP)
 				continue
 			}
 			if ip.To4() != nil {

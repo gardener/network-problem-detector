@@ -8,7 +8,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/sirupsen/logrus"
+	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -23,7 +23,7 @@ type Object interface {
 	metav1.Object
 }
 
-type buildObject[T Object] func(log logrus.FieldLogger) (T, error)
+type buildObject[T Object] func(log logr.Logger) (T, error)
 
 type ObjectInterface[T Object] interface {
 	Create(ctx context.Context, obj T, opts metav1.CreateOptions) (T, error)
@@ -62,7 +62,7 @@ func genericCreateOrUpdate(ctx context.Context, clientset *kubernetes.Clientset,
 	}
 }
 
-func genericDeleteWithLog(ctx context.Context, log logrus.FieldLogger, clientset *kubernetes.Clientset, object Object) error {
+func genericDeleteWithLog(ctx context.Context, log logr.Logger, clientset *kubernetes.Clientset, object Object) error {
 	typename, namespaced := typename(object)
 	err := genericDelete(ctx, clientset, object)
 	if err != nil && errors.IsNotFound(err) {
@@ -71,11 +71,11 @@ func genericDeleteWithLog(ctx context.Context, log logrus.FieldLogger, clientset
 	if err != nil {
 		return err
 	}
-	prefix := ""
+	name := object.GetName()
 	if namespaced {
-		prefix = object.GetNamespace() + "/"
+		name = object.GetNamespace() + "/" + name
 	}
-	log.Infof("deleted %s %s%s", typename, prefix, object.GetName())
+	log.Info("deleted", typename, name)
 	return nil
 }
 

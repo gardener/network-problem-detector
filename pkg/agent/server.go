@@ -6,6 +6,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"math/rand"
@@ -27,8 +28,8 @@ import (
 	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/go-logr/logr"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -38,7 +39,7 @@ type jobid = string
 type server struct {
 	lock                 sync.Mutex
 	reloadLock           sync.Mutex
-	log                  logrus.FieldLogger
+	log                  logr.Logger
 	agentConfigFile      string
 	clusterConfigFile    string
 	nodeName             string
@@ -57,7 +58,7 @@ type server struct {
 
 var _ nwpd.AgentService = &server{}
 
-func newServer(log logrus.FieldLogger, agentConfigFile, clusterConfigFile string, hostNetwork bool) (*server, error) {
+func newServer(log logr.Logger, agentConfigFile, clusterConfigFile string, hostNetwork bool) (*server, error) {
 	nodeName := getNodeName()
 	return &server{
 		log:               log,
@@ -104,7 +105,7 @@ func (s *server) setup() error {
 	}
 
 	options := &aggregation.ObsAggregationOptions{
-		Log:          s.log.WithField("sub", "aggr"),
+		Log:          s.log.WithValues("sub", "aggr"),
 		NodeName:     s.nodeName,
 		ReportPeriod: 1 * time.Minute,
 		TimeWindow:   30 * time.Minute,
@@ -154,7 +155,7 @@ func (s *server) applyAgentConfig(cfg *config.AgentConfig) error {
 			prefix = networkCfg.DataFilePrefix
 		}
 		var err error
-		s.writer, err = db.NewObsWriter(s.log.WithField("sub", "writer"), cfg.OutputDir, prefix, cfg.RetentionHours)
+		s.writer, err = db.NewObsWriter(s.log.WithValues("sub", "writer"), cfg.OutputDir, prefix, cfg.RetentionHours)
 		if err != nil {
 			return err
 		}
@@ -262,8 +263,8 @@ func (s *server) logStart(job *runners.InternalJob, prefix string) {
 	if desc != "" {
 		desc += ", "
 	}
-	s.log.Infof("%s job %s: %s [%speriod=%.1fs]", prefix, job.Config().JobID, strings.Join(job.Config().Args, " "),
-		desc, job.Period().Seconds())
+	s.log.Info(fmt.Sprintf("%s job %s: %s [%speriod=%.1fs]", prefix, job.Config().JobID, strings.Join(job.Config().Args, " "),
+		desc, job.Period().Seconds()))
 }
 
 func (s *server) deleteJob(jobID string) error {
@@ -272,7 +273,7 @@ func (s *server) deleteJob(jobID string) error {
 
 	if oldJob := s.jobs[jobID]; oldJob != nil {
 		delete(s.jobs, jobID)
-		s.log.Infof("deleted job %s", jobID)
+		s.log.Info("deleted job", "jobID", jobID)
 	}
 	return nil
 }
@@ -391,26 +392,26 @@ func (s *server) reloadConfig() {
 
 	agentConfig, err := config.LoadAgentConfig(s.agentConfigFile)
 	if err != nil {
-		s.log.Warnf("cannot load agent configuration from %s", s.agentConfigFile)
+		s.log.Info("WARNING: cannot load agent configuration", "agentConfigFile", s.agentConfigFile)
 		return
 	}
 	clusterConfig, err := config.LoadClusterConfig(s.clusterConfigFile)
 	if err != nil {
-		s.log.Warnf("cannot load cluster configuration from %s", s.clusterConfigFile)
+		s.log.Info("WARNING: cannot load cluster configuration", "clusterConfigFile", s.clusterConfigFile)
 		return
 	}
 	changed := !reflect.DeepEqual(clusterConfig, s.currentClusterConfig) || !reflect.DeepEqual(agentConfig, s.currentAgentConfig)
 	if changed {
-		s.log.Infof("reloaded configuration from %s and %s", s.agentConfigFile, s.clusterConfigFile)
+		s.log.Info("reloaded configuration", "agentConfigFile", s.agentConfigFile, "clusterConfigFile", s.clusterConfigFile)
 		s.currentClusterConfig = clusterConfig
 		err = s.applyAgentConfig(agentConfig)
 		if err != nil {
-			s.log.Warnf("cannot apply new agent configuration from %s", s.agentConfigFile)
+			s.log.Info("WARNING: cannot apply new agent configuration", "filename", s.agentConfigFile)
 			return
 		}
-		s.log.Infof("configuration applied")
+		s.log.Info("configuration applied")
 	} else {
-		s.log.Debug("no reload needed")
+		s.log.V(1).Info("no reload needed")
 	}
 }
 
@@ -421,11 +422,11 @@ func (s *server) run() {
 	ticker := time.NewTicker(s.tickPeriod)
 
 	if port := s.getNetworkCfg().HTTPPort; port != 0 {
-		s.log.Infof("provide metrics at ':%d/metrics'", port)
+		s.log.Info("metrics endpoint", "endpoint", fmt.Sprintf(":%d/metrics", port))
 		http.Handle("/metrics", promhttp.Handler())
 
 		twirpServer := nwpd.NewAgentServiceServer(s)
-		s.log.Infof("provide agent service at ':%d%s'", port, twirpServer.PathPrefix())
+		s.log.Info("agent service", "endpoint", fmt.Sprintf(":%d%s", port, twirpServer.PathPrefix()))
 		http.Handle(twirpServer.PathPrefix(), twirpServer)
 
 		go func() {
@@ -438,7 +439,11 @@ func (s *server) run() {
 				IdleTimeout:  15 * time.Second,
 			}
 			err := server.ListenAndServe()
-			s.log.Warnf(err.Error())
+			if errors.Is(err, http.ErrServerClosed) {
+				s.log.Info("server closed")
+				return
+			}
+			s.log.Error(err, "ListenAndServe failed")
 		}()
 	}
 	if s.writer != nil {
@@ -471,14 +476,13 @@ func (s *server) run() {
 		case obs := <-s.obsChan:
 			logObservation := s.currentAgentConfig.LogObservations
 			if logObservation {
-				fields := logrus.Fields{
-					"src":   obs.SrcHost,
-					"dest":  obs.DestHost,
-					"ok":    obs.Ok,
-					"jobid": obs.JobID,
-					"time":  obs.Timestamp.AsTime(),
-				}
-				s.log.WithFields(fields).Info(obs.Result)
+				s.log.WithValues(
+					"src", obs.SrcHost,
+					"dest", obs.DestHost,
+					"ok", obs.Ok,
+					"jobid", obs.JobID,
+					"time", obs.Timestamp.AsTime(),
+				).Info(obs.Result)
 			}
 			IncAggregatedObservation(obs.SrcHost, obs.DestHost, obs.JobID, obs.Ok)
 			if obs.Ok && obs.Duration != nil {
@@ -491,11 +495,11 @@ func (s *server) run() {
 				s.aggregator.Add(obs)
 			}
 		case err := <-watcher.Errors:
-			s.log.Warning("watcher failed: %s", err)
+			s.log.Error(err, "watcher failed")
 			s.stop()
 			return
 		case <-watcher.Events:
-			s.log.Debug("watch")
+			s.log.V(1).Info("watch")
 			go s.reloadConfig()
 		case <-ticker.C:
 			s.triggerJobs()
@@ -509,7 +513,7 @@ func (s *server) triggerJobs() {
 
 	for _, job := range s.jobs {
 		if err := job.Tick(s.nodeName, s.obsChan); err != nil {
-			s.log.Debug(err)
+			s.log.V(1).Info(err.Error())
 		}
 	}
 }

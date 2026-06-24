@@ -7,9 +7,9 @@ package deploy_test
 import (
 	"slices"
 
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/gardener/network-problem-detector/pkg/common/config"
@@ -18,7 +18,7 @@ import (
 
 var _ = Describe("BuildClusterConfig", func() {
 	It("should build cluster config correctly", func() {
-		log := logrus.New()
+		log := logr.Discard()
 		nodes := []*corev1.Node{
 			{
 				Status: corev1.NodeStatus{
@@ -65,7 +65,7 @@ var _ = Describe("BuildClusterConfig", func() {
 	})
 
 	It("should build cluster config correctly with IPv6 addresses", func() {
-		log := logrus.New()
+		log := logr.Discard()
 		nodes := []*corev1.Node{
 			{
 				Status: corev1.NodeStatus{
@@ -112,7 +112,7 @@ var _ = Describe("BuildClusterConfig", func() {
 	})
 
 	It("should build cluster config correctly with IPv6 and IPv4 addresses in nodes but only IPv4 for pods.", func() {
-		log := logrus.New()
+		log := logr.Discard()
 		nodes := []*corev1.Node{
 			{
 				Status: corev1.NodeStatus{
@@ -160,7 +160,7 @@ var _ = Describe("BuildClusterConfig", func() {
 	})
 
 	It("should build cluster config correctly with IPv6 and IPv4 addresses in nodes but only IPv4 for pods.", func() {
-		log := logrus.New()
+		log := logr.Discard()
 		nodes := []*corev1.Node{
 			{
 				Status: corev1.NodeStatus{
@@ -221,7 +221,7 @@ var _ = Describe("BuildClusterConfig", func() {
 	})
 
 	It("should build cluster config correctly with IPv6 and IPv4 addresses for nodes and for pods.", func() {
-		log := logrus.New()
+		log := logr.Discard()
 		nodes := []*corev1.Node{
 			{
 				Status: corev1.NodeStatus{
@@ -272,7 +272,7 @@ var _ = Describe("BuildClusterConfig", func() {
 	})
 
 	It("should build cluster config correctly when one pod has nil IP address", func() {
-		log := logrus.New()
+		log := logr.Discard()
 		nodes := []*corev1.Node{
 			{
 				Status: corev1.NodeStatus{
@@ -332,7 +332,7 @@ var _ = Describe("BuildClusterConfig", func() {
 	})
 
 	It("should build cluster config correctly when all pods have nil IP addresses", func() {
-		log := logrus.New()
+		log := logr.Discard()
 		nodes := []*corev1.Node{
 			{
 				Status: corev1.NodeStatus{

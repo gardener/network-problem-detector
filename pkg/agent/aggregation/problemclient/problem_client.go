@@ -13,7 +13,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/sirupsen/logrus"
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/clientcmd"
@@ -51,11 +51,11 @@ type Options struct {
 	// KubeConfigPath allows to override in-cluster config
 	KubeConfigPath string
 	// Log is the logger
-	Log logrus.FieldLogger
+	Log logr.Logger
 }
 
 type networkProblemClient struct {
-	log              logrus.FieldLogger
+	log              logr.Logger
 	nodeName         string
 	client           typedcorev1.CoreV1Interface
 	clock            clock.WithTicker
@@ -188,9 +188,11 @@ func generatePatch(conditions []corev1.NodeCondition) ([]byte, error) {
 }
 
 // getEventRecorder generates a recorder for specific node name and source.
-func getEventRecorder(log logrus.FieldLogger, c typedcorev1.CoreV1Interface, namespace, nodeName, source string) record.EventRecorder {
+func getEventRecorder(log logr.Logger, c typedcorev1.CoreV1Interface, namespace, nodeName, source string) record.EventRecorder {
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(log.Infof)
+	eventBroadcaster.StartLogging(func(format string, args ...any) {
+		log.Info(fmt.Sprintf(format, args...))
+	})
 	recorder := eventBroadcaster.NewRecorder(runtime.NewScheme(), corev1.EventSource{Component: source, Host: nodeName})
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: c.Events(namespace)})
 	return recorder
