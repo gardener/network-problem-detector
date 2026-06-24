@@ -52,6 +52,7 @@ func CreateRunControllerCmd() *cobra.Command {
 
 func (cc *controllerCommand) runController(_ *cobra.Command, _ []string) error {
 	log := common.NewLogger("controller")
+	defer common.Sync(log)
 	controllerruntime.SetLogger(log)
 
 	config, err := cc.RestConfig()

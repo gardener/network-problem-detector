@@ -36,6 +36,7 @@ func CreateRunAgentCmd(injectedVersion string) *cobra.Command {
 
 func runAgent(_ *cobra.Command, _ []string) error {
 	log := common.NewLogger("agent")
+	defer common.Sync(log)
 
 	if agentConfigFile == "" {
 		return fmt.Errorf("missing --config option")

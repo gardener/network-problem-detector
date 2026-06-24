@@ -8,6 +8,7 @@ import (
 	"github.com/gardener/network-problem-detector/pkg/agent"
 	"github.com/gardener/network-problem-detector/pkg/aggregate"
 	"github.com/gardener/network-problem-detector/pkg/collect"
+	"github.com/gardener/network-problem-detector/pkg/common"
 	"github.com/gardener/network-problem-detector/pkg/controller"
 	"github.com/gardener/network-problem-detector/pkg/deploy"
 	"github.com/gardener/network-problem-detector/pkg/list"
@@ -29,6 +30,7 @@ var (
 )
 
 func main() {
+	common.SharedLogOptions.AddFlags(rootCmd.PersistentFlags())
 	rootCmd.AddCommand(agent.CreateRunAgentCmd(Version))
 	rootCmd.AddCommand(controller.CreateRunControllerCmd())
 	rootCmd.AddCommand(deploy.CreateDeployCmd(ImageTag))

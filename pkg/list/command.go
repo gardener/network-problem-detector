@@ -43,7 +43,10 @@ func CreateListCmd() *cobra.Command {
 		Use:   "list (observation|obs|aggregated|aggr) <podname>",
 		Short: "collect observations or aggregations from an agent",
 		Long:  `collect observations from an agent using 'kubectl port-forward' and HTTP'`,
-		RunE:  lc.list,
+		PersistentPreRun: func(c *cobra.Command, _ []string) {
+			common.SetInteractiveDefault(c)
+		},
+		RunE: lc.list,
 	}
 	cmd.Flags().StringVar(&lc.kubeconfig, "kubeconfig", "", "kubeconfig for shoot cluster, uses KUBECONFIG if not specified.")
 	cmd.Flags().IntVar(&lc.targetPort, "targetPort", 0, "target pod port")
@@ -59,6 +62,7 @@ func CreateListCmd() *cobra.Command {
 
 func (lc *listCommand) list(_ *cobra.Command, args []string) error {
 	log := common.NewLogger("list")
+	defer common.Sync(log)
 
 	if len(args) != 2 {
 		return fmt.Errorf("missing kind or pod name: %s", strings.Join(args, " "))

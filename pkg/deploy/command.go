@@ -32,6 +32,9 @@ func CreateDeployCmd(imageTag string) *cobra.Command {
 		Use:   "deploy",
 		Short: "deploy nwpd daemonsets and deployments",
 		Long:  `deploy agent daemon sets and controller deployment`,
+		PersistentPreRun: func(c *cobra.Command, _ []string) {
+			common.SetInteractiveDefault(c)
+		},
 	}
 	dc.AddKubeConfigFlag(cmd.PersistentFlags())
 	dc.agentDeployConfig.AddImageFlag(imageTag, cmd.PersistentFlags())
@@ -95,6 +98,7 @@ func (dc *deployCommand) printDefaultConfig(_ *cobra.Command, _ []string) error 
 
 func (dc *deployCommand) deployAgentAllDaemonsets(_ *cobra.Command, _ []string) error {
 	log := common.NewLogger("deploy-agent")
+	defer common.Sync(log)
 	err := dc.deployAgent(log, false, dc.buildAgentConfigMap, dc.buildClusterConfigMap)
 	if err != nil {
 		return err
@@ -104,6 +108,7 @@ func (dc *deployCommand) deployAgentAllDaemonsets(_ *cobra.Command, _ []string) 
 
 func (dc *deployCommand) deployAgentControllerDeployment(_ *cobra.Command, _ []string) error {
 	log := common.NewLogger("deploy-controller")
+	defer common.Sync(log)
 
 	err := dc.setup()
 	if err != nil {
