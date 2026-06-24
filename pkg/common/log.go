@@ -49,7 +49,14 @@ func (o *LogOptions) Build(cmd string) logr.Logger {
 		cfg = zap.NewProductionConfig()
 	}
 	// logr V(n) maps to zap level -n; raise verbosity by lowering the floor.
-	cfg.Level = zap.NewAtomicLevelAt(zapcore.Level(-o.Verbosity))
+	// Clamp to zap's valid level range to keep the int->int8 conversion safe.
+	v := o.Verbosity
+	if v < 0 {
+		v = 0
+	} else if v > 127 {
+		v = 127
+	}
+	cfg.Level = zap.NewAtomicLevelAt(zapcore.Level(-int8(v)))
 
 	zapLog, err := cfg.Build()
 	if err != nil {
