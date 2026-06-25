@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/gardener/network-problem-detector/pkg/common"
+
 	"k8s.io/klog/v2"
 
 	"github.com/spf13/cobra"
