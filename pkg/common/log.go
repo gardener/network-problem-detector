@@ -47,6 +47,7 @@ func (o *LogOptions) Build(cmd string) logr.Logger {
 		cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	} else {
 		cfg = zap.NewProductionConfig()
+		cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	}
 	// logr V(n) maps to zap level -n; raise verbosity by lowering the floor.
 	// Clamp to zap's valid level range to keep the int->int8 conversion safe.
