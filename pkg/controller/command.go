@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/gardener/network-problem-detector/pkg/common"
+	"k8s.io/klog/v2"
 
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
@@ -54,6 +55,7 @@ func (cc *controllerCommand) runController(_ *cobra.Command, _ []string) error {
 	log := common.NewLogger("controller")
 	defer common.Sync(log)
 	controllerruntime.SetLogger(log)
+	klog.SetLogger(log)
 
 	config, err := cc.RestConfig()
 	if err != nil {
