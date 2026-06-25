@@ -9,9 +9,11 @@ import (
 
 	"github.com/gardener/network-problem-detector/pkg/common"
 
-	"github.com/sirupsen/logrus"
+	"k8s.io/klog/v2"
+
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
+	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -51,7 +53,10 @@ func CreateRunControllerCmd() *cobra.Command {
 }
 
 func (cc *controllerCommand) runController(_ *cobra.Command, _ []string) error {
-	log := logrus.WithField("cmd", "controller")
+	log := common.NewLogger("controller")
+	defer common.Sync(log)
+	controllerruntime.SetLogger(log)
+	klog.SetLogger(log)
 
 	config, err := cc.RestConfig()
 	if err != nil {
@@ -60,9 +65,9 @@ func (cc *controllerCommand) runController(_ *cobra.Command, _ []string) error {
 	metricsBindAddress := "0" // disabled
 	if cc.metricsPort != 0 {
 		metricsBindAddress = fmt.Sprintf(":%d", cc.metricsPort)
-		log.Infof("metrics at :%d/metrics", cc.metricsPort)
+		log.Info("metrics", "endpoint", fmt.Sprintf(":%d/metrics", cc.metricsPort))
 	}
-	log.Infof("health probe at :%d/healthz", cc.healthzPort)
+	log.Info("health probe", "endpoint", fmt.Sprintf(":%d/healthz", cc.healthzPort))
 	options := manager.Options{
 		LeaderElection:             cc.leaderElection,
 		LeaderElectionResourceLock: resourcelock.LeasesResourceLock,

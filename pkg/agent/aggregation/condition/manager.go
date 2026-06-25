@@ -17,7 +17,7 @@ import (
 	"github.com/gardener/network-problem-detector/pkg/agent/aggregation/problemclient"
 	"github.com/gardener/network-problem-detector/pkg/agent/aggregation/types"
 
-	"github.com/sirupsen/logrus"
+	"github.com/go-logr/logr"
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/clock"
@@ -61,7 +61,7 @@ type conditionManager struct {
 	// No lock is needed in `sync`, because it is in the same goroutine with the
 	// write operation.
 	sync.RWMutex
-	log         logrus.FieldLogger
+	log         logr.Logger
 	clock       clock.WithTicker
 	latestTry   time.Time
 	failedSyncs atomic.Int32
@@ -73,7 +73,7 @@ type conditionManager struct {
 }
 
 // NewManager creates a condition manager.
-func NewManager(log logrus.FieldLogger, client problemclient.Client, clock clock.WithTicker, heartbeatPeriod time.Duration) Manager {
+func NewManager(log logr.Logger, client problemclient.Client, clock clock.WithTicker, heartbeatPeriod time.Duration) Manager {
 	return &conditionManager{
 		log:             log,
 		client:          client,
@@ -94,12 +94,7 @@ func (c *conditionManager) UpdateCondition(condition types.Condition) {
 	// New node condition will override the old condition, because we only need the newest
 	// condition for each condition type.
 	c.updates[condition.Type] = condition
-	c.log.WithFields(logrus.Fields{
-		"type":    condition.Type,
-		"status":  condition.Status,
-		"reason":  condition.Reason,
-		"message": condition.Message,
-	}).Info("updated condition")
+	c.log.WithValues("type", condition.Type, "status", condition.Status, "reason", condition.Reason, "message", condition.Message).Info("updated condition")
 }
 
 func (c *conditionManager) GetConditions() []types.Condition {
@@ -176,13 +171,13 @@ func (c *conditionManager) sync() {
 		defer cancel()
 		if err := c.client.SetConditions(ctx, conditions); err != nil {
 			// The conditions will be updated again in future sync
-			c.log.Errorf("failed to update node conditions: %v", err)
+			c.log.Error(err, "failed to update node condition")
 			if c.failedSyncs.Load() < maxSyncFactor {
 				c.failedSyncs.Inc()
 			}
 			return
 		}
-		c.log.Infof("SetConditions was successful")
+		c.log.Info("SetConditions was successful")
 		for i, condition := range conditions {
 			if condition.Status == corev1.ConditionTrue {
 				c.client.Eventf(corev1.EventTypeWarning, sources[i], condition.Reason, condition.Message)

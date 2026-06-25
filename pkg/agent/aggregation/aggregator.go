@@ -19,12 +19,12 @@ import (
 	"github.com/gardener/network-problem-detector/pkg/common/config"
 	"github.com/gardener/network-problem-detector/pkg/common/nwpd"
 
-	"github.com/sirupsen/logrus"
+	"github.com/go-logr/logr"
 )
 
 type ObsAggregationOptions struct {
 	// Log is the used logger
-	Log logrus.FieldLogger
+	Log logr.Logger
 	// NodeName is the hostname of this node
 	NodeName string
 	// ReportPeriod is the period between two reports
@@ -40,7 +40,7 @@ type ObsAggregationOptions struct {
 }
 
 type obsAggr struct {
-	log               logrus.FieldLogger
+	log               logr.Logger
 	lock              sync.Mutex
 	k8sExporter       types.Exporter
 	k8sExporterConfig config.K8sExporterConfig
@@ -463,10 +463,10 @@ func (a *obsAggr) report() {
 func (a *obsAggr) reportToLog(report *reportData) {
 	prefix := "Report: "
 	for _, s := range report.noissues {
-		a.log.Info(prefix + s)
+		a.log.Info(prefix+s, "severity", "info")
 	}
 	for _, s := range report.issues {
-		a.log.Warn(prefix + s)
+		a.log.Info(prefix+s, "severity", "warning")
 	}
 	for _, s := range report.summary() {
 		a.log.Info(prefix + s)
@@ -485,7 +485,7 @@ func (a *obsAggr) reportToFilesystem(report *reportData) {
 	filename := path.Join(a.logDirectory, name+".log")
 	info, err := os.Stat(filename)
 	if err != nil && !os.IsNotExist(err) {
-		a.log.Warnf("cannot write log to %s: %s", filename, err)
+		a.log.Error(err, "cannot write log to file", "filename", filename)
 		return
 	}
 	if err == nil && info.Size() > common.MaxLogfileSize {
@@ -493,12 +493,12 @@ func (a *obsAggr) reportToFilesystem(report *reportData) {
 		_ = os.Remove(old)
 		err := os.Rename(filename, old)
 		if err != nil {
-			a.log.Warnf("cannot rename %s to %s: %s", filename, old, err)
+			a.log.Error(err, "cannot rename file", "filename", filename, "to", old)
 		}
 	}
 	f, err := os.OpenFile(filepath.Clean(filename), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o640) //  #nosec G302 -- no sensitive data
 	if err != nil {
-		a.log.Warnf("cannot open %s: %s", filename, err)
+		a.log.Error(err, "cannot open file", "filename", filename)
 		return
 	}
 	defer f.Close()

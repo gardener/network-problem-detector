@@ -16,7 +16,7 @@ import (
 	"github.com/gardener/network-problem-detector/pkg/common/config"
 	"github.com/gardener/network-problem-detector/pkg/deploy"
 
-	"github.com/sirupsen/logrus"
+	"github.com/go-logr/logr"
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -31,7 +31,7 @@ import (
 )
 
 type nodePodController struct {
-	log                       logrus.FieldLogger
+	log                       logr.Logger
 	hasUpdates                atomic.Bool
 	informerFactory           informers.SharedInformerFactory
 	informerFactoryKubeSystem informers.SharedInformerFactory
@@ -40,7 +40,7 @@ type nodePodController struct {
 	knownPodIPs               atomic.Value
 }
 
-func newNodePodController(log logrus.FieldLogger, clientset kubernetes.Interface, resyncPeriod time.Duration) (*nodePodController, error) {
+func newNodePodController(log logr.Logger, clientset kubernetes.Interface, resyncPeriod time.Duration) (*nodePodController, error) {
 	informerFactory := informers.NewSharedInformerFactory(clientset, resyncPeriod)
 	informerFactoryKubeSystem := informers.NewSharedInformerFactoryWithOptions(clientset,
 		resyncPeriod, informers.WithNamespace(common.NamespaceKubeSystem))
@@ -103,7 +103,7 @@ func (c *nodePodController) OnAdd(obj any, _ bool) {
 	if c.isRelevant(obj) {
 		if node, ok := obj.(*corev1.Node); ok {
 			if node.CreationTimestamp.Add(1 * time.Minute).After(time.Now()) {
-				c.log.WithField("node", node.Name).Info("node created")
+				c.log.WithValues("node", node.Name).Info("node created")
 			}
 		}
 		c.hasUpdates.Store(true)
@@ -127,7 +127,7 @@ func (c *nodePodController) OnUpdate(_, newObj any) {
 func (c *nodePodController) OnDelete(obj any) {
 	if c.isRelevant(obj) {
 		if node, ok := obj.(*corev1.Node); ok {
-			c.log.WithField("node", node.Name).Info("node deleted")
+			c.log.WithValues("node", node.Name).Info("node deleted")
 		}
 		c.hasUpdates.Store(true)
 	}
@@ -145,7 +145,7 @@ func (c *nodePodController) isRelevant(obj any) bool {
 }
 
 type watch struct {
-	log       logrus.FieldLogger
+	log       logr.Logger
 	clientSet *kubernetes.Clientset
 
 	started  atomic.Bool
@@ -205,18 +205,18 @@ func (w *watch) Start(ctx context.Context) error {
 		}
 		nodes, err := controller.ListNodes()
 		if err != nil {
-			w.log.Errorf("listing nodes failed: %s", err)
+			w.log.Error(err, "listing nodes failed")
 			continue
 		}
 		pods, err := controller.ListAgentPods()
 		if err != nil {
-			w.log.Errorf("listing pods ins namespace %s failed: %s", common.NamespaceKubeSystem, err)
+			w.log.Error(err, "listing pods failed", "namespace", common.NamespaceKubeSystem)
 			continue
 		}
 
 		svc, err := w.clientSet.CoreV1().Services(common.NamespaceDefault).Get(ctx, common.NameKubernetesService, metav1.GetOptions{})
 		if err != nil {
-			w.log.Errorf("loading service %s/%s failed: %s", common.NamespaceDefault, common.NameKubernetesService, err)
+			w.log.Error(err, "loading service failed", "service", fmt.Sprintf("%s/%s", common.NamespaceDefault, common.NameKubernetesService))
 			continue
 		}
 		internalAPIServer := &config.Endpoint{
@@ -228,7 +228,7 @@ func (w *watch) Start(ctx context.Context) error {
 		shootInfo, err = configmaps.Get(ctx, common.NameGardenerShootInfo, metav1.GetOptions{})
 		if err != nil {
 			if !errors.IsNotFound(err) {
-				w.log.Errorf("loading configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameGardenerShootInfo, err)
+				w.log.Error(err, "loading configmap failed", "configmap", fmt.Sprintf("%s/%s", common.NamespaceKubeSystem, common.NameGardenerShootInfo))
 				continue
 			}
 			// NOTE: client-go returns an empty object, even if the requested object does not exist.
@@ -237,45 +237,44 @@ func (w *watch) Start(ctx context.Context) error {
 		if err == nil {
 			apiServer, err = deploy.GetAPIServerEndpointFromShootInfo(shootInfo)
 			if err != nil {
-				w.log.Errorf("fetching kube-apiserver external endpoint failed: %s", err)
+				w.log.Error(err, "fetching kube-apiserver external endpoint failed")
 				continue
 			}
 		}
 
 		cm, err := configmaps.Get(ctx, common.NameClusterConfigMap, metav1.GetOptions{})
 		if err != nil {
-			w.log.Errorf("loading configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameClusterConfigMap, err)
+			w.log.Error(err, "loading configmap failed", "configmap", fmt.Sprintf("%s/%s", common.NamespaceKubeSystem, common.NameClusterConfigMap))
 			continue
 		}
 		content := cm.Data[common.ClusterConfigFilename]
 		cfg := &config.ClusterConfig{}
 		if err := yaml.Unmarshal([]byte(content), cfg); err != nil {
-			w.log.Errorf("unmarshal configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameClusterConfigMap, err)
+			w.log.Error(err, "unmarshal configmap failed", "configmap", fmt.Sprintf("%s/%s", common.NamespaceKubeSystem, common.NameClusterConfigMap))
 			continue
 		}
 		cfg, err = deploy.BuildClusterConfig(w.log, nodes, pods, internalAPIServer, apiServer)
 		if err != nil {
-			w.log.Errorf("building cluster config failed: %s", err)
+			w.log.Error(err, "building cluster config failed")
 			continue
 		}
 		cfgBytes, err := yaml.Marshal(cfg)
 		if err != nil {
-			w.log.Errorf("marshal configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameClusterConfigMap, err)
+			w.log.Error(err, "marshalling configmap failed", "configmap", fmt.Sprintf("%s/%s", common.NamespaceKubeSystem, common.NameClusterConfigMap))
 			continue
 		}
 		newContent := string(cfgBytes)
 		cm.Data[common.ClusterConfigFilename] = newContent
+		msg := "configmap unchanged"
 		if newContent != content {
 			if _, err := configmaps.Update(ctx, cm, metav1.UpdateOptions{}); err != nil {
-				w.log.Errorf("updating configmap %s/%s failed: %s", common.NamespaceKubeSystem, common.NameClusterConfigMap, err)
+				w.log.Error(err, "updating configmap failed", "configmap", fmt.Sprintf("%s/%s", common.NamespaceKubeSystem, common.NameClusterConfigMap))
 				continue
 			}
-			w.log.Infof("updated configmap %s/%s", common.NamespaceKubeSystem, common.NameClusterConfigMap)
-			w.lastLoop.Store(last.UnixMilli())
-		} else {
-			w.log.Info("unchanged")
-			w.lastLoop.Store(last.UnixMilli())
+			msg = "configmap updated"
 		}
+		w.log.Info(msg, "configmap", fmt.Sprintf("%s/%s", common.NamespaceKubeSystem, common.NameClusterConfigMap))
+		w.lastLoop.Store(last.UnixMilli())
 	}
 }
 
@@ -285,7 +284,7 @@ func (w *watch) apiServerAddressChanged(shootInfo *corev1.ConfigMap, apiServer *
 	}
 	newAPIServer, err := deploy.GetAPIServerEndpointFromShootInfo(shootInfo)
 	if err != nil {
-		w.log.Errorf("failed to determine apiserver endpoint from shoot info: %s", err)
+		w.log.Error(err, "failed to determine apiserver endpoint from shoot info")
 		return true
 	}
 	return *newAPIServer != *apiServer

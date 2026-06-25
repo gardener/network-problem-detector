@@ -8,8 +8,9 @@ import (
 	"fmt"
 
 	"github.com/gardener/network-problem-detector/pkg/agent/version"
+	common "github.com/gardener/network-problem-detector/pkg/common"
 
-	"github.com/sirupsen/logrus"
+	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
 )
 
@@ -34,7 +35,8 @@ func CreateRunAgentCmd(injectedVersion string) *cobra.Command {
 }
 
 func runAgent(_ *cobra.Command, _ []string) error {
-	log := logrus.WithField("cmd", "agent")
+	log := common.NewLogger("agent")
+	defer common.Sync(log)
 
 	if agentConfigFile == "" {
 		return fmt.Errorf("missing --config option")
@@ -53,7 +55,7 @@ func runAgent(_ *cobra.Command, _ []string) error {
 	return nil
 }
 
-func startAgentServer(log logrus.FieldLogger, agentConfigFile, clusterConfigFile string, hostNetwork bool) (*server, error) {
+func startAgentServer(log logr.Logger, agentConfigFile, clusterConfigFile string, hostNetwork bool) (*server, error) {
 	agentServer, err := newServer(log, agentConfigFile, clusterConfigFile, hostNetwork)
 	if err != nil {
 		return nil, err

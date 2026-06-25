@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/sirupsen/logrus"
+	"github.com/go-logr/logr"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -32,6 +32,9 @@ func CreateDeployCmd(imageTag string) *cobra.Command {
 		Use:   "deploy",
 		Short: "deploy nwpd daemonsets and deployments",
 		Long:  `deploy agent daemon sets and controller deployment`,
+		PersistentPreRun: func(c *cobra.Command, _ []string) {
+			common.SetInteractiveDefault(c)
+		},
 	}
 	dc.AddKubeConfigFlag(cmd.PersistentFlags())
 	dc.agentDeployConfig.AddImageFlag(imageTag, cmd.PersistentFlags())
@@ -94,7 +97,8 @@ func (dc *deployCommand) printDefaultConfig(_ *cobra.Command, _ []string) error 
 }
 
 func (dc *deployCommand) deployAgentAllDaemonsets(_ *cobra.Command, _ []string) error {
-	log := logrus.WithField("cmd", "deploy-agent")
+	log := common.NewLogger("deploy-agent")
+	defer common.Sync(log)
 	err := dc.deployAgent(log, false, dc.buildAgentConfigMap, dc.buildClusterConfigMap)
 	if err != nil {
 		return err
@@ -103,7 +107,8 @@ func (dc *deployCommand) deployAgentAllDaemonsets(_ *cobra.Command, _ []string) 
 }
 
 func (dc *deployCommand) deployAgentControllerDeployment(_ *cobra.Command, _ []string) error {
-	log := logrus.WithField("cmd", "deploy-controller")
+	log := common.NewLogger("deploy-controller")
+	defer common.Sync(log)
 
 	err := dc.setup()
 	if err != nil {
@@ -128,15 +133,15 @@ func (dc *deployCommand) deployAgentControllerDeployment(_ *cobra.Command, _ []s
 	}
 	if !dc.delete {
 		if strings.HasSuffix(dc.agentDeployConfig.Image, "-dev") {
-			log.Warnf("A dev image is used and may not be up-to-date or not existing. Consider to use the '--image' option to specify an image.")
+			log.Info("WARNING: A dev image is used and may not be up-to-date or not existing. Consider to use the '--image' option to specify an image.")
 		}
 
-		log.Infof("deployed deployment %s/%s", deployment.Namespace, deployment.Name)
+		log.Info("deployed", "deployment", fmt.Sprintf("%s/%s", deployment.Namespace, deployment.Name))
 	}
 	return nil
 }
 
-func (dc *deployCommand) deployAgent(log logrus.FieldLogger, hostnetwork bool,
+func (dc *deployCommand) deployAgent(log logr.Logger, hostnetwork bool,
 	buildAgentConfigMap, buildClusterConfigMap buildObject[*corev1.ConfigMap],
 ) error {
 	ac := dc.agentDeployConfig
@@ -181,7 +186,7 @@ func (dc *deployCommand) deployAgent(log logrus.FieldLogger, hostnetwork bool,
 		ipFamilies[i] = string(ipFamily)
 	}
 	ipFamiliesStr := strings.Join(ipFamilies, ",")
-	log.Infof("IP families: %s", ipFamiliesStr)
+	log.Info("IP families", "ipFamilies", ipFamiliesStr)
 	ds, err := ac.buildDaemonSet(serviceAccountName, hostnetwork, ipFamiliesStr)
 	if err != nil {
 		return fmt.Errorf("error building daemon set: %s", err)
@@ -195,29 +200,29 @@ func (dc *deployCommand) deployAgent(log logrus.FieldLogger, hostnetwork bool,
 	}
 
 	if strings.HasSuffix(dc.agentDeployConfig.Image, "-dev") {
-		log.Warnf("A dev image is used and may not be up-to-date or not existing. Consider to use the '--image' option to specify an image.")
+		log.Info("WARNING: A dev image is used and may not be up-to-date or not existing. Consider to use the '--image' option to specify an image.")
 	}
-	log.Infof("deployed daemonset %s/%s", ds.Namespace, ds.Name)
+	log.Info("deployed daemonset", "daemonset", fmt.Sprintf("%s/%s", ds.Namespace, ds.Name))
 	return nil
 }
 
-func (dc *deployCommand) deleteDaemonSet(log logrus.FieldLogger, name string) error {
+func (dc *deployCommand) deleteDaemonSet(log logr.Logger, name string) error {
 	ctx := context.Background()
 	err1 := dc.Clientset.AppsV1().DaemonSets(common.NamespaceKubeSystem).Delete(ctx, name, metav1.DeleteOptions{})
 	if err1 == nil {
-		log.Infof("daemonset %s/%s deleted", common.NamespaceKubeSystem, name)
+		log.Info("daemonset deleted", "daemonset", fmt.Sprintf("%s/%s", common.NamespaceKubeSystem, name))
 	}
 	err2 := dc.Clientset.CoreV1().ConfigMaps(common.NamespaceKubeSystem).Delete(ctx, common.NameAgentConfigMap, metav1.DeleteOptions{})
 	if err2 == nil {
-		log.Infof("configmap %s/%s deleted", common.NamespaceKubeSystem, common.NameAgentConfigMap)
+		log.Info("configmap deleted", "configmap", fmt.Sprintf("%s/%s", common.NamespaceKubeSystem, common.NameAgentConfigMap))
 	}
 	err3 := dc.Clientset.CoreV1().ConfigMaps(common.NamespaceKubeSystem).Delete(ctx, common.NameClusterConfigMap, metav1.DeleteOptions{})
 	if err3 == nil {
-		log.Infof("configmap %s/%s deleted", common.NamespaceKubeSystem, common.NameClusterConfigMap)
+		log.Info("configmap deleted", "configmap", fmt.Sprintf("%s/%s", common.NamespaceKubeSystem, common.NameClusterConfigMap))
 	}
 	err4 := dc.Clientset.CoreV1().Services(common.NamespaceKubeSystem).Delete(ctx, name, metav1.DeleteOptions{})
 	if err4 == nil {
-		log.Infof("service %s/%s deleted", common.NamespaceKubeSystem, name)
+		log.Info("service deleted", "service", fmt.Sprintf("%s/%s", common.NamespaceKubeSystem, name))
 	}
 	if err1 != nil && !errors.IsNotFound(err1) {
 		return err1
@@ -235,7 +240,7 @@ func (dc *deployCommand) deleteDaemonSet(log logrus.FieldLogger, name string) er
 	return dc.deleteSecurityObjects(log)
 }
 
-func (dc *deployCommand) deleteSecurityObjects(log logrus.FieldLogger) error {
+func (dc *deployCommand) deleteSecurityObjects(log logr.Logger) error {
 	ctx := context.Background()
 	_, objects, err := dc.agentDeployConfig.buildSecurityObjects()
 	if err != nil {
@@ -249,7 +254,7 @@ func (dc *deployCommand) deleteSecurityObjects(log logrus.FieldLogger) error {
 	return nil
 }
 
-func (dc *deployCommand) buildAgentConfigMap(_ logrus.FieldLogger) (*corev1.ConfigMap, error) {
+func (dc *deployCommand) buildAgentConfigMap(_ logr.Logger) (*corev1.ConfigMap, error) {
 	agentConfig, err := dc.agentDeployConfig.BuildAgentConfig()
 	if err != nil {
 		return nil, err
@@ -257,7 +262,7 @@ func (dc *deployCommand) buildAgentConfigMap(_ logrus.FieldLogger) (*corev1.Conf
 	return BuildAgentConfigMap(agentConfig)
 }
 
-func (dc *deployCommand) buildClusterConfigMap(log logrus.FieldLogger) (*corev1.ConfigMap, error) {
+func (dc *deployCommand) buildClusterConfigMap(log logr.Logger) (*corev1.ConfigMap, error) {
 	ctx := context.Background()
 	svc, err := dc.Clientset.CoreV1().Services(common.NamespaceDefault).Get(ctx, common.NameKubernetesService, metav1.GetOptions{})
 	if err != nil {

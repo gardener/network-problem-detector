@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	clocktesting "k8s.io/utils/clock/testing"
 
@@ -26,7 +26,7 @@ const heartbeatPeriod = 1 * time.Minute
 func newTestManager() (*conditionManager, *problemclient.FakeProblemClient, *clocktesting.FakeClock) {
 	fakeClient := problemclient.NewFakeProblemClient()
 	fakeClock := clocktesting.NewFakeClock(time.Now())
-	log := logrus.New()
+	log := logr.Discard()
 	manager := NewManager(log, fakeClient, fakeClock, heartbeatPeriod)
 	return manager.(*conditionManager), fakeClient, fakeClock
 }
