@@ -246,25 +246,27 @@ func (s *server) addOrReplaceJob(job *runners.InternalJob) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
-	prefix := "starting"
+	msg := "starting job"
 	if oldJob := s.jobs[job.JobID()]; oldJob != nil {
-		prefix = "restarting"
+		msg = "restarting job"
 		job.SetLastRun(oldJob.GetLastRun())
 	} else {
 		virtualLastRun := time.Now().Add(-time.Duration(float64(job.Period()) * rand.Float64())) // #nosec G404 -- no cryptographic use
 		job.SetLastRun(&virtualLastRun)
 	}
 	s.jobs[job.JobID()] = job
-	s.logStart(job, prefix)
+	s.logStart(job, msg)
 }
 
-func (s *server) logStart(job *runners.InternalJob, prefix string) {
+func (s *server) logStart(job *runners.InternalJob, msg string) {
 	desc := job.Description()
 	if desc != "" {
 		desc += ", "
 	}
-	s.log.Info(fmt.Sprintf("%s job %s: %s [%speriod=%.1fs]", prefix, job.Config().JobID, strings.Join(job.Config().Args, " "),
-		desc, job.Period().Seconds()))
+	s.log.Info(msg,
+		"jobID", job.Config().JobID,
+		"args", strings.Join(job.Config().Args, " "),
+		"details", fmt.Sprintf("%speriod=%.1fs", desc, job.Period().Seconds()))
 }
 
 func (s *server) deleteJob(jobID string) error {
@@ -392,12 +394,12 @@ func (s *server) reloadConfig() {
 
 	agentConfig, err := config.LoadAgentConfig(s.agentConfigFile)
 	if err != nil {
-		s.log.Info("WARNING: cannot load agent configuration", "agentConfigFile", s.agentConfigFile)
+		s.log.Error(err, "cannot load agent configuration", "agentConfigFile", s.agentConfigFile)
 		return
 	}
 	clusterConfig, err := config.LoadClusterConfig(s.clusterConfigFile)
 	if err != nil {
-		s.log.Info("WARNING: cannot load cluster configuration", "clusterConfigFile", s.clusterConfigFile)
+		s.log.Error(err, "cannot load cluster configuration", "clusterConfigFile", s.clusterConfigFile)
 		return
 	}
 	changed := !reflect.DeepEqual(clusterConfig, s.currentClusterConfig) || !reflect.DeepEqual(agentConfig, s.currentAgentConfig)
@@ -406,7 +408,7 @@ func (s *server) reloadConfig() {
 		s.currentClusterConfig = clusterConfig
 		err = s.applyAgentConfig(agentConfig)
 		if err != nil {
-			s.log.Info("WARNING: cannot apply new agent configuration", "filename", s.agentConfigFile)
+			s.log.Error(err, "cannot apply new agent configuration", "filename", s.agentConfigFile)
 			return
 		}
 		s.log.Info("configuration applied")

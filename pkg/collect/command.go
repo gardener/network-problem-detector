@@ -103,17 +103,20 @@ func (cc *collectCommand) collect(_ *cobra.Command, _ []string) error {
 		}()
 	}
 	wg.Wait()
-	log.Info(fmt.Sprintf("written %d bytes from %d files to directory %s from %d nodes",
-		cc.totalBytes.Load(), cc.totalFiles.Load(), cc.directory, cc.totalNodes.Load()))
+	log.Info("written to destination directory",
+		"bytesWritten", cc.totalBytes.Load(),
+		"files", cc.totalFiles.Load(),
+		"destinationDir", cc.directory,
+		"nodes", cc.totalNodes.Load())
 	if cc.failedNodes.Load() > 0 {
-		log.Info(fmt.Sprintf("%d nodes not completed (see log messages above)", cc.failedNodes.Load()))
+		log.Info("some nodes not completed (see log messages above)", "count", cc.failedNodes.Load())
 	}
 
 	return nil
 }
 
 func (cc *collectCommand) loadFrom(log logr.Logger, dir string, pod *corev1.Pod) {
-	log.Info("Loading observations")
+	log.Info("loading observations")
 	kubeconfigOpt := ""
 	if cc.Kubeconfig != "" {
 		kubeconfigOpt = " --kubeconfig=" + cc.Kubeconfig
@@ -172,7 +175,7 @@ func (cc *collectCommand) loadFrom(log logr.Logger, dir string, pod *corev1.Pod)
 		countBytes += int(n)
 		countFiles++
 	}
-	log.Info(fmt.Sprintf("Loaded %d bytes from %d files", countBytes, countFiles))
+	log.Info("loading completed", "bytes", countBytes, "files", countFiles)
 	cc.totalBytes.Add(int64(countBytes))
 	cc.totalFiles.Add(int32(countFiles)) // #nosec G115 - number of files is well below 100
 	cc.totalNodes.Inc()
