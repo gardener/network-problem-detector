@@ -50,6 +50,7 @@ func BuildClusterConfig(
 	agentPods []*corev1.Pod,
 	internalKubeAPIServer,
 	kubeAPIServer *config.Endpoint,
+	nodeCIDRs []net.IPNet,
 ) (*config.ClusterConfig, error) {
 	clusterConfig := &config.ClusterConfig{
 		InternalKubeAPIServer: internalKubeAPIServer,
@@ -74,10 +75,23 @@ func BuildClusterConfig(
 				if ip == nil {
 					continue
 				}
-				if ip.To4() != nil && arePodsIPv4 {
-					ips = append(ips, addr.Address)
-				} else if ip.To4() == nil && arePodsIPv6 {
-					ipsV6 = append(ipsV6, addr.Address)
+				if len(nodeCIDRs) == 0 { // can happen if not ShootInfo is available, e..g. with the --ignore-gardener-kube-api-server option
+					if ip.To4() != nil && arePodsIPv4 {
+						ips = append(ips, addr.Address)
+					} else if ip.To4() == nil && arePodsIPv6 {
+						ipsV6 = append(ipsV6, addr.Address)
+					}
+				} else {
+					for _, cidr := range nodeCIDRs {
+						if cidr.Contains(ip) {
+							if ip.To4() != nil && arePodsIPv4 {
+								ips = append(ips, addr.Address)
+							} else if ip.To4() == nil && arePodsIPv6 {
+								ipsV6 = append(ipsV6, addr.Address)
+							}
+							break
+						}
+					}
 				}
 			}
 		}
@@ -161,4 +175,43 @@ func GetAPIServerEndpointFromShootInfo(shootInfo *corev1.ConfigMap) (*config.End
 		IP:       ips[0].String(),
 		Port:     443,
 	}, nil
+}
+
+// Extract IPv4 and IPv6 node networks from the ShootInfo ConfigMap.
+func GetNodeNetworksFromShootInfo(shootInfo *corev1.ConfigMap) ([]net.IPNet, error) {
+	var networks []net.IPNet
+	nodeNetworks, ok := shootInfo.Data["nodeNetworks"]
+	if !ok {
+		return nil, fmt.Errorf("missing 'nodeNetworks' key")
+	}
+	if nodeNetworks == "" {
+		return nil, fmt.Errorf("empty 'nodeNetworks' value")
+	}
+	// Split the nodeNetworks value into individual CIDRs
+	cidrs := strings.Split(nodeNetworks, ",")
+	if len(cidrs) > 2 {
+		return nil, fmt.Errorf("invalid 'nodeNetworks' value (more than 2 CIDRs): %s", nodeNetworks)
+	}
+	var ipv4Found, ipv6Found bool
+	for i, cidr := range cidrs {
+		cidrs[i] = strings.TrimSpace(cidr)
+		_, parsedCIDR, err := net.ParseCIDR(cidr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid 'nodeNetworks' value: %s", err)
+		}
+		if parsedCIDR.IP.To4() != nil {
+			if ipv4Found {
+				return nil, fmt.Errorf("invalid 'nodeNetworks' value (multiple IPv4 CIDRs): %s", nodeNetworks)
+			}
+			ipv4Found = true
+			networks = append(networks, *parsedCIDR)
+		} else {
+			if ipv6Found {
+				return nil, fmt.Errorf("invalid 'nodeNetworks' value (multiple IPv6 CIDRs): %s", nodeNetworks)
+			}
+			ipv6Found = true
+			networks = append(networks, *parsedCIDR)
+		}
+	}
+	return networks, nil
 }

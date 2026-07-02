@@ -9,6 +9,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -185,6 +186,7 @@ func (w *watch) Start(ctx context.Context) error {
 	var last time.Time
 	var shootInfo *corev1.ConfigMap
 	var apiServer *config.Endpoint
+	var nodeCIDRs []net.IPNet
 	for {
 		select {
 		case <-ctx.Done():
@@ -241,6 +243,14 @@ func (w *watch) Start(ctx context.Context) error {
 				continue
 			}
 		}
+		if err == nil {
+			nodeCIDRs, err = deploy.GetNodeNetworksFromShootInfo(shootInfo)
+			if err != nil {
+				w.log.Error(err, "fetching node networks from shoot info failed")
+				continue
+			}
+		}
+		w.log.Info("shoot info", "nodeCIDRs", nodeCIDRs, "apiserver", fmt.Sprintf("%s:%d", apiServer.Hostname, apiServer.Port))
 
 		cm, err := configmaps.Get(ctx, common.NameClusterConfigMap, metav1.GetOptions{})
 		if err != nil {
@@ -253,7 +263,7 @@ func (w *watch) Start(ctx context.Context) error {
 			w.log.Error(err, "unmarshal configmap failed", "configmap", fmt.Sprintf("%s/%s", common.NamespaceKubeSystem, common.NameClusterConfigMap))
 			continue
 		}
-		cfg, err = deploy.BuildClusterConfig(w.log, nodes, pods, internalAPIServer, apiServer)
+		cfg, err = deploy.BuildClusterConfig(w.log, nodes, pods, internalAPIServer, apiServer, nodeCIDRs)
 		if err != nil {
 			w.log.Error(err, "building cluster config failed")
 			continue
