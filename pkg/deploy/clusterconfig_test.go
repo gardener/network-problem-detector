@@ -560,16 +560,15 @@ var _ = Describe("GetNodeNetworksFromShootInfo", func() {
 			Expect(err).To(MatchError(ContainSubstring("empty 'nodeNetworks' value")))
 			Expect(nodeCIDRs).To(BeNil())
 		})
-		It("should return an error for a nodeNetworks value with more than two CIDRs", func() {
+		It("should return all CIDRs for a nodeNetworks value with more than two CIDRs", func() {
 			shootInfo := &corev1.ConfigMap{
 				Data: map[string]string{
-					"nodeNetworks": "10.180.0.0/16,2a05:d018:a7c:d500::/56,192.168.0.0/16",
+					"nodeNetworks": "10.180.0.0/16,2a05:d018:a7c:d500::/56,2a05:d018:a7c:d501::/56",
 				},
 			}
 			nodeCIDRs, err := deploy.GetNodeNetworksFromShootInfo(shootInfo)
-			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError(ContainSubstring("invalid 'nodeNetworks' value")))
-			Expect(nodeCIDRs).To(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(nodeCIDRs).To(HaveLen(3))
 		})
 		It("should return an error for an invalid nodeNetworks value", func() {
 			shootInfo := &corev1.ConfigMap{
@@ -582,27 +581,25 @@ var _ = Describe("GetNodeNetworksFromShootInfo", func() {
 			Expect(err).To(MatchError(ContainSubstring("invalid 'nodeNetworks' value")))
 			Expect(nodeCIDRs).To(BeNil())
 		})
-		It("should return an error for a nodeNetworks value with two IPv4 CIDRs", func() {
+		It("should return all CIDRs for a nodeNetworks value with two IPv4 CIDRs", func() {
 			shootInfo := &corev1.ConfigMap{
 				Data: map[string]string{
 					"nodeNetworks": "10.180.0.0/16,192.168.0.0/16",
 				},
 			}
 			nodeCIDRs, err := deploy.GetNodeNetworksFromShootInfo(shootInfo)
-			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError(ContainSubstring("invalid 'nodeNetworks' value")))
-			Expect(nodeCIDRs).To(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(nodeCIDRs).To(HaveLen(2))
 		})
-		It("should return an error for a nodeNetworks value with two IPv6 CIDRs", func() {
+		It("should return all CIDRs for a nodeNetworks value with two IPv6 CIDRs", func() {
 			shootInfo := &corev1.ConfigMap{
 				Data: map[string]string{
 					"nodeNetworks": "2a05:d018:a7c:d500::/56,2a05:d018:a7c:d501::/56",
 				},
 			}
 			nodeCIDRs, err := deploy.GetNodeNetworksFromShootInfo(shootInfo)
-			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError(ContainSubstring("invalid 'nodeNetworks' value")))
-			Expect(nodeCIDRs).To(BeNil())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(nodeCIDRs).To(HaveLen(2))
 		})
 	})
 })

@@ -187,31 +187,13 @@ func GetNodeNetworksFromShootInfo(shootInfo *corev1.ConfigMap) ([]net.IPNet, err
 	if nodeNetworks == "" {
 		return nil, fmt.Errorf("empty 'nodeNetworks' value")
 	}
-	// Split the nodeNetworks value into individual CIDRs
-	cidrs := strings.Split(nodeNetworks, ",")
-	if len(cidrs) > 2 {
-		return nil, fmt.Errorf("invalid 'nodeNetworks' value (more than 2 CIDRs): %s", nodeNetworks)
-	}
-	var ipv4Found, ipv6Found bool
-	for i, cidr := range cidrs {
-		cidrs[i] = strings.TrimSpace(cidr)
+	for cidr := range strings.SplitSeq(nodeNetworks, ",") {
+		cidr = strings.TrimSpace(cidr)
 		_, parsedCIDR, err := net.ParseCIDR(cidr)
 		if err != nil {
 			return nil, fmt.Errorf("invalid 'nodeNetworks' value: %s", err)
 		}
-		if parsedCIDR.IP.To4() != nil {
-			if ipv4Found {
-				return nil, fmt.Errorf("invalid 'nodeNetworks' value (multiple IPv4 CIDRs): %s", nodeNetworks)
-			}
-			ipv4Found = true
-			networks = append(networks, *parsedCIDR)
-		} else {
-			if ipv6Found {
-				return nil, fmt.Errorf("invalid 'nodeNetworks' value (multiple IPv6 CIDRs): %s", nodeNetworks)
-			}
-			ipv6Found = true
-			networks = append(networks, *parsedCIDR)
-		}
+		networks = append(networks, *parsedCIDR)
 	}
 	return networks, nil
 }
