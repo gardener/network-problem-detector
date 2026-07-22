@@ -246,8 +246,8 @@ func (w *watch) Start(ctx context.Context) error {
 		if err == nil {
 			nodeCIDRs, err = deploy.GetNodeNetworksFromShootInfo(shootInfo)
 			if err != nil {
-				w.log.Error(err, "fetching node networks from shoot info failed")
-				continue
+				w.log.Error(err, "failed to get node networks from shoot-info, proceeding without CIDR filtering")
+				nodeCIDRs = nil
 			}
 		}
 		w.log.Info("shoot info", "nodeCIDRs", nodeCIDRs, "apiserver", fmt.Sprintf("%s:%d", apiServer.Hostname, apiServer.Port))
