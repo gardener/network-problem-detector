@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -274,12 +275,17 @@ func (dc *deployCommand) buildClusterConfigMap(log logr.Logger) (*corev1.ConfigM
 		Port:     int(svc.Spec.Ports[0].Port),
 	}
 	var apiServer *config.Endpoint
+	var nodeCIDRs []net.IPNet
 	if !dc.agentDeployConfig.IgnoreAPIServerEndpoint {
 		shootInfo, err := dc.Clientset.CoreV1().ConfigMaps(common.NamespaceKubeSystem).Get(ctx, common.NameGardenerShootInfo, metav1.GetOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("error getting configmap %s/%s: if this is no Gardener shoot cluster, please add option '--ignore-gardener-kube-api-server' to deploy command", common.NamespaceKubeSystem, common.NameGardenerShootInfo)
 		}
 		apiServer, err = GetAPIServerEndpointFromShootInfo(shootInfo)
+		if err != nil {
+			return nil, err
+		}
+		nodeCIDRs, err = GetNodeNetworksFromShootInfo(shootInfo)
 		if err != nil {
 			return nil, err
 		}
@@ -293,7 +299,7 @@ func (dc *deployCommand) buildClusterConfigMap(log logr.Logger) (*corev1.ConfigM
 		return nil, err
 	}
 
-	clusterConfig, err := BuildClusterConfig(log, nodes, agentPods, internalAPIServer, apiServer)
+	clusterConfig, err := BuildClusterConfig(log, nodes, agentPods, internalAPIServer, apiServer, nodeCIDRs)
 	if err != nil {
 		return nil, err
 	}
