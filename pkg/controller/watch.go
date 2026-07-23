@@ -250,7 +250,11 @@ func (w *watch) Start(ctx context.Context) error {
 				nodeCIDRs = nil
 			}
 		}
-		w.log.Info("shoot info", "nodeCIDRs", nodeCIDRs, "apiserver", fmt.Sprintf("%s:%d", apiServer.Hostname, apiServer.Port))
+		apiserverStr := "<none>"
+		if apiServer != nil {
+			apiserverStr = fmt.Sprintf("%s:%d", apiServer.Hostname, apiServer.Port)
+		}
+		w.log.Info("shoot info", "nodeCIDRs", nodeCIDRs, "apiserver", apiserverStr)
 
 		cm, err := configmaps.Get(ctx, common.NameClusterConfigMap, metav1.GetOptions{})
 		if err != nil {
