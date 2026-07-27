@@ -180,7 +180,7 @@ func (c *conditionManager) sync() {
 		c.log.Info("SetConditions was successful")
 		for i, condition := range conditions {
 			if condition.Status == corev1.ConditionTrue {
-				c.client.Eventf(corev1.EventTypeWarning, sources[i], condition.Reason, condition.Message)
+				c.client.Eventf(corev1.EventTypeWarning, sources[i], condition.Reason, "%s", condition.Message)
 			}
 		}
 	}
