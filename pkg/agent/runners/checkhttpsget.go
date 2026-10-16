@@ -147,6 +147,7 @@ func checkHTTPSGetFunc(endpoint CheckHTTPSEndpoint) (string, error) {
 		// and would stay open until closed by the peer.
 		DisableKeepAlives: true,
 	}
+	defer tr.CloseIdleConnections()
 	if endpoint.AuthBySAToken {
 		caPEM, err := os.ReadFile(caFile)
 		if err != nil {
