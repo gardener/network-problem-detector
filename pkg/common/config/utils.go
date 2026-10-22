@@ -55,6 +55,6 @@ func CloneAndShuffle[T any](items []T) []T {
 	}
 	clone := make([]T, len(items))
 	copy(clone, items)
-	rand.Shuffle(len(clone), func(i, j int) { clone[i], clone[j] = clone[j], clone[i] })
+	rand.Shuffle(len(clone), func(i, j int) { clone[i], clone[j] = clone[j], clone[i] }) // #nosec G404 -- no cryptographic use"
 	return clone
 }
