@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -42,18 +43,24 @@ func (a *checkHTTPSGetArgs) createRunner(_ *cobra.Command, _ []string) error {
 	switch {
 	case len(a.endpoints) > 0:
 		for _, ep := range a.endpoints {
-			parts := strings.SplitN(ep, ":", 2)
-			port := 443
-			if len(parts) == 2 {
+			host, portStr := ep, "443"
+			if strings.HasPrefix(ep, "[") {
+				// IPv6 literal in brackets, e.g. [2001:db8::1]:443
 				var err error
-				port, err = strconv.Atoi(parts[1])
+				host, portStr, err = net.SplitHostPort(ep)
 				if err != nil {
-					return fmt.Errorf("invalid endpoint port %s", parts[1])
+					return fmt.Errorf("invalid endpoint %s: %w", ep, err)
 				}
+			} else if parts := strings.SplitN(ep, ":", 2); len(parts) == 2 {
+				host, portStr = parts[0], parts[1]
+			}
+			port, err := strconv.Atoi(portStr)
+			if err != nil {
+				return fmt.Errorf("invalid endpoint port %s", portStr)
 			}
 			endpoints = append(endpoints, CheckHTTPSEndpoint{
 				Endpoint: config.Endpoint{
-					Hostname: parts[0],
+					Hostname: host,
 					IP:       "",
 					Port:     port,
 				},
@@ -114,7 +121,7 @@ func createCheckHTTPSGetArgs(ra *runnerArgs) *cobra.Command {
 		Short: "performs an HTTPS Get request to given hostname (and port)",
 		RunE:  a.createRunner,
 	}
-	cmd.Flags().StringSliceVar(&a.endpoints, "endpoints", nil, "endpoints in format <hostname>[:<port>].")
+	cmd.Flags().StringSliceVar(&a.endpoints, "endpoints", nil, "endpoints in format <hostname>[:<port>] or [<ipv6>][:<port>].")
 	cmd.Flags().BoolVar(&a.internalKAPI, "endpoint-internal-kube-apiserver", false, "uses known internal endpoint of kube-apiserver.")
 	cmd.Flags().BoolVar(&a.externalKAPI, "endpoint-external-kube-apiserver", false, "uses known external endpoint of kube-apiserver.")
 	return cmd
@@ -164,9 +171,11 @@ func checkHTTPSGetFunc(endpoint CheckHTTPSEndpoint) (string, error) {
 		Transport:     tr,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 	}
-	url := fmt.Sprintf("https://%s:%d", endpoint.Hostname, endpoint.Port)
+	// JoinHostPort adds the brackets required for IPv6 literals in URLs
+	hostPort := net.JoinHostPort(endpoint.Hostname, strconv.Itoa(endpoint.Port))
+	url := fmt.Sprintf("https://%s", hostPort)
 	if endpoint.AuthBySAToken {
-		url = fmt.Sprintf("https://%s:%d/api", endpoint.Hostname, endpoint.Port)
+		url = fmt.Sprintf("https://%s/api", hostPort)
 	}
 	request, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
