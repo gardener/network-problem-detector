@@ -283,12 +283,7 @@ func (w *watch) Start(ctx context.Context) error {
 			continue
 		}
 		content := cm.Data[common.ClusterConfigFilename]
-		cfg := &config.ClusterConfig{}
-		if err := yaml.Unmarshal([]byte(content), cfg); err != nil {
-			w.log.Error(err, "unmarshal configmap failed", "configmap", fmt.Sprintf("%s/%s", common.NamespaceKubeSystem, common.NameClusterConfigMap))
-			continue
-		}
-		cfg, err = deploy.BuildClusterConfig(w.log, nodes, pods, internalAPIServer, apiServer, nodeCIDRs)
+		cfg, err := deploy.BuildClusterConfig(w.log, nodes, pods, internalAPIServer, apiServer, nodeCIDRs)
 		if err != nil {
 			w.log.Error(err, "building cluster config failed")
 			continue
@@ -299,6 +294,9 @@ func (w *watch) Start(ctx context.Context) error {
 			continue
 		}
 		newContent := string(cfgBytes)
+		if cm.Data == nil {
+			cm.Data = map[string]string{}
+		}
 		cm.Data[common.ClusterConfigFilename] = newContent
 		msg := "configmap unchanged"
 		if newContent != content {

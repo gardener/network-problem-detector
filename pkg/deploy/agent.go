@@ -61,6 +61,8 @@ type AgentDeployConfig struct {
 	MaxPeerNodes int
 	// IPFamilies represents the current IP address families. Used to force rollout of the daemonset when the IP family changes.
 	IPFamilies string
+	// ControllerHealthProbePort is the port the controller binds its health probe on (--health-probe-port flag, default 8081).
+	ControllerHealthProbePort int
 }
 
 // NetworkProblemDetectorAgent returns K8s resources to be created.
@@ -87,6 +89,15 @@ func NetworkProblemDetectorAgent(config *AgentDeployConfig) ([]Object, error) {
 	}
 
 	return objects, nil
+}
+
+const defaultControllerHealthProbePort = 8081
+
+func (ac *AgentDeployConfig) controllerHealthProbePort() int32 {
+	if ac.ControllerHealthProbePort != 0 {
+		return int32(ac.ControllerHealthProbePort)
+	}
+	return defaultControllerHealthProbePort
 }
 
 func (ac *AgentDeployConfig) AddImageFlag(imageTag string, flags *pflag.FlagSet) {
@@ -414,6 +425,17 @@ func (ac *AgentDeployConfig) buildControllerDeployment() (*appsv1.Deployment, *r
 							AllowPrivilegeEscalation: new(false),
 							RunAsUser:                new(int64(65534)),
 							RunAsGroup:               new(int64(65534)),
+						},
+						LivenessProbe: &corev1.Probe{
+							ProbeHandler: corev1.ProbeHandler{
+								HTTPGet: &corev1.HTTPGetAction{
+									Path: "/healthz",
+									Port: intstr.FromInt32(ac.controllerHealthProbePort()),
+								},
+							},
+							InitialDelaySeconds: 30,
+							PeriodSeconds:       30,
+							FailureThreshold:    3,
 						},
 					}},
 				},
