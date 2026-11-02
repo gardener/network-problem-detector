@@ -14,16 +14,32 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+const maxStringIDLen = 253
+
+func capString(s string) string {
+	if len(s) <= maxStringIDLen {
+		return s
+	}
+	i := 0
+	for j := range s {
+		if j > maxStringIDLen {
+			break
+		}
+		i = j
+	}
+	return s[:i]
+}
+
 func ToIntObservation(obs *nwpd.Observation, idMap *StringIDMap, persistor IntStringPersistor) (*nwpd.IntObservation, error) {
-	is, err := idMap.GetKey(persistor, obs.SrcHost)
+	is, err := idMap.GetKey(persistor, capString(obs.SrcHost))
 	if err != nil {
 		return nil, err
 	}
-	id, err := idMap.GetKey(persistor, obs.DestHost)
+	id, err := idMap.GetKey(persistor, capString(obs.DestHost))
 	if err != nil {
 		return nil, err
 	}
-	ij, err := idMap.GetKey(persistor, obs.JobID)
+	ij, err := idMap.GetKey(persistor, capString(obs.JobID))
 	if err != nil {
 		return nil, err
 	}

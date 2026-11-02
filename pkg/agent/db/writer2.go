@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path"
 	"path/filepath"
@@ -140,11 +141,14 @@ func (w *obsWriter) Run() {
 }
 
 func writeRecord(w io.Writer, marker byte, value []byte) error {
+	if len(value) > math.MaxUint16 {
+		return fmt.Errorf("record value too large: %d bytes (max %d)", len(value), math.MaxUint16)
+	}
 	if _, err := w.Write([]byte{marker}); err != nil {
 		return err
 	}
 
-	length := uint16(len(value)) // #nosec G115 - records are always in range
+	length := uint16(len(value)) // #nosec G115 -- bounds checked above
 	if err := binary.Write(w, binary.LittleEndian, length); err != nil {
 		return err
 	}
