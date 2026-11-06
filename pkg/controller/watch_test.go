@@ -7,10 +7,12 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync/atomic"
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/go-logr/logr/funcr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -88,8 +90,13 @@ var _ = Describe("watch", func() {
 
 	It("recovers when API server DNS resolution fails and then succeeds", func() {
 		var calls atomic.Int32
+		lookupFailed := make(chan struct{}, 1)
 		w := &watch{
-			log:       logr.Discard(),
+			log: funcr.New(func(_, message string) {
+				if strings.Contains(message, "fetching kube-apiserver external endpoint failed") {
+					lookupFailed <- struct{}{}
+				}
+			}, funcr.Options{}),
 			clientSet: clientSet,
 			clock:     fakeClock,
 			resolveAPIServer: func(_ *corev1.ConfigMap) (*config.Endpoint, error) {
@@ -102,16 +109,20 @@ var _ = Describe("watch", func() {
 		start(w)
 
 		By("failing DNS resolution in the first iteration")
-		Eventually(calls.Load).Should(BeEquivalentTo(1))
+		// Once the error is logged, this iteration skips the ConfigMap update.
+		Eventually(lookupFailed).Should(Receive())
+		Expect(calls.Load()).To(BeEquivalentTo(1))
 		Expect(clusterConfigAPIServer()).To(BeNil())
 
 		By("succeeding DNS resolution in the second iteration")
 		fakeClock.Step(10 * time.Second)
 		Eventually(clusterConfigAPIServer).Should(Equal(apiServerEndpoint("203.0.113.10")))
+		Expect(calls.Load()).To(BeEquivalentTo(2))
 
 		By("comparing against the cached endpoint in the third iteration")
 		fakeClock.Step(10 * time.Second)
 		Eventually(w.lastLoop.Load).Should(Equal(fakeClock.Now().UnixMilli()))
+		Expect(calls.Load()).To(BeEquivalentTo(3))
 		Expect(done).NotTo(BeClosed())
 	})
 
