@@ -27,6 +27,7 @@ import (
 	informerscorev1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/clock"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/yaml"
 )
@@ -147,10 +148,30 @@ func (c *nodePodController) isRelevant(obj any) bool {
 
 type watch struct {
 	log       logr.Logger
-	clientSet *kubernetes.Clientset
+	clientSet kubernetes.Interface
+
+	// clock and resolveAPIServer are optional; defaults are used if unset.
+	clock            clock.WithTicker
+	resolveAPIServer func(shootInfo *corev1.ConfigMap) (*config.Endpoint, error)
 
 	started  atomic.Bool
 	lastLoop atomic.Int64
+}
+
+const watchLoopInterval = 10 * time.Second
+
+func (w *watch) getAPIServerEndpoint(shootInfo *corev1.ConfigMap) (*config.Endpoint, error) {
+	if w.resolveAPIServer != nil {
+		return w.resolveAPIServer(shootInfo)
+	}
+	return deploy.GetAPIServerEndpointFromShootInfo(shootInfo)
+}
+
+func (w *watch) getClock() clock.WithTicker {
+	if w.clock != nil {
+		return w.clock
+	}
+	return clock.RealClock{}
 }
 
 var (
@@ -163,14 +184,15 @@ func (w *watch) NeedLeaderElection() bool {
 }
 
 func (w *watch) healthzCheck(_ *http.Request) error {
-	if w.started.Load() && time.Now().UnixMilli()-w.lastLoop.Load() > 30000 {
+	if w.started.Load() && w.getClock().Now().UnixMilli()-w.lastLoop.Load() > 30000 {
 		return fmt.Errorf("no successful loop since %s", time.UnixMilli(w.lastLoop.Load()))
 	}
 	return nil
 }
 
 func (w *watch) Start(ctx context.Context) error {
-	w.lastLoop.Store(time.Now().UnixMilli())
+	clk := w.getClock()
+	w.lastLoop.Store(clk.Now().UnixMilli())
 	w.started.Store(true)
 
 	controller, err := newNodePodController(w.log, w.clientSet, 24*time.Hour)
@@ -183,23 +205,22 @@ func (w *watch) Start(ctx context.Context) error {
 		return err
 	}
 
-	var last time.Time
+	ticker := clk.NewTicker(watchLoopInterval)
+	defer ticker.Stop()
+
 	var shootInfo *corev1.ConfigMap
 	var apiServer *config.Endpoint
 	var nodeCIDRs []net.IPNet
-	for {
-		select {
-		case <-ctx.Done():
-			stopCh <- struct{}{}
-			return fmt.Errorf("stopped")
-		default:
-			now := time.Now()
-			if delta := now.Sub(last); delta < 10*time.Second {
-				time.Sleep(delta)
-				continue
+	for first := true; ; first = false {
+		if !first {
+			select {
+			case <-ctx.Done():
+				stopCh <- struct{}{}
+				return fmt.Errorf("stopped")
+			case <-ticker.C():
 			}
-			last = now
 		}
+		last := clk.Now()
 
 		if !controller.HasUpdates() && !w.apiServerAddressChanged(shootInfo, apiServer) {
 			w.lastLoop.Store(last.UnixMilli())
@@ -237,7 +258,7 @@ func (w *watch) Start(ctx context.Context) error {
 			shootInfo = nil
 		}
 		if err == nil {
-			apiServer, err = deploy.GetAPIServerEndpointFromShootInfo(shootInfo)
+			apiServer, err = w.getAPIServerEndpoint(shootInfo)
 			if err != nil {
 				w.log.Error(err, "fetching kube-apiserver external endpoint failed")
 				continue
@@ -296,7 +317,7 @@ func (w *watch) apiServerAddressChanged(shootInfo *corev1.ConfigMap, apiServer *
 	if shootInfo == nil || apiServer == nil {
 		return true
 	}
-	newAPIServer, err := deploy.GetAPIServerEndpointFromShootInfo(shootInfo)
+	newAPIServer, err := w.getAPIServerEndpoint(shootInfo)
 	if err != nil {
 		w.log.Error(err, "failed to determine apiserver endpoint from shoot info")
 		return true
