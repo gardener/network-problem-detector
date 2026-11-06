@@ -293,7 +293,7 @@ func (w *watch) Start(ctx context.Context) error {
 }
 
 func (w *watch) apiServerAddressChanged(shootInfo *corev1.ConfigMap, apiServer *config.Endpoint) bool {
-	if shootInfo == nil {
+	if shootInfo == nil || apiServer == nil {
 		return true
 	}
 	newAPIServer, err := deploy.GetAPIServerEndpointFromShootInfo(shootInfo)
