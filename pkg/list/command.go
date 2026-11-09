@@ -151,7 +151,7 @@ func (lc *listCommand) listObservations(log logr.Logger, client nwpd.AgentServic
 		if !obs.Ok {
 			status = "failed"
 		}
-		fmt.Printf("%s src=%s dest=%s jobid=%s%s status=%s\n", obs.Timestamp.AsTime().UTC().Format("2006-01-02T15:04:05.000Z"),
+		fmt.Printf("%s src=%q dest=%q jobid=%q%s status=%s\n", obs.Timestamp.AsTime().UTC().Format("2006-01-02T15:04:05.000Z"),
 			obs.SrcHost, obs.DestHost, obs.JobID, dur, status)
 	}
 	log.Info("observations", "count", len(response.Observations))
@@ -181,7 +181,7 @@ func (lc *listCommand) listAggregatedObservations(log logr.Logger, client nwpd.A
 				dur = fmt.Sprintf(" meanDuration=%dms", ao.MeanOkDuration[jobID].AsDuration().Milliseconds())
 			}
 			window := ao.PeriodEnd.AsTime().Sub(ao.PeriodStart.AsTime())
-			fmt.Printf("%s %s src=%s dest=%s jobid=%s%s ok=%d failures=%d\n", ao.PeriodStart.AsTime().UTC().Format("2006-01-02T15:04:05.000Z"),
+			fmt.Printf("%s %s src=%q dest=%q jobid=%q%s ok=%d failures=%d\n", ao.PeriodStart.AsTime().UTC().Format("2006-01-02T15:04:05.000Z"),
 				window, ao.SrcHost, ao.DestHost, jobID, dur, okCount, notOkCount)
 		}
 	}

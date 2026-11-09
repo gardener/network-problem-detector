@@ -14,7 +14,9 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strings"
 	"sync"
+	"unicode"
 
 	"github.com/gardener/network-problem-detector/pkg/agent/db"
 	"github.com/gardener/network-problem-detector/pkg/common"
@@ -26,6 +28,15 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+func sanitize(s string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsPrint(r) {
+			return r
+		}
+		return -1
+	}, s)
+}
 
 type collectCommand struct {
 	common.ClientsetBase
@@ -133,7 +144,7 @@ func (cc *collectCommand) loadFrom(log logr.Logger, dir string, pod *corev1.Pod)
 	cmd.Env = os.Environ()
 	err := cmd.Run()
 	if err != nil {
-		log.Error(err, "kubectl exec failed", "pod", fmt.Sprintf("%s/%s", pod.Namespace, pod.Name), "stderr", stderr.String())
+		log.Error(err, "kubectl exec failed", "pod", fmt.Sprintf("%s/%s", pod.Namespace, pod.Name), "stderr", sanitize(stderr.String()))
 		cc.failedNodes.Inc()
 		return
 	}
@@ -144,7 +155,7 @@ func (cc *collectCommand) loadFrom(log logr.Logger, dir string, pod *corev1.Pod)
 		return
 	}
 	if len(filenames) == 0 && stderr.Len() != 0 {
-		log.Error(errors.New(stderr.String()), "execution with unexpected result")
+		log.Error(errors.New(sanitize(stderr.String())), "execution with unexpected result")
 		cc.failedNodes.Inc()
 		return
 	}
