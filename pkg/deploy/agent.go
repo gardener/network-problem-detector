@@ -95,7 +95,7 @@ const defaultControllerHealthProbePort = 8081
 
 func (ac *AgentDeployConfig) controllerHealthProbePort() int32 {
 	if ac.ControllerHealthProbePort != 0 {
-		return int32(ac.ControllerHealthProbePort)
+		return int32(ac.ControllerHealthProbePort) // #nosec G115 -- port numbers fit in int32
 	}
 	return defaultControllerHealthProbePort
 }
