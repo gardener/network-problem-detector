@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/gardener/network-problem-detector/pkg/common/config"
 	"github.com/gardener/network-problem-detector/pkg/deploy"
@@ -28,10 +29,10 @@ var _ = Describe("BuildClusterConfig", func() {
 		log := logr.Discard()
 		nodes := []*corev1.Node{
 			{
+				ObjectMeta: metav1.ObjectMeta{Name: "node1"},
 				Status: corev1.NodeStatus{
 					Addresses: []corev1.NodeAddress{
 						{Type: corev1.NodeInternalIP, Address: "192.168.1.1"},
-						{Type: corev1.NodeHostName, Address: "node1"},
 					},
 				},
 			},
@@ -74,10 +75,10 @@ var _ = Describe("BuildClusterConfig", func() {
 		log := logr.Discard()
 		nodes := []*corev1.Node{
 			{
+				ObjectMeta: metav1.ObjectMeta{Name: "node1"},
 				Status: corev1.NodeStatus{
 					Addresses: []corev1.NodeAddress{
 						{Type: corev1.NodeInternalIP, Address: "2001:db8::1"},
-						{Type: corev1.NodeHostName, Address: "node1"},
 					},
 				},
 			},
@@ -120,11 +121,11 @@ var _ = Describe("BuildClusterConfig", func() {
 		log := logr.Discard()
 		nodes := []*corev1.Node{
 			{
+				ObjectMeta: metav1.ObjectMeta{Name: "node1"},
 				Status: corev1.NodeStatus{
 					Addresses: []corev1.NodeAddress{
 						{Type: corev1.NodeInternalIP, Address: "2001:db8::1"},
 						{Type: corev1.NodeInternalIP, Address: "192.168.1.1"},
-						{Type: corev1.NodeHostName, Address: "node1"},
 					},
 				},
 			},
@@ -167,11 +168,11 @@ var _ = Describe("BuildClusterConfig", func() {
 		log := logr.Discard()
 		nodes := []*corev1.Node{
 			{
+				ObjectMeta: metav1.ObjectMeta{Name: "node1"},
 				Status: corev1.NodeStatus{
 					Addresses: []corev1.NodeAddress{
 						{Type: corev1.NodeInternalIP, Address: "2001:db8::1"},
 						{Type: corev1.NodeInternalIP, Address: "192.168.1.1"},
-						{Type: corev1.NodeHostName, Address: "node1"},
 					},
 				},
 			},
@@ -227,11 +228,11 @@ var _ = Describe("BuildClusterConfig", func() {
 		log := logr.Discard()
 		nodes := []*corev1.Node{
 			{
+				ObjectMeta: metav1.ObjectMeta{Name: "node1"},
 				Status: corev1.NodeStatus{
 					Addresses: []corev1.NodeAddress{
 						{Type: corev1.NodeInternalIP, Address: "2001:db8::1"},
 						{Type: corev1.NodeInternalIP, Address: "192.168.1.1"},
-						{Type: corev1.NodeHostName, Address: "node1"},
 					},
 				},
 			},
@@ -276,10 +277,10 @@ var _ = Describe("BuildClusterConfig", func() {
 		log := logr.Discard()
 		nodes := []*corev1.Node{
 			{
+				ObjectMeta: metav1.ObjectMeta{Name: "node1"},
 				Status: corev1.NodeStatus{
 					Addresses: []corev1.NodeAddress{
 						{Type: corev1.NodeInternalIP, Address: "192.168.1.1"},
-						{Type: corev1.NodeHostName, Address: "node1"},
 					},
 				},
 			},
@@ -335,10 +336,10 @@ var _ = Describe("BuildClusterConfig", func() {
 		log := logr.Discard()
 		nodes := []*corev1.Node{
 			{
+				ObjectMeta: metav1.ObjectMeta{Name: "node1"},
 				Status: corev1.NodeStatus{
 					Addresses: []corev1.NodeAddress{
 						{Type: corev1.NodeInternalIP, Address: "192.168.1.1"},
-						{Type: corev1.NodeHostName, Address: "node1"},
 					},
 				},
 			},
@@ -393,24 +394,24 @@ var _ = Describe("BuildClusterConfig", func() {
 		log := logr.Discard()
 		nodes := []*corev1.Node{
 			{
+				ObjectMeta: metav1.ObjectMeta{Name: "node1"},
 				Status: corev1.NodeStatus{
 					Addresses: []corev1.NodeAddress{
 						{Type: corev1.NodeInternalIP, Address: "192.168.1.1"},
 						{Type: corev1.NodeInternalIP, Address: "10.180.1.1"},
 						{Type: corev1.NodeInternalIP, Address: "2001:db8::1"},
 						{Type: corev1.NodeInternalIP, Address: "2a05:d018:a7c:d500::1"},
-						{Type: corev1.NodeHostName, Address: "node1"},
 					},
 				},
 			},
 			{
+				ObjectMeta: metav1.ObjectMeta{Name: "node2"},
 				Status: corev1.NodeStatus{
 					Addresses: []corev1.NodeAddress{
 						{Type: corev1.NodeInternalIP, Address: "10.180.1.2"},
 						{Type: corev1.NodeInternalIP, Address: "192.168.1.2"},
 						{Type: corev1.NodeInternalIP, Address: "2a05:d018:a7c:d500::2"},
 						{Type: corev1.NodeInternalIP, Address: "2001:db8:1::2"},
-						{Type: corev1.NodeHostName, Address: "node2"},
 					},
 				},
 			},
@@ -464,11 +465,11 @@ var _ = Describe("BuildClusterConfig", func() {
 		log := logr.Discard()
 		nodes := []*corev1.Node{
 			{
+				ObjectMeta: metav1.ObjectMeta{Name: "node1"},
 				Status: corev1.NodeStatus{
 					Addresses: []corev1.NodeAddress{
 						{Type: corev1.NodeInternalIP, Address: "192.168.1.1"},
 						{Type: corev1.NodeInternalIP, Address: "10.180.1.1"},
-						{Type: corev1.NodeHostName, Address: "node1"},
 					},
 				},
 			},

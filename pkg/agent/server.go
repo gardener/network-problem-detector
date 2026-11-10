@@ -324,6 +324,9 @@ func (s *server) GetAggregatedObservations(ctx context.Context, request *nwpd.Ge
 	}
 	if request.Start != nil {
 		rstart = request.Start.AsTime()
+		if startLimit := time.Now().Add(-24 * time.Hour); rstart.Before(startLimit) {
+			rstart = startLimit
+		}
 	}
 	currEnd := rstart.Add(rdelta)
 	var aggregated []*nwpd.AggregatedObservation

@@ -63,34 +63,31 @@ func BuildClusterConfig(
 
 	nodeNames := common.StringSet{}
 	for _, n := range nodes {
-		hostname := ""
 		ips := []string{}
 		ipsV6 := []string{}
 		for _, addr := range n.Status.Addresses {
-			switch addr.Type {
-			case "Hostname":
-				hostname = addr.Address
-			case "InternalIP":
-				ip := net.ParseIP(addr.Address)
-				if ip == nil {
-					continue
+			if addr.Type != "InternalIP" {
+				continue
+			}
+			ip := net.ParseIP(addr.Address)
+			if ip == nil {
+				continue
+			}
+			if len(nodeCIDRs) == 0 { // can happen if not ShootInfo is available, e.g. with the --ignore-gardener-kube-api-server option
+				if ip.To4() != nil && arePodsIPv4 {
+					ips = append(ips, addr.Address)
+				} else if ip.To4() == nil && arePodsIPv6 {
+					ipsV6 = append(ipsV6, addr.Address)
 				}
-				if len(nodeCIDRs) == 0 { // can happen if not ShootInfo is available, e..g. with the --ignore-gardener-kube-api-server option
-					if ip.To4() != nil && arePodsIPv4 {
-						ips = append(ips, addr.Address)
-					} else if ip.To4() == nil && arePodsIPv6 {
-						ipsV6 = append(ipsV6, addr.Address)
-					}
-				} else {
-					for _, cidr := range nodeCIDRs {
-						if cidr.Contains(ip) {
-							if ip.To4() != nil && arePodsIPv4 {
-								ips = append(ips, addr.Address)
-							} else if ip.To4() == nil && arePodsIPv6 {
-								ipsV6 = append(ipsV6, addr.Address)
-							}
-							break
+			} else {
+				for _, cidr := range nodeCIDRs {
+					if cidr.Contains(ip) {
+						if ip.To4() != nil && arePodsIPv4 {
+							ips = append(ips, addr.Address)
+						} else if ip.To4() == nil && arePodsIPv6 {
+							ipsV6 = append(ipsV6, addr.Address)
 						}
+						break
 					}
 				}
 			}
@@ -99,15 +96,12 @@ func BuildClusterConfig(
 			log.Info("ignore node without internalIP", "node", n.Name)
 			continue
 		}
-		if hostname == "" {
-			hostname = n.Name
-		}
 		clusterConfig.Nodes = append(clusterConfig.Nodes, config.Node{
-			Hostname:      hostname,
+			Hostname:      n.Name,
 			InternalIPs:   ips,
 			InternalIPsV6: ipsV6,
 		})
-		nodeNames.Add(hostname)
+		nodeNames.Add(n.Name)
 	}
 
 	for _, p := range agentPods {

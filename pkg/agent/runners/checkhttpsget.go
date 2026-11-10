@@ -160,7 +160,10 @@ func checkHTTPSGetFunc(endpoint CheckHTTPSEndpoint) (string, error) {
 		tr.TLSClientConfig.InsecureSkipVerify = false
 		tr.TLSClientConfig.RootCAs = roots
 	}
-	client := &http.Client{Transport: tr}
+	client := &http.Client{
+		Transport:     tr,
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+	}
 	url := fmt.Sprintf("https://%s:%d", endpoint.Hostname, endpoint.Port)
 	if endpoint.AuthBySAToken {
 		url = fmt.Sprintf("https://%s:%d/api", endpoint.Hostname, endpoint.Port)

@@ -61,6 +61,8 @@ type AgentDeployConfig struct {
 	MaxPeerNodes int
 	// IPFamilies represents the current IP address families. Used to force rollout of the daemonset when the IP family changes.
 	IPFamilies string
+	// ControllerHealthProbePort is the port the controller binds its health probe on (--health-probe-port flag, default 8081).
+	ControllerHealthProbePort int
 }
 
 // NetworkProblemDetectorAgent returns K8s resources to be created.
@@ -87,6 +89,15 @@ func NetworkProblemDetectorAgent(config *AgentDeployConfig) ([]Object, error) {
 	}
 
 	return objects, nil
+}
+
+const defaultControllerHealthProbePort = 8081
+
+func (ac *AgentDeployConfig) controllerHealthProbePort() int32 {
+	if ac.ControllerHealthProbePort != 0 {
+		return int32(ac.ControllerHealthProbePort) // #nosec G115 -- port numbers fit in int32
+	}
+	return defaultControllerHealthProbePort
 }
 
 func (ac *AgentDeployConfig) AddImageFlag(imageTag string, flags *pflag.FlagSet) {
@@ -415,6 +426,17 @@ func (ac *AgentDeployConfig) buildControllerDeployment() (*appsv1.Deployment, *r
 							RunAsUser:                new(int64(65534)),
 							RunAsGroup:               new(int64(65534)),
 						},
+						LivenessProbe: &corev1.Probe{
+							ProbeHandler: corev1.ProbeHandler{
+								HTTPGet: &corev1.HTTPGetAction{
+									Path: "/healthz",
+									Port: intstr.FromInt32(ac.controllerHealthProbePort()),
+								},
+							},
+							InitialDelaySeconds: 30,
+							PeriodSeconds:       30,
+							FailureThreshold:    3,
+						},
 					}},
 				},
 			},
@@ -528,6 +550,11 @@ func (ac *AgentDeployConfig) buildK8sExporterClusterRoleRules() []rbacv1.PolicyR
 			Resources: []string{"nodes/status"},
 			Verbs:     []string{"patch"},
 		},
+	}
+}
+
+func (ac *AgentDeployConfig) buildK8sExporterRoleRules() []rbacv1.PolicyRule {
+	return []rbacv1.PolicyRule{
 		{
 			APIGroups: []string{""},
 			Resources: []string{"events"},
@@ -541,17 +568,54 @@ func (ac *AgentDeployConfig) buildSecurityObjects() (serviceAccountName string, 
 	cr, crb, sa, err := ac.buildK8sExporterClusterRole(serviceAccountName)
 	retErr = err
 	objects = append(objects, cr, crb, sa)
+	if ac.K8sExporterEnabled {
+		r, rb := ac.buildK8sExporterRole(serviceAccountName)
+		objects = append(objects, r, rb)
+	}
 	return serviceAccountName, objects, retErr
 }
 
 func (ac *AgentDeployConfig) buildK8sExporterClusterRole(serviceAccountName string) (*rbacv1.ClusterRole, *rbacv1.ClusterRoleBinding, *corev1.ServiceAccount, error) {
 	roleName := "gardener.cloud:kube-system:" + common.ApplicationName
 
+	// Rules are applied atomically (no merge key), so omitting a rule here removes it from existing
+	// ClusterRoles on the next reconciliation. events was previously cluster-scoped here; it is now
+	// in a namespaced Role in kube-system (see buildK8sExporterRole).
 	var rules []rbacv1.PolicyRule
 	if ac.K8sExporterEnabled {
 		rules = ac.buildK8sExporterClusterRoleRules()
 	}
 	return ac.createClusterRuleAndServiceAccount(serviceAccountName, roleName, rules)
+}
+
+func (ac *AgentDeployConfig) buildK8sExporterRole(serviceAccountName string) (*rbacv1.Role, *rbacv1.RoleBinding) {
+	roleName := "gardener.cloud:" + common.ApplicationName + ":events"
+	role := &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      roleName,
+			Namespace: common.NamespaceKubeSystem,
+		},
+		Rules: ac.buildK8sExporterRoleRules(),
+	}
+	roleBinding := &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      roleName,
+			Namespace: common.NamespaceKubeSystem,
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "Role",
+			Name:     roleName,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      serviceAccountName,
+				Namespace: common.NamespaceKubeSystem,
+			},
+		},
+	}
+	return role, roleBinding
 }
 
 func (ac *AgentDeployConfig) createClusterRuleAndServiceAccount(serviceAccountName, roleName string, rules []rbacv1.PolicyRule) (*rbacv1.ClusterRole, *rbacv1.ClusterRoleBinding, *corev1.ServiceAccount, error) {

@@ -35,7 +35,7 @@ func newExporter(log logr.Logger, nodeName string, hostNetwork bool, exporterCon
 		AgentName:      agentName,
 		AgentVersion:   version.Version,
 		NodeName:       nodeName,
-		EventNamespace: "",
+		EventNamespace: common.NamespaceKubeSystem,
 		KubeConfigPath: "", // in-cluster
 		Log:            log,
 	}
