@@ -45,9 +45,14 @@ func (a *checkHTTPSGetArgs) createRunner(_ *cobra.Command, _ []string) error {
 		for _, ep := range a.endpoints {
 			host, portStr := ep, "443"
 			if strings.HasPrefix(ep, "[") {
-				// IPv6 literal in brackets, e.g. [2001:db8::1]:443
+				// IPv6 literal in brackets, e.g. [2001:db8::1]:443 or [2001:db8::1] (default port 443).
+				// SplitHostPort requires a port, so the default port is appended when it is missing.
+				hostPort := ep
+				if strings.HasSuffix(ep, "]") {
+					hostPort = ep + ":443"
+				}
 				var err error
-				host, portStr, err = net.SplitHostPort(ep)
+				host, portStr, err = net.SplitHostPort(hostPort)
 				if err != nil {
 					return fmt.Errorf("invalid endpoint %s: %w", ep, err)
 				}
