@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ############# builder
-FROM golang:1.27.4 AS builder
+FROM golang:1.27.4@sha256:08bcb99a38f85a265f9a93d1d3323e2440eec333380f3ea26ee0dec9264bb41c AS builder
 
 WORKDIR /build
 
@@ -17,7 +17,7 @@ ARG TARGETARCH
 RUN make release GOARCH=$TARGETARCH
 
 ############# network-problem-detector
-FROM gcr.io/distroless/static-debian13 AS network-problem-detector
+FROM gcr.io/distroless/static-debian13@sha256:448810357cc8e67b7208988abdba0f5ec3d3aebee0a5b13eb624979792cffc0f AS network-problem-detector
 
 COPY --from=builder /build/nwpdcli /nwpdcli
 ENTRYPOINT ["/nwpdcli"]
