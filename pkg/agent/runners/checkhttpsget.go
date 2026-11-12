@@ -43,21 +43,9 @@ func (a *checkHTTPSGetArgs) createRunner(_ *cobra.Command, _ []string) error {
 	switch {
 	case len(a.endpoints) > 0:
 		for _, ep := range a.endpoints {
-			host, portStr := ep, "443"
-			if strings.HasPrefix(ep, "[") {
-				// IPv6 literal in brackets, e.g. [2001:db8::1]:443 or [2001:db8::1] (default port 443).
-				// SplitHostPort requires a port, so the default port is appended when it is missing.
-				hostPort := ep
-				if strings.HasSuffix(ep, "]") {
-					hostPort = ep + ":443"
-				}
-				var err error
-				host, portStr, err = net.SplitHostPort(hostPort)
-				if err != nil {
-					return fmt.Errorf("invalid endpoint %s: %w", ep, err)
-				}
-			} else if parts := strings.SplitN(ep, ":", 2); len(parts) == 2 {
-				host, portStr = parts[0], parts[1]
+			host, portStr, err := net.SplitHostPort(normalizeEndpoint(ep))
+			if err != nil {
+				return fmt.Errorf("invalid endpoint %s: %w", ep, err)
 			}
 			port, err := strconv.Atoi(portStr)
 			if err != nil {
@@ -117,6 +105,31 @@ func (a *checkHTTPSGetArgs) createRunner(_ *cobra.Command, _ []string) error {
 		a.runnerArgs.runner = r
 	}
 	return nil
+}
+
+// normalizeEndpoint returns the endpoint in the form <host>:<port> (IPv6 hosts in brackets),
+// so that it can always be parsed with net.SplitHostPort. The default port 443 is added if missing.
+//   - 192.168.0.1      -> 192.168.0.1:443
+//   - example.com      -> example.com:443
+//   - example.com:8443 -> example.com:8443
+//   - 2001:db8::1      -> [2001:db8::1]:443
+//   - [2001:db8::1]    -> [2001:db8::1]:443
+//   - [2001:db8::1]:80 -> [2001:db8::1]:80
+func normalizeEndpoint(ep string) string {
+	switch {
+	case strings.HasPrefix(ep, "["):
+		if strings.HasSuffix(ep, "]") {
+			return ep + ":443"
+		}
+		return ep
+	case strings.Count(ep, ":") > 1:
+		// bare IPv6 literal without brackets
+		return "[" + ep + "]:443"
+	case strings.Contains(ep, ":"):
+		return ep
+	default:
+		return ep + ":443"
+	}
 }
 
 func createCheckHTTPSGetArgs(ra *runnerArgs) *cobra.Command {

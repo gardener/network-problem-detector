@@ -141,6 +141,8 @@ var _ = Describe("parser", func() {
 			[]string{"checkHTTPSGet", "--endpoints", "[2001:db8:1234:abcd::]:443"}, NewCheckHTTPSGet(httpsEndpointsIPv6, config1)),
 		Entry("checkHTTPSGet with IPv6 endpoint without port", clusterCfg1, config1,
 			[]string{"checkHTTPSGet", "--endpoints", "[2001:db8:1234:abcd::]"}, NewCheckHTTPSGet(httpsEndpointsIPv6, config1)),
+		Entry("checkHTTPSGet with unbracketed IPv6 endpoint", clusterCfg1, config1,
+			[]string{"checkHTTPSGet", "--endpoints", "2001:db8:1234:abcd::"}, NewCheckHTTPSGet(httpsEndpointsIPv6, config1)),
 		Entry("checkHTTPSGet - missing endpoints", clusterCfg1, config1,
 			[]string{"checkHTTPSGet"}, "no endpoints"),
 		Entry("checkHTTPSGet - invalid endpoint", clusterCfg1, config1,
