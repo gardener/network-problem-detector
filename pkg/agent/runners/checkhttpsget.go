@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -42,18 +43,17 @@ func (a *checkHTTPSGetArgs) createRunner(_ *cobra.Command, _ []string) error {
 	switch {
 	case len(a.endpoints) > 0:
 		for _, ep := range a.endpoints {
-			parts := strings.SplitN(ep, ":", 2)
-			port := 443
-			if len(parts) == 2 {
-				var err error
-				port, err = strconv.Atoi(parts[1])
-				if err != nil {
-					return fmt.Errorf("invalid endpoint port %s", parts[1])
-				}
+			host, portStr, err := net.SplitHostPort(normalizeEndpoint(ep))
+			if err != nil {
+				return fmt.Errorf("invalid endpoint %s: %w", ep, err)
+			}
+			port, err := strconv.Atoi(portStr)
+			if err != nil {
+				return fmt.Errorf("invalid endpoint port %s", portStr)
 			}
 			endpoints = append(endpoints, CheckHTTPSEndpoint{
 				Endpoint: config.Endpoint{
-					Hostname: parts[0],
+					Hostname: host,
 					IP:       "",
 					Port:     port,
 				},
@@ -107,6 +107,31 @@ func (a *checkHTTPSGetArgs) createRunner(_ *cobra.Command, _ []string) error {
 	return nil
 }
 
+// normalizeEndpoint returns the endpoint in the form <host>:<port> (IPv6 hosts in brackets),
+// so that it can always be parsed with net.SplitHostPort. The default port 443 is added if missing.
+//   - 192.168.0.1      -> 192.168.0.1:443
+//   - example.com      -> example.com:443
+//   - example.com:8443 -> example.com:8443
+//   - 2001:db8::1      -> [2001:db8::1]:443
+//   - [2001:db8::1]    -> [2001:db8::1]:443
+//   - [2001:db8::1]:80 -> [2001:db8::1]:80
+func normalizeEndpoint(ep string) string {
+	switch {
+	case strings.HasPrefix(ep, "["):
+		if strings.HasSuffix(ep, "]") {
+			return ep + ":443"
+		}
+		return ep
+	case strings.Count(ep, ":") > 1:
+		// bare IPv6 literal without brackets
+		return "[" + ep + "]:443"
+	case strings.Contains(ep, ":"):
+		return ep
+	default:
+		return ep + ":443"
+	}
+}
+
 func createCheckHTTPSGetArgs(ra *runnerArgs) *cobra.Command {
 	a := &checkHTTPSGetArgs{runnerArgs: ra}
 	cmd := &cobra.Command{
@@ -114,7 +139,7 @@ func createCheckHTTPSGetArgs(ra *runnerArgs) *cobra.Command {
 		Short: "performs an HTTPS Get request to given hostname (and port)",
 		RunE:  a.createRunner,
 	}
-	cmd.Flags().StringSliceVar(&a.endpoints, "endpoints", nil, "endpoints in format <hostname>[:<port>].")
+	cmd.Flags().StringSliceVar(&a.endpoints, "endpoints", nil, "endpoints in format <hostname>[:<port>] or [<ipv6>][:<port>].")
 	cmd.Flags().BoolVar(&a.internalKAPI, "endpoint-internal-kube-apiserver", false, "uses known internal endpoint of kube-apiserver.")
 	cmd.Flags().BoolVar(&a.externalKAPI, "endpoint-external-kube-apiserver", false, "uses known external endpoint of kube-apiserver.")
 	return cmd
@@ -164,9 +189,11 @@ func checkHTTPSGetFunc(endpoint CheckHTTPSEndpoint) (string, error) {
 		Transport:     tr,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 	}
-	url := fmt.Sprintf("https://%s:%d", endpoint.Hostname, endpoint.Port)
+	// JoinHostPort adds the brackets required for IPv6 literals in URLs
+	hostPort := net.JoinHostPort(endpoint.Hostname, strconv.Itoa(endpoint.Port))
+	url := fmt.Sprintf("https://%s", hostPort)
 	if endpoint.AuthBySAToken {
-		url = fmt.Sprintf("https://%s:%d/api", endpoint.Hostname, endpoint.Port)
+		url = fmt.Sprintf("https://%s/api", hostPort)
 	}
 	request, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {

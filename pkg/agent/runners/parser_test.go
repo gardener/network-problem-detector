@@ -79,6 +79,9 @@ var _ = Describe("parser", func() {
 			{Endpoint: config.Endpoint{Hostname: "server", IP: "", Port: 55555}},
 			{Endpoint: config.Endpoint{Hostname: "server2", IP: "", Port: 443}},
 		}
+		httpsEndpointsIPv6 = []CheckHTTPSEndpoint{
+			{Endpoint: config.Endpoint{Hostname: "2001:db8:1234:abcd::", IP: "", Port: 443}},
+		}
 		httpsEndpointsInternalKubeAPIServer = []CheckHTTPSEndpoint{
 			{
 				Endpoint:      config.Endpoint{Hostname: common.DomainNameKubernetesService, IP: "", Port: 443},
@@ -134,6 +137,12 @@ var _ = Describe("parser", func() {
 			[]string{"checkTCPPort", "--endpoint-external-kube-apiserver"}, NewCheckTCPPort(endpointsKubeAPIServer, config1)),
 		Entry("checkHTTPSGet", clusterCfg1, config1,
 			[]string{"checkHTTPSGet", "--period", "10s", "--endpoints", "server:55555,server2"}, NewCheckHTTPSGet(httpsEndpoints1, config2)),
+		Entry("checkHTTPSGet with IPv6 endpoint", clusterCfg1, config1,
+			[]string{"checkHTTPSGet", "--endpoints", "[2001:db8:1234:abcd::]:443"}, NewCheckHTTPSGet(httpsEndpointsIPv6, config1)),
+		Entry("checkHTTPSGet with IPv6 endpoint without port", clusterCfg1, config1,
+			[]string{"checkHTTPSGet", "--endpoints", "[2001:db8:1234:abcd::]"}, NewCheckHTTPSGet(httpsEndpointsIPv6, config1)),
+		Entry("checkHTTPSGet with unbracketed IPv6 endpoint", clusterCfg1, config1,
+			[]string{"checkHTTPSGet", "--endpoints", "2001:db8:1234:abcd::"}, NewCheckHTTPSGet(httpsEndpointsIPv6, config1)),
 		Entry("checkHTTPSGet - missing endpoints", clusterCfg1, config1,
 			[]string{"checkHTTPSGet"}, "no endpoints"),
 		Entry("checkHTTPSGet - invalid endpoint", clusterCfg1, config1,

@@ -55,4 +55,28 @@ var _ = Describe("checkHTTPSGet", func() {
 		Expect(opened.Load()).To(BeEquivalentTo(checks))
 		Eventually(closed.Load).WithTimeout(5 * time.Second).Should(BeEquivalentTo(checks))
 	})
+
+	It("should check an IPv6 literal endpoint", func() {
+		listener, err := net.Listen("tcp", "[::1]:0")
+		if err != nil {
+			Skip("IPv6 loopback not available: " + err.Error())
+		}
+		server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write([]byte("ok"))
+		}))
+		server.Listener.Close()
+		server.Listener = listener
+		server.StartTLS()
+		defer server.Close()
+
+		_, portStr, err := net.SplitHostPort(listener.Addr().String())
+		Expect(err).NotTo(HaveOccurred())
+		port, err := strconv.Atoi(portStr)
+		Expect(err).NotTo(HaveOccurred())
+		endpoint := CheckHTTPSEndpoint{Endpoint: config.Endpoint{Hostname: "::1", Port: port}}
+
+		status, err := checkHTTPSGetFunc(endpoint)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(status).To(Equal("200 OK"))
+	})
 })
