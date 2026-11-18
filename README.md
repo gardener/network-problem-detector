@@ -209,6 +209,7 @@ To examine the current default configuration, run the command
 | `tcp-n2p`         | `checkTCPPort`  | TCP connection check from all pods of the daemon set of the host network to pod endpoints (pod IP, port of GRPC server) of the daemon set running in the pod network.                       |
 | `tcp-n2n-ipv6`    | `checkTCPPort`  | TCP connection check from all pods of the daemon set of the host network to the node port used by the NWPD agent on the host network using the IPv6 address of the node.                    |
 | `tcp-n2p-ipv6`    | `checkTCPPort`  | TCP connection check from all pods of the daemon set of the host network to pod IPv6 endpoints (IPv6 address of the pod, port of GRPC server) of the daemon set running in the pod network. |
+
 The job IDs of the default configuration on the host (=node) network are using the naming convention `<jobtype-shortcut>-n[2<destination>][-(int|ext|ipv6)]`.
 
 ### Default jobs for the daemon set on the **cluster network**
